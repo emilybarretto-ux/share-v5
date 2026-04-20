@@ -3,8 +3,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   Plus, Settings, Save, Eye, Trash2, 
   ChevronLeft, Layout, Palette, Send, Type, Smartphone, Monitor,
-  CheckCircle2, Star, PenTool,
-  CheckSquare, X, Upload, FileText, ChevronDown, GripVertical, Clock
+  CheckCircle2, Star, PenTool, ArrowRight, GitBranch,
+  CheckSquare, X, Upload, FileText, ChevronDown, GripVertical, Clock, Check
 } from 'lucide-react';
 import { FormField, FieldType } from '../../types';
 import { useNotification } from '../shared/NotificationProvider';
@@ -40,10 +40,15 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
   const [isUploadingHeader, setIsUploadingHeader] = useState(false);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   
+  // Advanced Features State
+  const [redirectUrl, setRedirectUrl] = useState('');
+  const [showProgressBar, setShowProgressBar] = useState(true);
+  const [estimatedTime, setEstimatedTime] = useState<number>(3); // default 3 min
+  const [themePreset, setThemePreset] = useState<'default' | 'dark' | 'minimal' | 'enterprise' | 'vibrant' | 'glass'>('default');
+  
   // ✅ FIX: Refs com nomes corretos e únicos
   const headerInputRef = React.useRef<HTMLInputElement>(null);
   const logoInputRef = React.useRef<HTMLInputElement>(null);
-  const fieldFileInputRef = React.useRef<HTMLInputElement>(null);
   
   // Design Settings
   const [primaryColor, setPrimaryColor] = useState('#2563eb');
@@ -55,6 +60,8 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
 
   const { showNotification } = useNotification();
   
+  const selectedField = fields.find(f => f.id === selectedFieldId);
+
   // --- PERSISTÊNCIA ---
   useEffect(() => {
     const saved = localStorage.getItem('form_builder_draft');
@@ -72,6 +79,10 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
         if (draft.fontFamily) setFontFamily(draft.fontFamily);
         if (draft.layoutType) setLayoutType(draft.layoutType);
         if (draft.borderRadius) setBorderRadius(draft.borderRadius);
+        if (draft.redirectUrl) setRedirectUrl(draft.redirectUrl);
+        if (draft.showProgressBar !== undefined) setShowProgressBar(draft.showProgressBar);
+        if (draft.estimatedTime) setEstimatedTime(draft.estimatedTime);
+        if (draft.themePreset) setThemePreset(draft.themePreset);
       } catch (e) {
         console.error('Erro ao carregar rascunho:', e);
       }
@@ -82,21 +93,22 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
     const draft = {
       fields, title, subtitle, headerImage, logoUrl,
       primaryColor, titleColor, subtitleColor, fontFamily,
-      layoutType, borderRadius
+      layoutType, borderRadius, redirectUrl, showProgressBar, themePreset, estimatedTime
     };
     localStorage.setItem('form_builder_draft', JSON.stringify(draft));
-  }, [fields, title, subtitle, headerImage, logoUrl, primaryColor, titleColor, subtitleColor, fontFamily, layoutType, borderRadius]);
+  }, [fields, title, subtitle, headerImage, logoUrl, primaryColor, titleColor, subtitleColor, fontFamily, layoutType, borderRadius, redirectUrl, showProgressBar, themePreset, estimatedTime]);
 
   const addField = (type: FieldType) => {
     const newField: FormField = {
       id: Math.random().toString(36).substring(2, 9),
       type,
-      label: `Sua Pergunta aqui...`,
-      placeholder: 'Insira sua resposta aqui...',
+      label: type === 'section' ? 'Nova Seção' : `Sua Pergunta aqui...`,
+      placeholder: type === 'section' ? '' : 'Insira sua resposta aqui...',
       required: false,
       options: type === 'radio' || type === 'checkbox' || type === 'dropdown' ? ['Opção 1', 'Opção 2'] : undefined,
       rows: type === 'grid-radio' || type === 'grid-checkbox' ? ['Linha 1', 'Linha 2'] : undefined,
       columns: type === 'grid-radio' || type === 'grid-checkbox' ? ['Coluna 1', 'Coluna 2', 'Coluna 3'] : undefined,
+      mask: 'none',
     };
     setFields([...fields, newField]);
     setSelectedFieldId(newField.id);
@@ -112,7 +124,6 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
     setFields(fields.map(f => f.id === id ? { ...f, ...updates } : f));
   };
 
-  // ✅ FIX: handleFileChange agora aceita 'header' | 'logo' como segundo argumento (correto)
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, type: 'header' | 'logo') => {
     const file = e.target.files?.[0];
     if (file) {
@@ -130,7 +141,7 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
         
         const fileExt = file.name.split('.').pop();
         const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
-        const filePath = `${type}s/${fileName}`; // headers/ or logos/
+        const filePath = `${type}s/${fileName}`; 
 
         const { error: uploadError } = await supabase.storage
           .from('ativos')
@@ -147,8 +158,6 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
       } catch (error: any) {
         console.error('Erro no upload:', error);
         showNotification('Erro ao enviar imagem. Verifique se o bucket "ativos" existe.', 'error');
-        
-        // Fallback: usa base64 local se o upload falhar
         const reader = new FileReader();
         reader.onloadend = () => {
           setter(reader.result as string);
@@ -156,7 +165,6 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
         reader.readAsDataURL(file);
       } finally {
         loader(false);
-        // ✅ FIX: Limpa o input para permitir selecionar o mesmo arquivo novamente
         e.target.value = '';
       }
     }
@@ -203,23 +211,21 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
               headerImage,
               logo: logoUrl,
               borderRadius,
-              successMessage: 'Obrigado por responder!'
+              successMessage: 'Obrigado por responder!',
+              redirectUrl,
+              showProgressBar,
+              estimatedTime,
+              themePreset
             },
             status: 'published'
           }
         ]);
 
       if (error) {
-        if (error.code === '42501') {
-          showNotification('Erro de permissão: Verifique as políticas de RLS no Supabase para a tabela "forms".', 'error');
-        } else {
-          console.error('Detalhes completos do erro Supabase:', error);
-          showNotification(`Erro ao publicar: ${error.message} (${error.code})`, 'error');
-        }
+        showNotification(`Erro ao publicar: ${error.message}`, 'error');
         return;
       }
 
-      // Remove qualquer barra no final e limpa a URL
       const origin = window.location.origin.replace(/\/$/, "");
       const baseOrigin = origin.replace('-dev-', '-pre-');
       const shareUrl = `${baseOrigin}/?form=${formId}`;
@@ -235,8 +241,6 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
       setIsPublishing(false);
     }
   };
-
-  const selectedField = fields.find(f => f.id === selectedFieldId);
 
   if (isPreview) {
     return (
@@ -277,7 +281,11 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
                 headerImage,
                 logo: logoUrl,
                 borderRadius,
-                successMessage: 'Obrigado por responder!'
+                successMessage: 'Obrigado por responder!',
+                redirectUrl,
+                showProgressBar,
+                estimatedTime,
+                themePreset
               }
             }}
             onBack={() => setIsPreview(false)}
@@ -293,7 +301,6 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
 
   return (
     <div className="flex flex-col h-screen bg-bg-base" style={{ '--primary-form': primaryColor } as any}>
-      {/* ✅ FIX: Inputs globais com refs corretos e onChange corretos */}
       <input 
         type="file" 
         ref={headerInputRef} 
@@ -309,7 +316,6 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
         onChange={(e) => handleFileChange(e, 'logo')}
       />
 
-      {/* Builder Header */}
       <header className="flex items-center justify-between px-6 py-4 bg-surface border-b border-border-base shrink-0 z-50">
         <div className="flex items-center gap-4">
           <button onClick={onBack} className="p-2 hover:bg-bg-base rounded-xl transition-colors text-text-secondary">
@@ -340,7 +346,6 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
             onClick={handlePublish}
             disabled={isPublishing}
             className="flex items-center gap-2 px-5 py-2.5 bg-accent text-white text-sm font-bold rounded-xl transition-all shadow-lg hover:opacity-90 disabled:opacity-50"
-            style={{ backgroundColor: primaryColor }}
           >
             <Send size={18} /> 
             {isPublishing ? 'Publicando...' : 'Publicar'}
@@ -349,11 +354,11 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Left Sidebar */}
         <aside className="w-80 bg-surface border-r border-border-base flex flex-col overflow-hidden shrink-0">
           <div className="flex p-1 bg-bg-base m-4 rounded-xl border border-border-base">
-            <button onClick={() => setActiveTab('build')} className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'build' ? 'bg-surface shadow-sm text-accent' : 'text-text-secondary'}`}><Layout size={14} /> Construir</button>
-            <button onClick={() => setActiveTab('design')} className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'design' ? 'bg-surface shadow-sm text-accent' : 'text-text-secondary'}`}><Palette size={14} /> Estilo</button>
+            <button onClick={() => setActiveTab('build')} className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-[9px] font-bold transition-all ${activeTab === 'build' ? 'bg-surface shadow-sm text-accent' : 'text-text-secondary'}`}><Layout size={12} /> Construir</button>
+            <button onClick={() => setActiveTab('design')} className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-[9px] font-bold transition-all ${activeTab === 'design' ? 'bg-surface shadow-sm text-accent' : 'text-text-secondary'}`}><Palette size={12} /> Estilo</button>
+            <button onClick={() => setActiveTab('settings')} className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-[9px] font-bold transition-all ${activeTab === 'settings' ? 'bg-surface shadow-sm text-accent' : 'text-text-secondary'}`}><Settings size={12} /> Ajustes</button>
           </div>
 
           <div className="flex-1 overflow-y-auto px-4 pb-6 scrollbar-thin">
@@ -400,106 +405,188 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
                   </div>
                 </div>
               </div>
-            ) : (
+            ) : activeTab === 'design' ? (
               <div className="space-y-6">
                  <div className="space-y-4 p-2">
-                   <div className="space-y-2">
-                     <label className="text-[10px] font-black text-text-secondary uppercase tracking-widest">Cor Principal Global</label>
-                     <div className="grid grid-cols-5 gap-2">
-                       {['#2563eb', '#7c3aed', '#db2777', '#dc2626', '#16a34a', '#0891b2', '#000000', '#6366f1'].map(color => (
-                         <button key={color} onClick={() => setPrimaryColor(color)} className={`size-8 rounded-full border-2 transition-all ${primaryColor === color ? 'border-accent scale-110' : 'border-transparent'}`} style={{ backgroundColor: color }} />
-                       ))}
-                     </div>
-                   </div>
-
-                   <div className="space-y-2">
-                     <label className="text-[10px] font-black text-text-secondary uppercase tracking-widest">Modo de Exibição</label>
-                     <div className="grid grid-cols-2 gap-2">
-                       <button 
-                         onClick={() => setLayoutType('list')}
-                         className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all ${layoutType === 'list' ? 'border-accent bg-accent/5 text-accent' : 'border-border-base text-text-secondary'}`}
-                       >
-                         <Layout size={20} />
-                         <span className="text-[10px] font-bold uppercase">Lista</span>
-                       </button>
-                       <button 
-                         onClick={() => setLayoutType('step')}
-                         className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all ${layoutType === 'step' ? 'border-accent bg-accent/5 text-accent' : 'border-border-base text-text-secondary'}`}
-                       >
-                         <Send size={20} />
-                         <span className="text-[10px] font-bold uppercase">Passo a Passo</span>
-                       </button>
-                     </div>
-                   </div>
-
-                   {/* ✅ FIX: Botão de Imagem de Capa usando o ref correto */}
-                   <div className="space-y-2">
-                     <label className="text-[10px] font-black text-text-secondary uppercase tracking-widest">Imagem de Capa</label>
+                   <div className="space-y-4">
                      <div className="space-y-2">
+                       <label className="text-[10px] font-black text-text-secondary uppercase tracking-widest">Temas Prontos</label>
+                       <div className="grid grid-cols-2 gap-3">
+                         {[
+                           { id: 'default', label: 'Padrão', colors: ['#2563eb', '#ffffff', '#f8fafc'] },
+                           { id: 'dark', label: 'Dark Mode', colors: ['#6366f1', '#0f172a', '#1e293b'] },
+                           { id: 'enterprise', label: 'Executivo', colors: ['#0f172a', '#f8fafc', '#ffffff'] },
+                           { id: 'vibrant', label: 'Vibrante', colors: ['#db2777', '#fff1f2', '#ffffff'] },
+                           { id: 'glass', label: 'Glassmorphism', colors: ['#ffffff', '#6366f1', '#4f46e5'] },
+                         ].map(t => (
+                           <button 
+                             key={t.id} 
+                             onClick={() => {
+                               setThemePreset(t.id as any);
+                               if (t.id === 'default') { setPrimaryColor('#2563eb'); setTitleColor('#0f172a'); setSubtitleColor('#64748b'); setBorderRadius('large'); }
+                               if (t.id === 'dark') { setPrimaryColor('#6366f1'); setTitleColor('#ffffff'); setSubtitleColor('#94a3b8'); setBorderRadius('large'); }
+                               if (t.id === 'enterprise') { setPrimaryColor('#0f172a'); setTitleColor('#0f172a'); setSubtitleColor('#64748b'); setBorderRadius('none'); }
+                               if (t.id === 'vibrant') { setPrimaryColor('#db2777'); setTitleColor('#db2777'); setSubtitleColor('#64748b'); setBorderRadius('3xl'); }
+                               if (t.id === 'glass') { setPrimaryColor('#ffffff'); setTitleColor('#ffffff'); setSubtitleColor('#cbd5e1'); setBorderRadius('large'); }
+                             }}
+                             className={`group relative flex flex-col items-start gap-2 p-3 rounded-2xl border-2 transition-all hover:scale-[1.02] active:scale-95 text-left shadow-sm ${
+                               themePreset === t.id 
+                                 ? 'border-accent bg-accent/5' 
+                                 : 'border-border-base bg-surface hover:border-text-secondary/30'
+                             }`}
+                           >
+                             <div className="flex gap-1.5">
+                               {t.colors.map((c, i) => (
+                                 <div key={i} className="size-3.5 rounded-full border border-black/5 shadow-inner" style={{ backgroundColor: c }} />
+                               ))}
+                             </div>
+                             <span className={`text-[10px] font-black uppercase tracking-wider ${themePreset === t.id ? 'text-accent' : 'text-text-primary'}`}>
+                               {t.label}
+                             </span>
+                             {themePreset === t.id && (
+                               <div className="absolute top-2 right-2 text-accent">
+                                 <CheckCircle2 size={12} />
+                               </div>
+                             )}
+                           </button>
+                         ))}
+                       </div>
+                     </div>
+
+                     {layoutType === 'step' && (
+                       <div className="space-y-2">
+                         <label className="text-[10px] font-black text-text-secondary uppercase tracking-widest">Interatividade</label>
+                         <button 
+                           onClick={() => setShowProgressBar(!showProgressBar)}
+                           className={`w-full flex items-center justify-between p-3 rounded-xl border-2 transition-all active:scale-95 ${showProgressBar ? 'border-accent bg-accent/5 text-accent' : 'border-border-base text-text-secondary'}`}
+                         >
+                           <span className="text-[10px] font-bold">Barra de Progresso</span>
+                           <div className={`size-4 rounded-lg border-2 flex items-center justify-center transition-all ${showProgressBar ? 'bg-accent border-accent text-white' : 'bg-bg-base border-border-base'}`}>
+                             {showProgressBar && <CheckCircle2 size={12} strokeWidth={3} />}
+                           </div>
+                         </button>
+                       </div>
+                     )}
+
+                     <div className="space-y-4 pt-2">
+                       <div className="space-y-2">
+                         <label className="text-[10px] font-black text-text-secondary uppercase tracking-widest">Cores de Texto</label>
+                         <div className="grid grid-cols-2 gap-4">
+                           <div className="space-y-2">
+                             <span className="text-[9px] font-bold text-text-secondary uppercase">Título</span>
+                             <div className="flex flex-wrap gap-1.5">
+                               {['#000000', '#ffffff', '#2563eb', '#64748b'].map(color => (
+                                 <button key={color} onClick={() => setTitleColor(color)} className={`size-6 rounded-lg border-2 transition-all ${titleColor === color ? 'border-accent scale-110' : 'border-transparent shadow-sm'}`} style={{ backgroundColor: color }} />
+                               ))}
+                             </div>
+                           </div>
+                           <div className="space-y-2">
+                             <span className="text-[9px] font-bold text-text-secondary uppercase">Subtítulo</span>
+                             <div className="flex flex-wrap gap-1.5">
+                               {['#64748b', '#94a3b8', '#ffffff', '#000000'].map(color => (
+                                 <button key={color} onClick={() => setSubtitleColor(color)} className={`size-6 rounded-lg border-2 transition-all ${subtitleColor === color ? 'border-accent scale-110' : 'border-transparent shadow-sm'}`} style={{ backgroundColor: color }} />
+                               ))}
+                             </div>
+                           </div>
+                         </div>
+                       </div>
+
+                       <div className="space-y-2">
+                         <label className="text-[10px] font-black text-text-secondary uppercase tracking-widest">Cor de Destaque</label>
+                         <div className="flex flex-wrap gap-2">
+                           {['#2563eb', '#6366f1', '#7c3aed', '#db2777', '#dc2626', '#10b981', '#0891b2', '#0f172a', '#ffffff'].map(color => (
+                             <button key={color} onClick={() => setPrimaryColor(color)} className={`size-8 rounded-full border-2 transition-all hover:scale-110 active:scale-90 ${primaryColor === color ? 'border-accent ring-2 ring-accent/20' : 'border-transparent shadow-sm'}`} style={{ backgroundColor: color }} />
+                           ))}
+                         </div>
+                       </div>
+                     </div>
+
+                     <div className="space-y-2">
+                       <label className="text-[10px] font-black text-text-secondary uppercase tracking-widest">Modo de Exibição</label>
+                       <div className="grid grid-cols-2 gap-3">
+                         <button 
+                           onClick={() => setLayoutType('list')}
+                           className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all active:scale-95 ${layoutType === 'list' ? 'border-accent bg-accent/5 text-accent font-black' : 'border-border-base text-text-secondary bg-surface'}`}
+                         >
+                           <Layout size={20} />
+                           <span className="text-[10px] uppercase tracking-widest">Lista Única</span>
+                         </button>
+                         <button 
+                           onClick={() => setLayoutType('step')}
+                           className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all active:scale-95 ${layoutType === 'step' ? 'border-accent bg-accent/5 text-accent font-black' : 'border-border-base text-text-secondary bg-surface'}`}
+                         >
+                           <Send size={20} />
+                           <span className="text-[10px] uppercase tracking-widest">Passo a Passo</span>
+                         </button>
+                       </div>
+                     </div>
+
+                     <div className="space-y-2">
+                       <label className="text-[10px] font-black text-text-secondary uppercase tracking-widest">Identidade</label>
                        <button 
-                        onClick={() => headerInputRef.current?.click()}
-                        className="w-full py-2 bg-bg-base border border-dashed border-border-base rounded-lg text-[10px] font-bold text-text-secondary hover:bg-bg-base/80 transition-all flex items-center justify-center gap-2"
+                         onClick={() => headerInputRef.current?.click()}
+                         className="w-full flex items-center justify-center gap-2 p-3 bg-surface border-2 border-dashed border-border-base rounded-2xl text-[10px] font-black text-text-secondary hover:border-accent hover:text-accent transition-all active:scale-95"
                        >
                          <Upload size={14} />
-                         Anexar Imagem
+                         CAPA / BANNER
                        </button>
                        {headerImage && (
-                         <button
-                           onClick={() => setHeaderImage('')}
-                           className="w-full py-2 text-red-500 text-[10px] font-bold hover:text-red-400 transition-colors"
-                         >
-                           Remover Capa
-                         </button>
+                         <button onClick={() => setHeaderImage('')} className="w-full mt-1 py-1.5 text-[8px] font-black uppercase text-red-500 hover:text-red-400">Remover Imagem</button>
                        )}
                      </div>
-                   </div>
 
-                   <div className="space-y-2">
-                     <label className="text-[10px] font-black text-text-secondary uppercase tracking-widest">Cor do Título</label>
-                     <div className="grid grid-cols-5 gap-2">
-                       {['#000000', '#ffffff', '#2563eb', '#7c3aed', '#db2777', '#dc2626', '#16a34a', '#0891b2', '#64748b', '#0f172a'].map(color => (
-                         <button key={color} onClick={() => setTitleColor(color)} className={`size-8 rounded-full border-2 transition-all ${titleColor === color ? 'border-accent scale-110' : 'border-border-base'}`} style={{ backgroundColor: color }} />
-                       ))}
-                     </div>
-                   </div>
-
-                   <div className="space-y-2">
-                     <label className="text-[10px] font-black text-text-secondary uppercase tracking-widest">Cor do Subtítulo</label>
-                     <div className="grid grid-cols-5 gap-2">
-                       {['#64748b', '#94a3b8', '#ffffff', '#000000', '#2563eb', '#7c3aed', '#db2777', '#dc2626', '#16a34a', '#0891b2'].map(color => (
-                         <button key={color} onClick={() => setSubtitleColor(color)} className={`size-8 rounded-full border-2 transition-all ${subtitleColor === color ? 'border-accent scale-110' : 'border-border-base'}`} style={{ backgroundColor: color }} />
-                       ))}
-                     </div>
-                   </div>
-
-                   <div className="space-y-2">
-                     <label className="text-[10px] font-black text-text-secondary uppercase tracking-widest">Arredondamento</label>
-                     <div className="grid grid-cols-1 gap-2">
-                        {[
-                          { id: 'none', label: 'Quadrado' },
-                          { id: 'large', label: 'Arredondado' },
-                          { id: '3xl', label: 'Muito Arredondado' },
-                        ].map(r => (
-                          <button 
-                            key={r.id} 
-                            onClick={() => setBorderRadius(r.id as any)}
-                            className={`flex items-center justify-between p-3 rounded-xl border transition-all ${borderRadius === r.id ? 'border-accent bg-accent/5 text-accent' : 'border-border-base text-text-secondary'}`}
-                          >
-                            <span className="text-xs font-bold">{r.label}</span>
-                          </button>
-                        ))}
+                     <div className="space-y-2">
+                       <label className="text-[10px] font-black text-text-secondary uppercase tracking-widest">Arredondamento</label>
+                       <div className="grid grid-cols-3 gap-2">
+                          {[
+                            { id: 'none', label: 'Reta', radius: '0.125rem' },
+                            { id: 'large', label: 'Suave', radius: '0.75rem' },
+                            { id: '3xl', label: 'Curva', radius: '1.25rem' },
+                          ].map(r => (
+                            <button 
+                              key={r.id} 
+                              onClick={() => setBorderRadius(r.id as any)}
+                              className={`flex flex-col items-center gap-2 p-2.5 rounded-xl border-2 transition-all active:scale-95 ${borderRadius === r.id ? 'border-accent bg-accent/5 text-accent font-black' : 'border-border-base text-text-secondary bg-surface'}`}
+                            >
+                              <div className="size-5 border-2 border-current" style={{ borderRadius: r.radius }} />
+                              <span className="text-[9px] uppercase tracking-widest">{r.label}</span>
+                            </button>
+                          ))}
+                       </div>
                      </div>
                    </div>
                  </div>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="space-y-4 p-4">
+                   <h3 className="text-[10px] font-black text-text-secondary uppercase tracking-widest">Geral</h3>
+                   <div className="space-y-2">
+                     <label className="text-[9px] font-bold text-text-secondary uppercase">Redirecionar após enviar (URL)</label>
+                     <input 
+                        value={redirectUrl}
+                        onChange={(e) => setRedirectUrl(e.target.value)}
+                        placeholder="https://seusite.com/obrigado"
+                        className="w-full p-3 bg-bg-base border border-border-base rounded-xl text-xs text-text-primary outline-none focus:ring-1 focus:ring-accent"
+                     />
+                   </div>
+                   <div className="space-y-2">
+                     <label className="text-[9px] font-bold text-text-secondary uppercase">Tempo Estimado (minutos)</label>
+                     <input 
+                        type="number"
+                        value={estimatedTime}
+                        onChange={(e) => setEstimatedTime(parseInt(e.target.value) || 0)}
+                        className="w-full p-3 bg-bg-base border border-border-base rounded-xl text-xs text-text-primary outline-none focus:ring-1 focus:ring-accent"
+                     />
+                   </div>
+                </div>
               </div>
             )}
           </div>
         </aside>
 
-        {/* Builder Canvas */}
         <main className="flex-1 overflow-y-auto p-12 bg-bg-base/50 flex justify-center scrollbar-thin">
           <div className={`${viewMode === 'mobile' ? 'w-[375px]' : 'w-full max-w-2xl'} transition-all duration-500 ease-in-out`}>
-             {/* Header Image */}
              <div
                className="relative overflow-hidden shadow-md mb-4 group cursor-pointer min-h-[160px] w-full bg-bg-base border border-border-base flex items-center justify-center p-0"
                style={{ borderRadius: borderRadius === 'none' ? '0' : '0.75rem' }}
@@ -511,37 +598,30 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
                     <span className="text-[10px] font-bold uppercase tracking-widest leading-none">Enviando imagem...</span>
                   </div>
                ) : headerImage ? (
-                 <div className="absolute inset-0 flex items-center justify-center">
-                   <img src={headerImage} alt="Banner" className="w-full h-full object-cover" />
-                 </div>
+                  <img src={headerImage} alt="Banner" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                ) : (
-                 <div className="absolute inset-0 flex items-center justify-center text-text-secondary">
-                   <div className="flex flex-col items-center gap-2">
-                     <Upload size={32} strokeWidth={1.5} />
-                     <span className="text-xs font-bold uppercase tracking-widest text-[8px]">Adicionar Capa</span>
-                   </div>
-                 </div>
+                  <div className="flex flex-col items-center gap-2 text-text-secondary">
+                    <Upload size={32} strokeWidth={1.5} />
+                    <span className="text-xs font-bold uppercase tracking-widest text-[8px]">Adicionar Capa</span>
+                  </div>
                )}
 
-               {/* ✅ FIX: Overlay usa headerInputRef correto */}
                {showImageInput && (
                  <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 z-50" onClick={(e) => e.stopPropagation()}>
                     <div className="w-full max-w-xs flex flex-col gap-3">
                       <button 
                         onClick={() => headerInputRef.current?.click()}
-                        className="w-full py-3 bg-surface text-text-primary rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-bg-base transition-all"
+                        className="w-full py-3 bg-white text-text-primary rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-bg-base transition-all"
                       >
                         <Upload size={18} />
                         Anexar Imagem
                       </button>
-
                       <button
                         onClick={() => setShowImageInput(false)}
                         className="w-full py-2 bg-accent text-white text-xs font-bold rounded-xl hover:opacity-90 transition-colors"
                       >
                         Concluído
                       </button>
-
                       {headerImage && (
                         <button
                           onClick={() => { setHeaderImage(''); setShowImageInput(false); }}
@@ -555,76 +635,73 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
                )}
              </div>
 
-             {/* Title Card */}
-             <div 
-               className="bg-surface shadow-md p-8 mb-8 border border-border-base relative"
-               style={{ borderRadius: borderRadius === 'none' ? '0' : '0.75rem' }}
-             >
-               {/* ✅ FIX: Logo usa logoInputRef correto, sem input duplicado inline */}
-               <div className="mb-6 flex justify-start">
-                 <div 
-                   className="relative size-20 rounded-2xl border-2 border-dashed border-border-base flex items-center justify-center cursor-pointer hover:bg-bg-base transition-all overflow-hidden group"
-                   onClick={() => !isUploadingLogo && logoInputRef.current?.click()}
-                 >
-                   {isUploadingLogo ? (
-                     <div className="flex flex-col items-center gap-1 text-accent animate-pulse">
-                       <Upload size={16} className="animate-bounce" />
-                       <span className="text-[8px] font-bold uppercase">Enviando...</span>
-                     </div>
-                        ) : logoUrl ? (
-                          <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" />
-                        ) : (
-                     <div className="flex flex-col items-center gap-1 text-text-secondary">
-                       <Upload size={16} />
-                       <span className="text-[8px] font-bold uppercase">Logo</span>
-                     </div>
-                   )}
-                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                     <Upload size={16} className="text-white" />
-                   </div>
-                 </div>
-               </div>
+             <div className="bg-surface shadow-md p-8 mb-8 border border-border-base relative" style={{ borderRadius: borderRadius === 'none' ? '0' : '0.75rem' }}>
+                <div className="mb-6 flex justify-start">
+                  <div className="relative size-20 rounded-2xl border-2 border-dashed border-border-base flex items-center justify-center cursor-pointer hover:bg-bg-base transition-all overflow-hidden group" onClick={() => !isUploadingLogo && logoInputRef.current?.click()}>
+                    {isUploadingLogo ? (
+                      <Upload size={16} className="animate-bounce" />
+                    ) : logoUrl ? (
+                      <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    ) : (
+                      <Upload size={16} />
+                    )}
+                  </div>
+                </div>
 
-               <div className="space-y-4">
-                 <input
-                   value={title}
-                   onChange={(e) => setTitle(e.target.value)}
-                   className="w-full text-4xl font-bold bg-transparent border-none outline-none leading-tight cursor-text focus:border-b focus:border-border-base transition-all text-text-primary"
-                   style={{ color: titleColor }}
-                   placeholder=""
-                 />
-                 <div className="h-px bg-border-base w-full" />
-                 <textarea
-                   value={subtitle}
-                   onChange={(e) => setSubtitle(e.target.value)}
-                   className="w-full text-sm bg-transparent border-none outline-none cursor-text resize-none min-h-[60px] text-text-secondary"
-                   style={{ color: subtitleColor }}
-                   placeholder=""
-                 />
-               </div>
+                <div className="space-y-4">
+                  <input
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className="w-full text-4xl font-bold bg-transparent border-none outline-none text-text-primary"
+                    style={{ color: titleColor }}
+                    placeholder="Título"
+                  />
+                  <div className="h-px bg-border-base w-full" />
+                  <textarea
+                    value={subtitle}
+                    onChange={(e) => setSubtitle(e.target.value)}
+                    className="w-full text-sm bg-transparent border-none outline-none resize-none min-h-[60px] text-text-secondary"
+                    style={{ color: subtitleColor }}
+                    placeholder="Descrição do formulário..."
+                  />
+                </div>
              </div>
 
-            <div className="space-y-4 pb-24">
-              <AnimatePresence>
-                {fields.map((field, index) => (
-                  <SortableField 
-                    key={field.id} field={field} index={index}
-                    isSelected={selectedFieldId === field.id}
-                    borderRadius={borderRadius}
-                    onSelect={() => setSelectedFieldId(field.id)}
-                    onRemove={removeField}
-                    onDragStart={() => setDraggedIndex(index)}
-                    onDragEnd={() => setDraggedIndex(null)}
-                    onDragOver={(e) => handleDragOver(e, index)}
-                    renderText={renderText}
-                  />
-                ))}
-              </AnimatePresence>
-            </div>
+             <div className="space-y-4 pb-24">
+               {fields.map((field, index) => (
+                 <SortableField 
+                   key={field.id} field={field} index={index}
+                   isSelected={selectedFieldId === field.id}
+                   borderRadius={borderRadius}
+                   onSelect={() => setSelectedFieldId(field.id)}
+                   onRemove={removeField}
+                   onDragStart={() => setDraggedIndex(index)}
+                   onDragEnd={() => setDraggedIndex(null)}
+                   onDragOver={(e) => handleDragOver(e, index)}
+                   renderText={renderText}
+                 />
+               ))}
+               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+                 <button 
+                   onClick={() => addField('text')}
+                   className="py-6 border-4 border-dashed border-border-base rounded-3xl flex flex-col items-center gap-3 text-text-secondary hover:border-accent hover:text-accent hover:bg-accent/5 transition-all group shadow-sm bg-surface"
+                 >
+                   <div className="p-3 bg-bg-base rounded-2xl group-hover:bg-accent group-hover:text-white transition-all"><Plus size={24} /></div>
+                   <span className="text-xs font-black uppercase tracking-widest">Adicionar Pergunta</span>
+                 </button>
+
+                 <button 
+                   onClick={() => addField('section')}
+                   className="py-6 border-4 border-dashed border-border-base rounded-3xl flex flex-col items-center gap-3 text-text-secondary hover:border-indigo-500 hover:text-indigo-500 hover:bg-indigo-50 transition-all group shadow-sm bg-surface"
+                 >
+                   <div className="p-3 bg-bg-base rounded-2xl group-hover:bg-indigo-500 group-hover:text-white transition-all"><Layout size={24} /></div>
+                   <span className="text-xs font-black uppercase tracking-widest">Nova Seção</span>
+                 </button>
+               </div>
+             </div>
           </div>
         </main>
 
-        {/* Right Sidebar - Properties */}
         <aside className="w-80 bg-surface border-l border-border-base p-6 overflow-y-auto shrink-0">
           {selectedField ? (
             <div className="space-y-8">
@@ -639,32 +716,33 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
                   <input 
                     value={selectedField.label} 
                     onChange={(e) => updateField(selectedField.id, { label: e.target.value })} 
-                    className="w-full px-4 py-3 bg-bg-base border border-border-base rounded-xl text-sm text-text-primary outline-none focus:ring-1 focus:ring-accent" 
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-sm text-white outline-none focus:ring-1 focus:ring-accent" 
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-text-secondary uppercase tracking-widest">Cor deste Quadrado</label>
-                  <div className="flex flex-wrap gap-2">
-                    {[undefined, '#2563eb', '#7c3aed', '#db2777', '#dc2626', '#16a34a', '#f59e0b'].map(c => (
-                      <button 
-                         key={c || 'global'} 
-                         onClick={() => updateField(selectedField.id, { customColor: c })}
-                         className={`size-7 rounded-full border-2 transition-all ${selectedField.customColor === c ? 'border-accent scale-110' : 'border-transparent'}`}
-                         style={{ backgroundColor: c || primaryColor }}
+                {['text', 'tel', 'email', 'number', 'url'].includes(selectedField.type) && (
+                   <div className="space-y-2">
+                     <label className="text-[10px] font-black text-text-secondary uppercase tracking-widest">Formato de Entrada</label>
+                     <select 
+                        value={selectedField.mask || 'none'} 
+                        onChange={(e) => updateField(selectedField.id, { mask: e.target.value as any })} 
+                        className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-xs text-white outline-none focus:ring-1 focus:ring-accent appearance-none cursor-pointer"
                       >
-                        {!c && <div className="w-full h-full flex items-center justify-center bg-white/20 text-[10px] font-bold text-white">G</div>}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                        <option value="none" className="bg-[#1e293b]">Nenhuma</option>
+                        <option value="cpf" className="bg-[#1e293b]">CPF</option>
+                        <option value="cnpj" className="bg-[#1e293b]">CNPJ</option>
+                        <option value="tel" className="bg-[#1e293b]">WhatsApp/Tel</option>
+                        <option value="cep" className="bg-[#1e293b]">CEP</option>
+                     </select>
+                   </div>
+                )}
 
-                {(selectedField.type === 'radio' || selectedField.type === 'checkbox' || selectedField.type === 'dropdown') && (
-                  <div className="space-y-3">
-                    <label className="text-[10px] font-black text-text-secondary uppercase tracking-widest">Opções da Lista</label>
-                    <div className="space-y-2">
-                      {selectedField.options?.map((opt, i) => (
-                        <div key={i} className="flex items-center gap-2">
+                {(selectedField.type === 'radio' || selectedField.type === 'checkbox') && (
+                  <div className="space-y-4">
+                    <label className="text-[10px] font-black text-text-secondary uppercase tracking-widest">Opções & Imagens</label>
+                    {selectedField.options?.map((opt, i) => (
+                      <div key={i} className="space-y-2 p-3 bg-white/5 border border-white/10 rounded-xl">
+                        <div className="flex items-center gap-2">
                           <input 
                             value={opt} 
                             onChange={(e) => {
@@ -672,119 +750,102 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
                               newOpts[i] = e.target.value;
                               updateField(selectedField.id, { options: newOpts });
                             }}
-                            className="flex-1 px-3 py-2 bg-bg-base border border-border-base rounded-lg text-xs text-text-primary outline-none focus:ring-1 focus:ring-accent"
+                            className="flex-1 bg-transparent text-xs font-bold text-white outline-none" 
                           />
-                          <button 
-                            onClick={() => {
-                              const newOpts = (selectedField.options || []).filter((_, idx) => idx !== i);
-                              updateField(selectedField.id, { options: newOpts });
-                            }}
-                            className="p-1.5 text-text-secondary hover:text-red-500 transition-colors"
-                          >
-                            <X size={14} />
-                          </button>
+                          <button className="text-text-secondary hover:text-red-400 p-1" onClick={() => updateField(selectedField.id, { options: selectedField.options?.filter((_, idx) => idx !== i) })}><X size={14} /></button>
                         </div>
-                      ))}
-                      <button 
-                        onClick={() => updateField(selectedField.id, { options: [...(selectedField.options || []), `Nova Opção ${(selectedField.options?.length || 0) + 1}` ] })}
-                        className="w-full py-2 border-2 border-dashed border-border-base rounded-lg text-[10px] font-bold text-text-secondary hover:border-accent hover:text-accent transition-all"
-                      >
-                        + Adicionar Opção
-                      </button>
-                    </div>
+                        <input 
+                           placeholder="URL da Imagem"
+                           value={selectedField.imageOptions?.[opt] || ''}
+                           onChange={(e) => {
+                              const current = selectedField.imageOptions || {};
+                              updateField(selectedField.id, { imageOptions: { ...current, [opt]: e.target.value } });
+                           }}
+                           className="w-full p-2 bg-white/5 border border-white/10 rounded-lg text-[9px] text-white placeholder:text-white/20 outline-none focus:ring-1 focus:ring-accent"
+                        />
+                      </div>
+                    ))}
+                    <button onClick={() => updateField(selectedField.id, { options: [...(selectedField.options || []), `Opção ${selectedField.options?.length + 1}`] })} className="text-[10px] font-bold text-accent hover:opacity-80 transition-opacity ml-1">+ Adicionar Opção</button>
                   </div>
                 )}
 
-                {(selectedField.type === 'grid-radio' || selectedField.type === 'grid-checkbox') && (
-                  <div className="space-y-6">
-                    <div className="space-y-3">
-                      <label className="text-[10px] font-black text-text-secondary uppercase tracking-widest">Linhas (Rows)</label>
-                      <div className="space-y-2">
-                        {selectedField.rows?.map((row, i) => (
-                          <div key={i} className="flex items-center gap-2">
-                            <input 
-                              value={row} 
-                              onChange={(e) => {
-                                const newRows = [...(selectedField.rows || [])];
-                                newRows[i] = e.target.value;
-                                updateField(selectedField.id, { rows: newRows });
-                              }}
-                              className="flex-1 px-3 py-2 bg-bg-base border border-border-base rounded-lg text-xs text-text-primary outline-none focus:ring-1 focus:ring-accent"
-                            />
-                            <button 
-                              onClick={() => {
-                                const newRows = (selectedField.rows || []).filter((_, idx) => idx !== i);
-                                updateField(selectedField.id, { rows: newRows });
-                              }}
-                              className="p-1.5 text-text-secondary hover:text-red-500 transition-colors"
+                {/* Lógica de Salto */}
+                <div className="pt-6 border-t border-white/10 space-y-4">
+                     <div className="flex items-center gap-2 text-accent">
+                       <GitBranch size={16} />
+                       <h4 className="text-[10px] font-black uppercase tracking-widest">Lógica Condicional</h4>
+                     </div>
+                     
+                     <div className="p-4 bg-black/20 border border-white/5 rounded-2xl space-y-4">
+                       <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-black text-text-secondary uppercase tracking-tighter">Condição:</label>
+                            <select 
+                              value={selectedField.logic?.conditionOperator || 'equals'}
+                              onChange={(e) => updateField(selectedField.id, { logic: { ...selectedField.logic, action: 'jump', conditionOperator: e.target.value as any } })}
+                              className="w-full px-2 py-2 text-[10px] border border-white/10 rounded-xl focus:ring-1 focus:ring-accent outline-none bg-white/5 text-white font-bold appearance-none cursor-pointer hover:bg-white/10 transition-colors"
                             >
-                              <X size={14} />
-                            </button>
+                              <option value="equals" className="bg-[#1e293b] text-white">Igual a</option>
+                              <option value="not_equals" className="bg-[#1e293b] text-white">Diferente de</option>
+                              <option value="greater" className="bg-[#1e293b] text-white">Maior que</option>
+                              <option value="less" className="bg-[#1e293b] text-white">Menor que</option>
+                              <option value="contains" className="bg-[#1e293b] text-white">Contém</option>
+                            </select>
                           </div>
-                        ))}
-                        <button 
-                          onClick={() => updateField(selectedField.id, { rows: [...(selectedField.rows || []), `Nova Linha ${(selectedField.rows?.length || 0) + 1}` ] })}
-                          className="w-full py-2 border-2 border-dashed border-border-base rounded-lg text-[10px] font-bold text-text-secondary hover:border-accent hover:text-accent transition-all"
-                        >
-                          + Adicionar Linha
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      <label className="text-[10px] font-black text-text-secondary uppercase tracking-widest">Colunas (Columns)</label>
-                      <div className="space-y-2">
-                        {selectedField.columns?.map((col, i) => (
-                          <div key={i} className="flex items-center gap-2">
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-black text-text-secondary uppercase tracking-tighter">Valor:</label>
                             <input 
-                              value={col} 
-                              onChange={(e) => {
-                                const newCols = [...(selectedField.columns || [])];
-                                newCols[i] = e.target.value;
-                                updateField(selectedField.id, { columns: newCols });
-                              }}
-                              className="flex-1 px-3 py-2 bg-bg-base border border-border-base rounded-lg text-xs text-text-primary outline-none focus:ring-1 focus:ring-accent"
+                              placeholder="Ex: Sim"
+                              value={selectedField.logic?.conditionValue || ''}
+                              onChange={(e) => updateField(selectedField.id, { logic: { ...selectedField.logic, action: 'jump', conditionValue: e.target.value } })}
+                              className="w-full px-3 py-2 text-[10px] border border-white/10 rounded-xl focus:ring-1 focus:ring-accent outline-none bg-white/5 text-white placeholder:text-white/20"
                             />
-                            <button 
-                              onClick={() => {
-                                const newCols = (selectedField.columns || []).filter((_, idx) => idx !== i);
-                                updateField(selectedField.id, { columns: newCols });
-                              }}
-                              className="p-1.5 text-text-secondary hover:text-red-500 transition-colors"
-                            >
-                              <X size={14} />
-                            </button>
                           </div>
-                        ))}
-                        <button 
-                          onClick={() => updateField(selectedField.id, { columns: [...(selectedField.columns || []), `Nova Coluna ${(selectedField.columns?.length || 0) + 1}` ] })}
-                          className="w-full py-2 border-2 border-dashed border-border-base rounded-lg text-[10px] font-bold text-text-secondary hover:border-accent hover:text-accent transition-all"
-                        >
-                          + Adicionar Coluna
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                       </div>
 
-                <button 
-                   onClick={() => updateField(selectedField.id, { required: !selectedField.required })} 
-                   className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all ${selectedField.required ? 'border-accent bg-accent/5 text-accent' : 'border-border-base text-text-secondary'}`}
-                >
-                  <span className="text-xs font-bold">Campo Obrigatório</span>
-                  <div className={`size-5 rounded flex items-center justify-center transition-colors ${selectedField.required ? 'bg-accent text-white' : 'bg-bg-base'}`}>
-                    <CheckSquare size={14} />
-                  </div>
-                </button>
+                       <div className="flex flex-col items-center justify-center -my-2 opacity-30">
+                         <div className="h-4 w-px bg-text-secondary" />
+                         <ArrowRight size={12} className="rotate-90" />
+                       </div>
+
+                       <div className="space-y-2">
+                         <label className="text-[9px] font-black text-text-secondary uppercase tracking-widest">Então faça isso:</label>
+                         <select 
+                           value={selectedField.logic?.targetId || ''}
+                           onChange={(e) => updateField(selectedField.id, { logic: { ...selectedField.logic, action: 'jump', targetId: e.target.value } })}
+                           className="w-full px-3 py-2 text-[11px] border border-white/10 rounded-xl focus:ring-1 focus:ring-accent outline-none bg-white/5 text-white font-black appearance-none cursor-pointer hover:bg-white/10 transition-colors"
+                         >
+                           <option value="" className="bg-[#1e293b] text-white">Ir para próxima pergunta</option>
+                           <option value="end" className="bg-[#1e293b] text-white">Terminar Formulário</option>
+                           <optgroup label="Pular para Pergunta:" className="bg-[#1e293b] text-white/50 italic">
+                             {fields.filter(f => f.id !== selectedField.id).map(f => (
+                               <option key={f.id} value={f.id} className="bg-[#1e293b] text-white">{f.label.substring(0, 30)}{f.label.length > 30 ? '...' : ''}</option>
+                             ))}
+                           </optgroup>
+                         </select>
+                       </div>
+                     </div>
+                     <p className="text-[9px] text-text-secondary italic leading-relaxed">A lógica de salto permite criar fluxos personalizados baseados na resposta do usuário.</p>
+                   </div>
+                
+                 <div className="flex items-center justify-between p-4 bg-white/5 border border-white/5 rounded-2xl group cursor-pointer hover:bg-white/10 transition-all font-bold" onClick={() => updateField(selectedField.id, { required: !selectedField.required })}>
+                    <div className="flex items-center gap-3">
+                      <div className={`size-5 rounded-lg border-2 flex items-center justify-center transition-all ${selectedField.required ? 'bg-accent border-accent' : 'border-white/20'}`}>
+                        {selectedField.required && <Check size={12} className="text-white" strokeWidth={4} />}
+                      </div>
+                      <span className="text-[11px] font-black text-white uppercase tracking-widest">Obrigatório</span>
+                    </div>
+                    <div className={`w-8 h-4 rounded-full p-0.5 transition-all flex items-center ${selectedField.required ? 'bg-accent' : 'bg-white/10'}`}>
+                       <div className={`size-3 rounded-full bg-white shadow-sm transition-all ${selectedField.required ? 'translate-x-4' : 'translate-x-0'}`} />
+                    </div>
+                 </div>
               </div>
             </div>
           ) : (
-             <div className="h-full flex flex-col items-center justify-center opacity-30 text-center space-y-4">
-               <div className="size-16 bg-bg-base rounded-3xl flex items-center justify-center">
-                 <Settings size={32} className="text-text-secondary" />
-               </div>
-               <p className="text-[10px] font-black uppercase tracking-widest text-text-secondary">Selecione um campo para editar</p>
-             </div>
+            <div className="flex flex-col items-center justify-center h-48 text-text-secondary opacity-50">
+              <Settings size={32} strokeWidth={1} />
+              <p className="text-[10px] font-bold uppercase mt-2">Selecione um campo</p>
+            </div>
           )}
         </aside>
       </div>

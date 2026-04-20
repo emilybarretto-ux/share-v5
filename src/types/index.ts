@@ -33,7 +33,7 @@ export type FieldType =
   | 'grid-radio' | 'grid-checkbox'
   | 'date' | 'time' | 'datetime' | 'daterange'
   | 'rating' | 'range' | 'sortable' | 'file' | 'signature' | 'consent'
-  | 'heading' | 'divider' | 'page-break' | 'hidden' | 'calculation';
+  | 'heading' | 'section' | 'divider' | 'page-break' | 'hidden' | 'calculation';
 
 export interface FormField {
   id: string;
@@ -43,11 +43,19 @@ export interface FormField {
   description?: string;
   required: boolean;
   options?: string[];
+  imageOptions?: Record<string, string>; // option text -> image URL
   rows?: string[];
   columns?: string[];
   validation?: string; 
   defaultValue?: any;
   customColor?: string;
+  mask?: 'none' | 'cpf' | 'cnpj' | 'tel' | 'cep' | 'email';
+  logic?: {
+    action: 'jump' | 'hide';
+    targetId: string;
+    conditionOperator?: 'equals' | 'not_equals' | 'greater' | 'less' | 'contains';
+    conditionValue: string;
+  };
 }
 
 export interface DynamicForm {
@@ -68,6 +76,9 @@ export interface DynamicForm {
     headerImage?: string;
     titleColor?: string;
     subtitleColor?: string;
+    showProgressBar?: boolean;
+    estimatedTime?: number; // in minutes
+    themePreset?: 'default' | 'dark' | 'minimal' | 'enterprise' | 'vibrant' | 'glass';
   };
   status: 'draft' | 'published';
 }

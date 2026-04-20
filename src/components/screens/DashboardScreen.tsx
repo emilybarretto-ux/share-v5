@@ -635,14 +635,21 @@ export const DashboardScreen = ({
                           <span className="text-[10px] text-text-secondary font-medium">{new Date(sub.created_at).toLocaleString()}</span>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {Object.entries(sub.data).map(([key, value]) => (
-                            <div key={key} className="space-y-1">
-                              <p className="text-[10px] font-bold text-text-secondary uppercase tracking-wider">{key}</p>
-                              <div className="text-sm text-text-primary font-medium bg-surface p-2 rounded-lg border border-border-base/50">
-                                {renderValue(value)}
+                          {Object.entries(sub.data).map(([key, value]) => {
+                            // Encontrar o label correto do campo clicando no formulário selecionado
+                            const form = forms.find(f => f.id === sub.form_id);
+                            const field = form?.fields?.find((f: any) => f.id === key);
+                            const label = field?.label || key;
+                            
+                            return (
+                              <div key={key} className="space-y-1">
+                                <p className="text-[10px] font-bold text-text-secondary uppercase tracking-wider">{label}</p>
+                                <div className="text-sm text-text-primary font-medium bg-surface p-2 rounded-lg border border-border-base/50">
+                                  {renderValue(value)}
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     ))}

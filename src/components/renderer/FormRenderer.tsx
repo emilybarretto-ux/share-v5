@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { 
   CheckCircle2, ChevronRight, 
@@ -22,10 +22,32 @@ const renderText = (text: string) => {
   const parts = text.split(/(\*\*.*?\*\*)/g);
   return parts.map((part, i) => {
     if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={i}>{part.slice(2, -2)}</strong>;
+      return <strong key={i} className="font-black">{part.slice(2, -2)}</strong>;
     }
     return part;
   });
+};
+
+const applyMask = (value: string, mask?: string) => {
+  if (!mask || mask === 'none') return value;
+  
+  const clean = value.replace(/\D/g, '');
+  
+  switch (mask) {
+    case 'cpf':
+      return clean.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4').substring(0, 14);
+    case 'cnpj':
+      return clean.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5').substring(0, 18);
+    case 'tel':
+      if (clean.length > 10) {
+        return clean.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3').substring(0, 15);
+      }
+      return clean.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3').substring(0, 14);
+    case 'cep':
+      return clean.replace(/(\d{5})(\d{3})/, '$1-$2').substring(0, 9);
+    default:
+      return value;
+  }
 };
 
 const SignaturePad = ({ onSave, color }: { onSave: (data: string) => void, color: string }) => {
@@ -115,37 +137,171 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [uploadingField, setUploadingField] = useState<string | null>(null);
-  const [errors, setErrors] = useState<Record<string, boolean>>({});
+  const [errors, setErrors] = useState<Record<string, string | null>>({});
+
+  // Cálculo de campos visíveis baseado na lógica de salto
+  const visibleFields = useMemo(() => {
+    const visible: any[] = [];
+    let skipUntil: string | null = null;
+    let isTerminated = false;
+
+    for (const field of fields) {
+      if (isTerminated) break;
+
+      if (skipUntil) {
+        if (field.id === skipUntil) {
+          skipUntil = null;
+        } else {
+          continue;
+        }
+      }
+
+      visible.push(field);
+
+      // Verifica se o campo tem lógica e se já foi respondido
+      // No modo lista, interrompemos a exibição se houver lógica e o campo estiver vazio
+      if (settings.layout === 'list' && field.logic?.action === 'jump') {
+        const value = formData[field.id];
+        if (!value || (Array.isArray(value) && value.length === 0) || (typeof value === 'object' && Object.keys(value).length === 0)) {
+          break;
+        }
+      }
+
+      // Verifica lógica de salto
+      if (field.logic?.action === 'jump' && field.logic.conditionValue) {
+        const value = formData[field.id];
+        const conditionValue = field.logic.conditionValue;
+        const operator = field.logic.conditionOperator || 'equals';
+        
+        let shouldJump = false;
+        
+        const valStr = value?.toString() || '';
+        const condStr = conditionValue.toString();
+
+        switch (operator) {
+          case 'equals':
+            shouldJump = valStr === condStr;
+            break;
+          case 'not_equals':
+            shouldJump = valStr !== condStr && valStr !== '';
+            break;
+          case 'greater':
+            shouldJump = parseFloat(valStr) > parseFloat(condStr);
+            break;
+          case 'less':
+            shouldJump = parseFloat(valStr) < parseFloat(condStr);
+            break;
+          case 'contains':
+            shouldJump = valStr.toLowerCase().includes(condStr.toLowerCase());
+            break;
+        }
+
+        if (shouldJump) {
+          if (field.logic.targetId === 'end') {
+            isTerminated = true;
+          } else if (field.logic.targetId) {
+            skipUntil = field.logic.targetId;
+          }
+        }
+      }
+    }
+    return visible;
+  }, [fields, formData]);
   const { showNotification } = useNotification();
 
   const validateField = (field: FormField) => {
-    if (!field.required) return true;
-    
     const value = formData[field.id];
-    let isValid = false;
+    const strVal = value?.toString().trim() || '';
+    
+    // Se não for obrigatório e estiver vazio, é válido
+    if (!field.required && strVal === '') {
+      setErrors(prev => ({ ...prev, [field.id]: null }));
+      return true;
+    }
+    
+    let errorMsg: string | null = null;
 
-    if (field.type === 'checkbox' || field.type === 'grid-checkbox') {
-      isValid = value && (Array.isArray(value) ? value.length > 0 : Object.values(value).some((v: any) => Array.isArray(v) && v.length > 0));
-    } else if (field.type === 'grid-radio') {
-      // Check if all rows are answered in a required grid radio
-      const rows = field.rows || [];
-      const answers = value || {};
-      isValid = rows.every(row => answers[row]);
-    } else if (typeof value === 'object' && value !== null) {
-      isValid = Object.keys(value).length > 0;
-    } else {
-      isValid = value !== undefined && value !== null && value.toString().trim() !== '';
+    if (field.required && strVal === '') {
+      if (field.type === 'checkbox' || field.type === 'grid-checkbox') {
+        const isFilled = value && (Array.isArray(value) ? value.length > 0 : Object.values(value).some((v: any) => Array.isArray(v) && v.length > 0));
+        if (!isFilled) errorMsg = 'Selecione pelo menos uma opção';
+      } else if (field.type === 'grid-radio') {
+        const rows = field.rows || [];
+        const answers = value || {};
+        if (!rows.every(row => answers[row])) errorMsg = 'Todas as linhas são obrigatórias';
+      } else if (typeof value === 'object' && value !== null) {
+        if (Object.keys(value).length === 0) errorMsg = 'Este campo é obrigatório';
+      } else {
+        errorMsg = 'Este campo é obrigatório';
+      }
+    } else if (strVal !== '') {
+      // Validação de Máscaras (Mesmo se opcional, se preenchido deve estar correto)
+      if (field.mask && field.mask !== 'none') {
+        const clean = strVal.replace(/\D/g, '');
+        if (field.mask === 'cpf' && clean.length < 11) errorMsg = 'CPF incompleto (mínimo 11 dígitos)';
+        if (field.mask === 'cnpj' && clean.length < 14) errorMsg = 'CNPJ incompleto (mínimo 14 dígitos)';
+        if (field.mask === 'cep' && clean.length < 8) errorMsg = 'CEP incompleto (mínimo 8 dígitos)';
+        if (field.mask === 'tel' && clean.length < 10) errorMsg = 'Telefone incompleto';
+      }
+
+      // Validação de Data
+      if (!errorMsg && field.type === 'date') {
+        const date = new Date(strVal);
+        if (isNaN(date.getTime())) errorMsg = 'Data inválida';
+      }
     }
 
-    setErrors(prev => ({ ...prev, [field.id]: !isValid }));
-    return isValid;
+    setErrors(prev => ({ ...prev, [field.id]: errorMsg }));
+    return errorMsg === null;
   };
 
   const handleNext = () => {
     const field = fields[currentStep];
     if (!validateField(field)) {
-      showNotification('Este campo é obrigatório.', 'error');
+      const errorMsg = errors[field.id] || 'Verifique o preenchimento deste campo.';
+      showNotification(errorMsg, 'error');
       return;
+    }
+
+    // Logic Jump Handle
+    if (field.logic?.action === 'jump' && field.logic.targetId && field.logic.conditionValue) {
+      const value = formData[field.id];
+      const conditionValue = field.logic.conditionValue;
+      const operator = field.logic.conditionOperator || 'equals';
+      
+      let shouldJump = false;
+      const valStr = value?.toString() || '';
+      const condStr = conditionValue.toString();
+
+      switch (operator) {
+        case 'equals':
+          shouldJump = valStr === condStr;
+          break;
+        case 'not_equals':
+          shouldJump = valStr !== condStr && valStr !== '';
+          break;
+        case 'greater':
+          shouldJump = parseFloat(valStr) > parseFloat(condStr);
+          break;
+        case 'less':
+          shouldJump = parseFloat(valStr) < parseFloat(condStr);
+          break;
+        case 'contains':
+          shouldJump = valStr.toLowerCase().includes(condStr.toLowerCase());
+          break;
+      }
+
+      if (shouldJump) {
+        if (field.logic.targetId === 'end') {
+          handleSubmit();
+          return;
+        }
+        const targetIdx = fields.findIndex(f => f.id === field.logic?.targetId);
+        if (targetIdx !== -1) {
+          setCurrentStep(targetIdx);
+          return;
+        }
+      }
     }
 
     if (currentStep < fields.length - 1) {
@@ -169,9 +325,15 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
     }
 
     try {
-      setUploadingField('submitting'); // Reuse for submission state
+      setUploadingField('submitting'); 
       await onSubmit(formData);
       setIsSubmitted(true);
+
+      if (settings.redirectUrl) {
+        setTimeout(() => {
+          window.location.href = settings.redirectUrl!;
+        }, 2000);
+      }
     } catch (err) {
       console.error('Submission error:', err);
     } finally {
@@ -182,7 +344,7 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
   const updateData = (fieldId: string, value: any) => {
     setFormData(prev => ({ ...prev, [fieldId]: value }));
     if (errors[fieldId]) {
-      setErrors(prev => ({ ...prev, [fieldId]: false }));
+      setErrors(prev => ({ ...prev, [fieldId]: null }));
     }
   };
 
@@ -228,12 +390,15 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
                 type={field.type === 'date' ? 'date' : field.type === 'time' ? 'time' : 'text'}
                 placeholder={field.placeholder}
                 value={formData[field.id] || ''}
-                onChange={(e) => updateData(field.id, e.target.value)}
-                className={`w-full p-4 bg-bg-base border rounded-2xl focus:ring-2 outline-none transition-all text-text-primary ${ (field.type === 'date' || field.type === 'time') ? 'pl-12' : '' } ${hasError ? 'border-red-500 bg-red-50/30' : 'border-border-base'}`}
+                onChange={(e) => {
+                  const val = applyMask(e.target.value, field.mask);
+                  updateData(field.id, val);
+                }}
+                className={`w-full p-4 bg-bg-base border rounded-2xl focus:ring-2 outline-none transition-all text-text-primary ${ (field.type === 'date' || field.type === 'time') ? 'pl-12' : '' } ${hasError ? 'border-red-500 bg-red-500/5' : 'border-border-base'}`}
                 style={{ '--tw-ring-color': fieldColor } as any}
               />
             </div>
-            {hasError && <p className="text-[10px] text-red-500 font-bold ml-2">Este campo é obrigatório</p>}
+            {hasError && <p className="text-[10px] text-red-500 font-bold ml-2 uppercase tracking-tight">{hasError}</p>}
           </div>
         );
       case 'textarea':
@@ -243,10 +408,10 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
               placeholder={field.placeholder}
               value={formData[field.id] || ''}
               onChange={(e) => updateData(field.id, e.target.value)}
-              className={`w-full p-4 bg-bg-base border rounded-2xl focus:ring-2 outline-none transition-all text-text-primary min-h-[120px] resize-none ${hasError ? 'border-red-500 bg-red-50/30' : 'border-border-base'}`}
+              className={`w-full p-4 bg-bg-base border rounded-2xl focus:ring-2 outline-none transition-all text-text-primary min-h-[120px] resize-none ${hasError ? 'border-red-500 bg-red-500/5' : 'border-border-base'}`}
               style={{ '--tw-ring-color': fieldColor } as any}
             />
-            {hasError && <p className="text-[10px] text-red-500 font-bold ml-2">Este campo é obrigatório</p>}
+            {hasError && <p className="text-[10px] text-red-500 font-bold ml-2 uppercase tracking-tight">{hasError}</p>}
           </div>
         );
       case 'dropdown':
@@ -266,7 +431,7 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
               </select>
               <ChevronDown size={20} className="absolute right-4 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none" />
             </div>
-            {hasError && <p className="text-[10px] text-red-500 font-bold ml-2">Este campo é obrigatório</p>}
+            {hasError && <p className="text-[10px] text-red-500 font-bold ml-2 uppercase tracking-tight">{hasError}</p>}
           </div>
         );
       case 'file':
@@ -321,7 +486,7 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
                 }} 
               />
             </label>
-            {hasError && <p className="text-[10px] text-red-500 font-bold ml-2">O envio de arquivo é obrigatório</p>}
+            {hasError && <p className="text-[10px] text-red-500 font-bold ml-2 uppercase tracking-tight">{hasError}</p>}
           </div>
         );
       case 'scale':
@@ -343,49 +508,71 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
               <span>Discordo</span>
               <span>Concordo</span>
             </div>
-            {hasError && <p className="text-[10px] text-red-500 font-bold ml-2">Por favor, selecione uma opção</p>}
+            {hasError && <p className="text-[10px] text-red-500 font-bold text-center uppercase tracking-tight">{hasError}</p>}
           </div>
         );
       case 'radio':
       case 'checkbox':
+        const isVisual = field.options?.some(opt => field.imageOptions?.[opt]);
         return (
-          <div className="space-y-3">
-            {field.options?.map((opt, i) => (
-              <button 
-                key={i}
-                onClick={() => {
-                  if (field.type === 'radio') {
-                    updateData(field.id, opt);
-                  } else {
-                    const current = formData[field.id] || [];
-                    const next = current.includes(opt) ? current.filter((o: string) => o !== opt) : [...current, opt];
-                    updateData(field.id, next);
-                  }
-                }}
-                className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all text-left ${
-                  (field.type === 'radio' ? formData[field.id] === opt : formData[field.id]?.includes(opt))
-                    ? 'bg-accent/5'
-                    : `bg-surface ${hasError ? 'border-red-200' : 'border-border-base'}`
-                }`}
-                style={{ borderColor: (field.type === 'radio' ? formData[field.id] === opt : formData[field.id]?.includes(opt)) ? fieldColor : undefined }}
-              >
-                <div 
-                  className={`size-6 rounded-${field.type === 'radio' ? 'full' : 'md'} border-2 flex items-center justify-center transition-all`}
-                  style={{ 
-                    borderColor: (field.type === 'radio' ? formData[field.id] === opt : formData[field.id]?.includes(opt)) ? fieldColor : (hasError ? '#f87171' : 'var(--color-border-base)'),
-                    backgroundColor: (field.type === 'radio' ? formData[field.id] === opt : formData[field.id]?.includes(opt)) ? fieldColor : 'transparent'
+          <div className={isVisual ? "grid grid-cols-1 sm:grid-cols-2 gap-4" : "space-y-3"}>
+            {field.options?.map((opt, i) => {
+              const hasImage = field.imageOptions?.[opt];
+              const isSelected = field.type === 'radio' ? formData[field.id] === opt : formData[field.id]?.includes(opt);
+              
+              return (
+                <button 
+                  key={i}
+                  onClick={() => {
+                    if (field.type === 'radio') {
+                      updateData(field.id, opt);
+                    } else {
+                      const current = formData[field.id] || [];
+                      const next = current.includes(opt) ? current.filter((o: string) => o !== opt) : [...current, opt];
+                      updateData(field.id, next);
+                    }
                   }}
+                  className={`w-full flex ${isVisual ? 'flex-col' : 'items-center'} gap-4 p-4 rounded-2xl border-2 transition-all text-left group overflow-hidden ${
+                    isSelected
+                      ? 'bg-accent/5'
+                      : `bg-surface ${hasError ? 'border-red-200' : 'border-border-base'}`
+                  }`}
+                  style={{ borderColor: isSelected ? fieldColor : undefined }}
                 >
-                  {(field.type === 'radio' ? formData[field.id] === opt : formData[field.id]?.includes(opt)) && (
-                    <div className={field.type === 'radio' ? "size-2 bg-white rounded-full" : "text-white"} >
-                      {field.type === 'checkbox' && <CheckCircle2 size={12} />}
+                  {hasImage && (
+                    <div className="w-full h-32 -mx-4 -mt-4 mb-2 overflow-hidden border-b border-border-base">
+                      <img 
+                        src={hasImage} 
+                        alt={opt} 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform" 
+                        referrerPolicy="no-referrer"
+                      />
                     </div>
                   )}
-                </div>
-                <span className="font-bold text-text-primary">{renderText(opt)}</span>
-              </button>
-            ))}
-            {hasError && <p className="text-[10px] text-red-500 font-bold ml-2">Selecione pelo menos uma opção</p>}
+                  <div className="flex items-center gap-3">
+                    <div 
+                      className={`size-6 rounded-${field.type === 'radio' ? 'full' : 'md'} border-2 flex items-center justify-center transition-all shrink-0`}
+                      style={{ 
+                        borderColor: isSelected ? fieldColor : (hasError ? '#f87171' : 'var(--color-border-base)'),
+                        backgroundColor: isSelected ? fieldColor : 'transparent'
+                      }}
+                    >
+                      {isSelected && (
+                        <div className={field.type === 'radio' ? "size-2 bg-white rounded-full" : "text-white"} >
+                          {field.type === 'checkbox' && <CheckCircle2 size={12} />}
+                        </div>
+                      )}
+                    </div>
+                    <span className="font-bold text-text-primary">{renderText(opt)}</span>
+                  </div>
+                </button>
+              );
+            })}
+            {hasError && (
+              <p className={`text-[10px] text-red-500 font-bold ml-2 uppercase tracking-tight ${isVisual ? 'col-span-full' : ''}`}>
+                {hasError}
+              </p>
+            )}
           </div>
         );
       case 'rating':
@@ -403,7 +590,7 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
                 </button>
               ))}
             </div>
-            {hasError && <p className="text-[10px] text-red-500 font-bold">Por favor, escolha uma avaliação</p>}
+            {hasError && <p className="text-[10px] text-red-500 font-bold uppercase tracking-tight">{hasError}</p>}
           </div>
         );
       case 'grid-radio':
@@ -453,14 +640,23 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
                 </tbody>
               </table>
             </div>
-            {hasError && <p className="text-[10px] text-red-500 font-bold ml-2">Todas as linhas são obrigatórias</p>}
+            {hasError && <p className="text-[10px] text-red-500 font-bold ml-2 uppercase tracking-tight">{hasError}</p>}
           </div>
         );
       case 'signature':
         return (
           <div className="space-y-2">
             <SignaturePad onSave={(data) => updateData(field.id, data)} color={fieldColor} />
-            {hasError && <p className="text-[10px] text-red-500 font-bold ml-2 text-center">A assinatura é obrigatória</p>}
+            {hasError && <p className="text-[10px] text-red-500 font-bold ml-2 text-center uppercase tracking-tight">{hasError}</p>}
+          </div>
+        );
+      case 'section':
+      case 'heading':
+        return (
+          <div className="py-2 space-y-3">
+             <div className="h-1.5 w-12 rounded-full" style={{ backgroundColor: fieldColor }} />
+             <h3 className="text-2xl md:text-4xl font-black text-text-primary tracking-tight leading-none">{renderText(field.label)}</h3>
+             {field.description && <p className="text-sm md:text-base text-text-secondary opacity-70 italic">{renderText(field.description)}</p>}
           </div>
         );
       default:
@@ -469,53 +665,79 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
   };
 
   const borderRadiusValue = settings.borderRadius === 'none' ? '0' : (settings.borderRadius === 'large' ? '1.5rem' : '2.5rem');
+  
+  const themeStyles = {
+    default: { bg: 'bg-bg-base', text: 'text-text-primary', card: 'bg-surface border-border-base' },
+    dark: { bg: 'bg-[#0f172a]', text: 'text-white', card: 'bg-[#1e293b] border-slate-700 text-white' },
+    minimal: { bg: 'bg-white', text: 'text-slate-900', card: 'bg-white border-slate-100 shadow-sm' },
+    enterprise: { bg: 'bg-[#f8fafc]', text: 'text-[#1e293b]', card: 'bg-white border-slate-200 shadow-sm' },
+    vibrant: { bg: 'bg-[#fff1f2]', text: 'text-pink-950', card: 'bg-white border-pink-100 shadow-xl shadow-pink-500/5' },
+    glass: { bg: 'bg-gradient-to-br from-indigo-600 to-purple-700', text: 'text-white', card: 'bg-white/10 backdrop-blur-xl border-white/20 text-white' }
+  }[settings.themePreset || 'default'];
+
+  const progress = isStepMode ? Math.round(((currentStep + 1) / fields.length) * 100) : 0;
 
   return (
-    <div className="min-h-full bg-bg-base py-12 px-6 flex flex-col items-center">
+    <div className={`min-h-full py-12 px-6 flex flex-col items-center transition-all duration-500 ${themeStyles.bg} ${themeStyles.text} ${settings.themePreset === 'dark' ? 'dark' : ''}`}>
+      {settings.showProgressBar && isStepMode && currentStep >= 0 && (
+        <div className="fixed top-0 left-0 w-full h-1.5 bg-black/10 z-50">
+          <motion.div 
+             initial={{ width: 0 }}
+             animate={{ width: `${progress}%` }}
+             className="h-full"
+             style={{ backgroundColor: settings.primaryColor }}
+          />
+        </div>
+      )}
+      
       <div className="w-full max-w-2xl space-y-6">
-        {/* Header Image Block */}
         {settings.headerImage && (
           <div 
-            className="w-full h-48 overflow-hidden shadow-md mb-4 relative bg-bg-base/10"
+            className="w-full h-48 overflow-hidden shadow-md mb-4 relative bg-black/5"
             style={{ borderRadius: settings.borderRadius === 'none' ? '0' : '0.75rem' }}
           >
             <img 
               src={settings.headerImage} 
               alt="Header" 
               className="w-full h-full object-cover" 
+              referrerPolicy="no-referrer"
             />
           </div>
         )}
 
-        {/* Title Card Block */}
         <header 
-          className="bg-surface shadow-md border border-border-base overflow-hidden relative z-10" 
+          className={`shadow-md border overflow-hidden relative z-10 transition-all ${themeStyles.card}`} 
           style={{ borderRadius: settings.borderRadius === 'none' ? '0' : '0.75rem' }}
         >
           <div className="p-8 space-y-4">
             {settings.logo && (
               <div className="mb-6 flex justify-start">
-                <img src={settings.logo} alt="Logo" className="h-12 w-auto object-contain" />
+                <img src={settings.logo} alt="Logo" className="h-12 w-auto object-contain" referrerPolicy="no-referrer" />
               </div>
             )}
-            <h1 className="text-4xl font-bold text-text-primary" style={{ color: settings.titleColor }}>
+            <h1 className="text-4xl font-black leading-tight" style={{ color: settings.titleColor || undefined }}>
               {renderText(form.title)}
             </h1>
-            <div className="h-px bg-border-base w-full" />
+            <div className={`h-px w-full opacity-20 ${settings.themePreset === 'glass' || settings.themePreset === 'dark' ? 'bg-white' : 'bg-current'}`} />
             {form.description && (
-              <p className="text-sm text-text-secondary whitespace-pre-wrap" style={{ color: settings.subtitleColor }}>
+              <p className="text-sm opacity-80 whitespace-pre-wrap" style={{ color: settings.subtitleColor || undefined }}>
                 {renderText(form.description)}
               </p>
             )}
             {isStepMode && currentStep === -1 && (
-              <button 
-                onClick={() => setCurrentStep(0)}
-                className="w-full py-4 bg-accent text-white font-black rounded-2xl shadow-xl shadow-accent/20 flex items-center justify-center gap-2 hover:opacity-90 transition-all text-lg mt-6"
-                style={{ backgroundColor: settings.primaryColor }}
-              >
-                Começar
-                <ChevronRight size={20} />
-              </button>
+              <div className="space-y-4 pt-4">
+                 <button 
+                  onClick={() => setCurrentStep(0)}
+                  className="w-full py-5 text-white font-black rounded-2xl shadow-2xl flex items-center justify-center gap-2 hover:brightness-110 active:scale-[0.98] transition-all text-xl mt-6"
+                  style={{ backgroundColor: settings.primaryColor }}
+                >
+                  Começar agora
+                  <ChevronRight size={22} />
+                </button>
+                {settings.estimatedTime && (
+                  <p className="text-center text-[10px] font-black uppercase tracking-widest opacity-60">Tempo estimado: {settings.estimatedTime} min</p>
+                )}
+              </div>
             )}
           </div>
         </header>
@@ -529,18 +751,26 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 exit={{ y: -20, opacity: 0 }}
-                className="w-full max-w-xl bg-surface p-10 md:p-16 border border-border-base shadow-2xl space-y-10"
+                className={`w-full max-w-xl p-10 md:p-16 border shadow-2xl space-y-10 transition-all ${themeStyles.card}`}
                 style={{ borderRadius: borderRadiusValue }}
               >
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
-                     <span className="text-[10px] font-black text-text-secondary ml-1 uppercase tracking-widest">Pergunta {currentStep + 1} de {fields.length}</span>
-                     {fields[currentStep].required && <span className="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded">Obrigatório</span>}
+                     <span className="text-[10px] font-black uppercase tracking-widest opacity-60">
+                       {fields[currentStep].type === 'section' ? 'Nova Seção' : `Pergunta ${currentStep + 1} de ${fields.length}`}
+                     </span>
+                     {fields[currentStep].required && (
+                       <span className="text-[10px] font-bold text-red-500 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">Obrigatório</span>
+                     )}
                   </div>
-                  <h2 className="text-3xl md:text-4xl font-bold text-text-primary leading-tight">{renderText(fields[currentStep].label)}</h2>
-                  {fields[currentStep].description && <p className="text-lg text-text-secondary">{renderText(fields[currentStep].description)}</p>}
+                  {fields[currentStep].type !== 'section' && (
+                    <>
+                      <h2 className="text-2xl md:text-3xl font-black leading-tight">{renderText(fields[currentStep].label)}</h2>
+                      {fields[currentStep].description && <p className="text-base opacity-70 leading-relaxed">{renderText(fields[currentStep].description)}</p>}
+                    </>
+                  )}
                   
-                  <div className="pt-6">
+                  <div className={fields[currentStep].type === 'section' ? '' : 'pt-6'}>
                     {renderField(fields[currentStep])}
                   </div>
                 </div>
@@ -549,39 +779,41 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
                   {currentStep > 0 && (
                     <button 
                       onClick={() => setCurrentStep(currentStep - 1)} 
-                      className="flex-1 py-4 bg-bg-base text-text-primary font-bold rounded-2xl hover:bg-border-base transition-all flex items-center justify-center gap-2"
+                      className="flex-1 py-4 bg-black/5 hover:bg-black/10 font-bold rounded-2xl transition-all flex items-center justify-center gap-2"
                     >
                       Voltar
                     </button>
                   )}
                   <button 
                     onClick={handleNext} 
-                    className="flex-[2] py-4 bg-accent text-white font-black rounded-2xl shadow-xl shadow-accent/20 flex items-center justify-center gap-2 hover:opacity-90 transition-all text-lg"
+                    className="flex-[2] py-4 text-white font-black rounded-2xl shadow-xl flex items-center justify-center gap-2 hover:brightness-110 active:scale-[0.98] transition-all text-lg"
                     style={{ backgroundColor: fields[currentStep].customColor || settings.primaryColor }}
                   >
-                    {currentStep === fields.length - 1 ? 'Enviar Respostas' : 'Próximo'}
-                    <ChevronRight size={20} />
+                    {currentStep === fields.length - 1 ? 'Enviar Resposta' : 'Próxima Pergunta'}
+                    <ChevronRight size={22} />
                   </button>
                 </div>
               </motion.div>
             </div>
           )) : (
-            fields.map((field, idx) => (
+            visibleFields.map((field, idx) => (
               <motion.div 
                 key={field.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.1 }}
-                className="bg-surface p-8 border border-border-base shadow-xl space-y-6"
+                className={`p-8 border shadow-xl space-y-6 transition-all ${themeStyles.card}`}
                 style={{ borderRadius: borderRadiusValue }}
               >
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-xl font-bold text-text-primary">{renderText(field.label)}</h2>
-                    {field.required && <span className="text-red-500">*</span>}
+                {field.type !== 'section' && field.type !== 'heading' && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-xl font-bold">{renderText(field.label)}</h2>
+                      {field.required && <span className="text-red-500 font-black">*</span>}
+                    </div>
+                    {field.description && <p className="text-sm opacity-70">{renderText(field.description)}</p>}
                   </div>
-                  {field.description && <p className="text-sm text-text-secondary">{renderText(field.description)}</p>}
-                </div>
+                )}
                 {renderField(field)}
               </motion.div>
             ))
@@ -591,7 +823,7 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
           <button 
             onClick={handleSubmit}
             disabled={uploadingField === 'submitting'}
-            className="w-full py-5 bg-accent text-white font-black rounded-3xl shadow-2xl shadow-accent/20 text-lg flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-70"
+            className="w-full py-5 text-white font-black rounded-[2rem] shadow-2xl text-lg flex items-center justify-center gap-3 active:scale-[0.98] transition-all disabled:opacity-70 hover:brightness-110"
             style={{ backgroundColor: settings.primaryColor }}
           >
             {uploadingField === 'submitting' ? (
@@ -599,7 +831,7 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
             ) : (
               <ShieldCheck size={24} />
             )}
-            {uploadingField === 'submitting' ? 'Enviando...' : 'Enviar Respostas'}
+            {uploadingField === 'submitting' ? 'Enviando...' : 'Finalizar e Enviar'}
           </button>
           )}
         </div>

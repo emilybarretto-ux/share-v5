@@ -40,6 +40,7 @@ export const SortableField = ({
       case 'date':
       case 'time': return <Clock size={16} />;
       case 'signature': return <PenTool size={16} />;
+      case 'section': return <Layout size={16} />;
       default: return <Type size={16} />;
     }
   };
@@ -61,9 +62,12 @@ export const SortableField = ({
       case 'date': return 'Data';
       case 'time': return 'Horário';
       case 'signature': return 'Assinatura';
+      case 'section': return 'Nova Seção';
       default: return type;
     }
   };
+
+  const isSection = field.type === 'section';
 
   return (
     <motion.div
@@ -79,111 +83,126 @@ export const SortableField = ({
         e.stopPropagation();
         onSelect();
       }}
-      className={`group relative bg-surface border-2 transition-all cursor-move ${
-        isSelected 
-          ? 'shadow-xl shadow-accent/10 z-10' 
-          : 'border-border-base hover:border-text-secondary/20'
+      className={`group relative transition-all cursor-move ${
+        isSection 
+          ? `bg-bg-base/30 border-2 border-dashed ${isSelected ? 'border-accent' : 'border-border-base font-black'}` 
+          : `bg-surface border-2 ${isSelected ? 'shadow-xl shadow-accent/10 z-10' : 'border-border-base hover:border-text-secondary/20'}`
       }`}
       style={{ 
         borderRadius: borderRadius === 'none' ? '0' : (borderRadius === 'large' ? '1.5rem' : '2.5rem'),
-        borderColor: isSelected ? fieldColor : undefined
+        borderColor: isSelected ? (isSection ? 'var(--color-accent)' : fieldColor) : undefined
       }}
     >
-      <div className="p-6 flex items-start gap-4">
-        <div className="mt-1 text-text-secondary/50 group-hover:text-text-secondary transition-colors">
+      <div className={`p-6 flex items-start gap-4 ${isSection ? 'py-10' : ''}`}>
+        <div className={`mt-1 text-text-secondary/50 group-hover:text-text-secondary transition-colors ${isSection ? 'self-center' : ''}`}>
           <GripVertical size={20} />
         </div>
         
-        <div className="flex-1 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-               <div className="p-2 bg-bg-base rounded-lg text-text-secondary" style={{ color: isSelected ? fieldColor : undefined }}>
-                 {getIcon()}
+        <div className={`flex-1 ${isSection ? 'text-center' : 'space-y-4'}`}>
+          {isSection ? (
+            <div className="space-y-4">
+               <div className="inline-flex items-center gap-2 px-3 py-1 bg-accent/10 text-accent rounded-full text-[10px] font-black uppercase tracking-widest mx-auto">
+                 <Layout size={12} />
+                 Nova Seção
                </div>
-               <span className="text-xs font-black uppercase tracking-widest text-text-secondary/60">{translateType(field.type)}</span>
+               <h2 className="text-3xl font-black text-text-primary tracking-tight">
+                 {field.label.includes('...') ? 'Título da Seção' : renderText(field.label)}
+               </h2>
+               {field.description && <p className="text-text-secondary font-medium">{renderText(field.description)}</p>}
             </div>
-            {field.required && <span className="text-[10px] font-bold text-red-500 uppercase tracking-tighter bg-red-500/10 px-2 py-0.5 rounded">Obrigatório</span>}
-          </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                   <div className="p-2 bg-bg-base rounded-lg text-text-secondary" style={{ color: isSelected ? fieldColor : undefined }}>
+                     {getIcon()}
+                   </div>
+                   <span className="text-xs font-black uppercase tracking-widest text-text-secondary/60">{translateType(field.type)}</span>
+                </div>
+                {field.required && <span className="text-[10px] font-bold text-red-500 uppercase tracking-tighter bg-red-500/10 px-2 py-0.5 rounded">Obrigatório</span>}
+              </div>
 
-          <div className="space-y-1.5">
-            <h4 className="text-lg font-bold text-text-primary leading-snug">
-              {renderText(field.label)}
-            </h4>
-            {field.description && (
-              <p className="text-sm text-text-secondary">{renderText(field.description)}</p>
-            )}
-          </div>
+              <div className="space-y-1.5">
+                <h4 className="text-lg font-bold text-text-primary leading-snug">
+                  {renderText(field.label)}
+                </h4>
+                {field.description && (
+                  <p className="text-sm text-text-secondary">{renderText(field.description)}</p>
+                )}
+              </div>
 
-          {/* Visual representation of input */}
-          <div className="pt-2">
-            {(field.type === 'radio' || field.type === 'checkbox') ? (
-              <div className="space-y-2">
-                {field.options?.map((opt, i) => (
-                  <div key={i} className="flex items-center gap-3">
-                    <div className={`size-5 rounded border ${field.type === 'radio' ? 'rounded-full' : 'rounded-md'} border-border-base`} />
-                    <span className="text-sm text-text-secondary">{renderText(opt)}</span>
-                  </div>
-                ))}
-              </div>
-            ) : field.type === 'dropdown' ? (
-              <div className="w-full h-12 bg-bg-base border border-border-base rounded-xl flex items-center justify-between px-4">
-                <span className="text-sm text-text-secondary/60">
-                  {field.options?.[0] || 'Selecione uma opção'}
-                </span>
-                <ChevronDown size={16} className="text-text-secondary/40" />
-              </div>
-            ) : field.type === 'textarea' ? (
-              <div className="w-full h-24 bg-bg-base border border-border-base rounded-xl flex items-start p-4">
-                <span className="text-sm text-text-secondary/40">{field.placeholder}</span>
-              </div>
-            ) : field.type === 'rating' ? (
-              <div className="flex gap-2">
-                {[1, 2, 3, 4, 5].map(i => <Star key={i} size={20} className="text-text-secondary/20" />)}
-              </div>
-            ) : field.type === 'scale' ? (
-              <div className="flex items-center gap-4">
-                <span className="text-xs text-text-secondary/50">1</span>
-                <div className="flex-1 h-2 bg-bg-base rounded-full" />
-                <span className="text-xs text-text-secondary/50">5</span>
-              </div>
-            ) : (field.type === 'grid-radio' || field.type === 'grid-checkbox') ? (
-              <div className="overflow-x-auto border border-border-base rounded-xl bg-bg-base/30">
-                <table className="w-full text-[10px]">
-                  <thead>
-                    <tr className="border-b border-border-base/50">
-                      <th className="p-2"></th>
-                      {field.columns?.map((col, i) => (
-                        <th key={i} className="p-2 text-text-secondary/40 font-bold uppercase tracking-tighter">{col}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {field.rows?.map((row, i) => (
-                      <tr key={i} className={i !== 0 ? 'border-t border-border-base/30' : ''}>
-                        <td className="p-2 font-bold text-text-secondary/60">{row}</td>
-                        {field.columns?.map((_, j) => (
-                          <td key={j} className="p-2 text-center">
-                            <div className={`size-3 rounded border ${field.type === 'grid-radio' ? 'rounded-full' : 'rounded-sm'} border-border-base/50 mx-auto`} />
-                          </td>
-                        ))}
-                      </tr>
+              {/* Visual representation of input */}
+              <div className="pt-2">
+                {(field.type === 'radio' || field.type === 'checkbox') ? (
+                  <div className="space-y-2">
+                    {field.options?.map((opt, i) => (
+                      <div key={i} className="flex items-center gap-3">
+                        <div className={`size-5 rounded border ${field.type === 'radio' ? 'rounded-full' : 'rounded-md'} border-border-base`} />
+                        <span className="text-sm text-text-secondary">{renderText(opt)}</span>
+                      </div>
                     ))}
-                  </tbody>
-                </table>
+                  </div>
+                ) : field.type === 'dropdown' ? (
+                  <div className="w-full h-12 bg-bg-base border border-border-base rounded-xl flex items-center justify-between px-4">
+                    <span className="text-sm text-text-secondary/60">
+                      {field.options?.[0] || 'Selecione uma opção'}
+                    </span>
+                    <ChevronDown size={16} className="text-text-secondary/40" />
+                  </div>
+                ) : field.type === 'textarea' ? (
+                  <div className="w-full h-24 bg-bg-base border border-border-base rounded-xl flex items-start p-4">
+                    <span className="text-sm text-text-secondary/40">{field.placeholder}</span>
+                  </div>
+                ) : field.type === 'rating' ? (
+                  <div className="flex gap-2">
+                    {[1, 2, 3, 4, 5].map(i => <Star key={i} size={20} className="text-text-secondary/20" />)}
+                  </div>
+                ) : field.type === 'scale' ? (
+                  <div className="flex items-center gap-4">
+                    <span className="text-xs text-text-secondary/50">1</span>
+                    <div className="flex-1 h-2 bg-bg-base rounded-full" />
+                    <span className="text-xs text-text-secondary/50">5</span>
+                  </div>
+                ) : (field.type === 'grid-radio' || field.type === 'grid-checkbox') ? (
+                  <div className="overflow-x-auto border border-border-base rounded-xl bg-bg-base/30">
+                    <table className="w-full text-[10px]">
+                      <thead>
+                        <tr className="border-b border-border-base/50">
+                          <th className="p-2"></th>
+                          {field.columns?.map((col, i) => (
+                            <th key={i} className="p-2 text-text-secondary/40 font-bold uppercase tracking-tighter">{col}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {field.rows?.map((row, i) => (
+                          <tr key={i} className={i !== 0 ? 'border-t border-border-base/30' : ''}>
+                            <td className="p-2 font-bold text-text-secondary/60">{row}</td>
+                            {field.columns?.map((_, j) => (
+                              <td key={j} className="p-2 text-center">
+                                <div className={`size-3 rounded border ${field.type === 'grid-radio' ? 'rounded-full' : 'rounded-sm'} border-border-base/50 mx-auto`} />
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (field.type === 'date' || field.type === 'time') ? (
+                  <div className="w-full h-12 bg-bg-base border border-border-base rounded-xl flex items-center px-4 gap-3">
+                    <Clock size={16} className="text-text-secondary/40" />
+                    <span className="text-sm text-text-secondary/40">
+                      {field.type === 'date' ? 'DD/MM/AAAA' : '00:00'}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="w-full h-12 bg-bg-base border border-border-base rounded-xl flex items-center px-4">
+                    <span className="text-sm text-text-secondary/40">{field.placeholder}</span>
+                  </div>
+                )}
               </div>
-            ) : (field.type === 'date' || field.type === 'time') ? (
-              <div className="w-full h-12 bg-bg-base border border-border-base rounded-xl flex items-center px-4 gap-3">
-                {field.type === 'date' ? <Clock size={16} className="text-text-secondary/40" /> : <Clock size={16} className="text-text-secondary/40" />}
-                <span className="text-sm text-text-secondary/40">
-                  {field.type === 'date' ? 'DD/MM/AAAA' : '00:00'}
-                </span>
-              </div>
-            ) : (
-              <div className="w-full h-12 bg-bg-base border border-border-base rounded-xl flex items-center px-4">
-                <span className="text-sm text-text-secondary/40">{field.placeholder}</span>
-              </div>
-            )}
-          </div>
+            </>
+          )}
         </div>
 
         {isSelected && (
