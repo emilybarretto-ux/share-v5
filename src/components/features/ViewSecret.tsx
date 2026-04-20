@@ -1,0 +1,504 @@
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { ShieldCheck, Lock, Eye, EyeOff, Copy, X, Timer, Fingerprint, Trash2 } from 'lucide-react';
+import Markdown from 'react-markdown';
+import { supabase } from '../../lib/supabase';
+import { decryptData, hashPassword } from '../../lib/crypto';
+import { useNotification } from '../shared/NotificationProvider';
+import { ScreenProtector } from '../shared/ScreenProtector';
+
+interface ViewSecretProps {
+  key?: string;
+  id: string;
+  onBack: () => void;
+}
+
+export const ViewSecret = ({ id, onBack }: ViewSecretProps) => {
+  const [loading, setLoading] = useState(true);
+  const [secret, setSecret] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [password, setPassword] = useState('');
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [unlockError, setUnlockError] = useState<string | null>(null);
+  const [showConfirmBurn, setShowConfirmBurn] = useState(false);
+  const { showNotification } = useNotification();
+
+  const [showRawSecret, setShowRawSecret] = useState(false);
+
+  useEffect(() => {
+    fetchSecret();
+  }, [id]);
+
+  const fetchSecret = async () => {
+    setLoading(true);
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('secrets')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (fetchError) {
+        setError('Este link não existe mais.');
+      } else {
+        if (data.status === 'completed' && !data.content) {
+          setError('Este segredo já foi incinerado permanentemente.');
+          setLoading(false);
+          return;
+        }
+
+        // Verificar Expiração
+        if (data.expires_at && new Date(data.expires_at) < new Date()) {
+          await supabase.from('secrets').update({ status: 'completed', content: '', password: '', key_values: null }).eq('id', id);
+          setError('Este link expirou e foi destruído permanentemente.');
+          setLoading(false);
+          return;
+        }
+
+        // Verificar Máximo de Visualizações (se não for o dono que está vendo agora)
+        if (data.max_views !== null && data.views >= data.max_views) {
+          await supabase.from('secrets').update({ status: 'completed', content: '', password: '', key_values: null }).eq('id', id);
+          setError('Este link atingiu o limite de visualizações e foi destruído.');
+          setLoading(false);
+          return;
+        }
+
+        setSecret(data);
+        if (!data.password) {
+          const maxViews = data.max_views !== null ? Number(data.max_views) : null;
+          const isOneTime = maxViews === 1 || data.expiration === 'Acesso único';
+          
+          if (isOneTime) {
+            setShowConfirmBurn(true);
+          } else {
+            setIsUnlocked(true);
+            incrementViews();
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Erro ao buscar segredo:', err);
+      setError('Erro ao carregar os dados. Tente novamente.');
+    }
+    setLoading(false);
+  };
+
+const incrementViews = async () => {
+    try {
+      // 1. Busca os dados mais recentes direto do banco
+      const { data: currentData, error: fetchErr } = await supabase
+        .from('secrets')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (fetchErr || !currentData) return;
+
+      // 2. Define as variáveis de verificação (o que faltava no seu código)
+      const maxViews = currentData.max_views !== null ? Number(currentData.max_views) : null;
+      const nextViews = currentData.views + 1;
+      
+      const isOneTime = maxViews === 1 || 
+                        currentData.expiration === 'Acesso único' || 
+                        currentData.expiration_detail === 'Acesso único';
+      
+      const reachedLimit = maxViews !== null && nextViews >= maxViews;
+
+      // 3. Verifica se deve incinerar
+      if (isOneTime || reachedLimit) {
+        const { error: updateErr } = await supabase
+          .from('secrets')
+          .update({ 
+            status: 'completed',
+            content: '',
+            key_values: null, 
+            password: '', 
+            views: nextViews
+          })
+          .eq('id', id);
+          
+        if (updateErr) {
+          console.error('Erro ao incinerar:', updateErr);
+        } else {
+          console.log('✅ Incinerado com sucesso no banco!');
+        }
+      } else {
+        // Se não for acesso único, apenas soma a view
+        await supabase
+          .from('secrets')
+          .update({ views: nextViews })
+          .eq('id', id);
+      }
+    } catch (e: any) {
+      console.error('Erro Fatal:', e.message);
+    }
+  };
+
+  const handleUnlock = async () => {
+    setUnlockError(null);
+    try {
+      const cleanPassword = password.trim();
+      if (!cleanPassword) {
+        setUnlockError('Por favor, digite a senha de proteção.');
+        return;
+      }
+
+      const isEncrypted = secret.is_encrypted || (secret.password && secret.password.length === 64);
+      
+      const maxViews = secret.max_views !== null ? Number(secret.max_views) : null;
+      const nextViews = secret.views + 1;
+      const isOneTime = maxViews === 1 || secret.expiration === 'Acesso único';
+
+      if (isEncrypted) {
+        const inputHash = hashPassword(cleanPassword);
+        
+        if (inputHash === secret.password) {
+          const decryptedText = decryptData(secret.content, cleanPassword);
+          
+          if (!decryptedText && secret.content) {
+            setUnlockError('Falha na descriptografia. Verifique se a senha está correta.');
+            return;
+          }
+
+          if (isOneTime) {
+            setShowConfirmBurn(true);
+            return;
+          }
+
+          let decryptedKeyValues = null;
+          if (secret.key_values) {
+            try {
+              const cipherText = (typeof secret.key_values === 'object') 
+                ? (secret.key_values.payload || secret.key_values.encrypted || null)
+                : (typeof secret.key_values === 'string' ? secret.key_values : null);
+
+              if (cipherText) {
+                const kvText = decryptData(cipherText, cleanPassword);
+                if (kvText) {
+                  decryptedKeyValues = JSON.parse(kvText);
+                }
+              }
+            } catch (e) {
+              console.error('Erro nos dados estruturados:', e);
+            }
+          }
+
+          setSecret({
+            ...secret,
+            content: decryptedText,
+            key_values: decryptedKeyValues
+          });
+
+          setIsUnlocked(true);
+          await incrementViews();
+        } else {
+          setUnlockError('Senha incorreta! Tente novamente.');
+        }
+      } else {
+        if (cleanPassword === secret.password) {
+          if (isOneTime) {
+            setShowConfirmBurn(true);
+            return;
+          }
+          setIsUnlocked(true);
+          await incrementViews();
+        } else {
+          setUnlockError('Senha incorreta! Acesso negado.');
+        }
+      }
+    } catch (err) {
+      console.error('Erro fatal:', err);
+      setUnlockError('Ocorreu um erro interno. Tente novamente.');
+    }
+  };
+
+  const confirmAndRevealOneTime = async () => {
+    try {
+      // Se tiver senha, precisamos re-descriptografar o que está no state (que ainda é o original do fetch)
+      const cleanPassword = password.trim();
+      let finalContent = secret.content;
+      let finalKV = secret.key_values;
+
+      if (secret.password) {
+        const decryptedText = decryptData(secret.content, cleanPassword);
+        finalContent = decryptedText;
+        
+        if (secret.key_values) {
+          const cipherText = (typeof secret.key_values === 'object') 
+            ? (secret.key_values.payload || secret.key_values.encrypted || null)
+            : (typeof secret.key_values === 'string' ? secret.key_values : null);
+          if (cipherText) {
+            const kvText = decryptData(cipherText, cleanPassword);
+            if (kvText) finalKV = JSON.parse(kvText);
+          }
+        }
+      }
+
+      setSecret({ ...secret, content: finalContent, key_values: finalKV });
+      setIsUnlocked(true);
+      setShowConfirmBurn(false);
+      await incrementViews();
+      showNotification('Privacidade Máxima: Dado incinerado do servidor com sucesso.', 'success');
+    } catch (e) {
+      showNotification('Erro ao revelar dado seguro.', 'error');
+    }
+  };
+
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+      <div className="size-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      <p className="text-slate-500 font-medium">Buscando dados seguros...</p>
+    </div>
+  );
+
+  if (error) return (
+    <div className="max-w-md mx-auto mt-20 p-8 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl">
+      <div className="size-16 bg-red-100 dark:bg-red-900/20 text-red-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+        <X size={32} />
+      </div>
+      <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Link Indisponível</h2>
+      <p className="text-slate-500 dark:text-slate-400 mb-8">{error}</p>
+      <button onClick={onBack} className="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-200 transition-colors">
+        Voltar ao Início
+      </button>
+    </div>
+  );
+
+  if (!isUnlocked && !showConfirmBurn) return (
+    <div className="max-w-md mx-auto mt-20 p-8 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl">
+      <div className="size-16 bg-blue-100 dark:bg-blue-900/20 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+        <Lock size={32} />
+      </div>
+      <h2 className="text-2xl font-bold text-slate-900 dark:text-white text-center mb-2">Protegido por Senha</h2>
+      <p className="text-slate-500 dark:text-slate-400 text-center mb-8">Esta comunicação requer uma senha para ser visualizada.</p>
+      
+      {/* ... rest of unlock UI remains similar ... */}
+      
+      <div className="space-y-4">
+        <div className="relative">
+          <input 
+            type={showPassword ? "text" : "password"}
+            value={password}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              if (unlockError) setUnlockError(null);
+            }}
+            onKeyDown={(e) => e.key === 'Enter' && handleUnlock()}
+            placeholder="Digite a senha..."
+            className={`w-full px-4 py-4 bg-slate-50 dark:bg-slate-950 border rounded-xl focus:ring-2 outline-none dark:text-white transition-all ${
+              unlockError 
+                ? 'border-red-500 focus:ring-red-500/20' 
+                : 'border-slate-200 dark:border-slate-800 focus:ring-blue-600'
+            }`}
+          />
+          <button 
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-600"
+          >
+            {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+          </button>
+        </div>
+        
+        {unlockError && (
+          <motion.p 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-red-500 text-sm font-bold text-center bg-red-50 dark:bg-red-900/10 py-2 rounded-lg"
+          >
+            {unlockError}
+          </motion.p>
+        )}
+
+        <button 
+          onClick={handleUnlock}
+          className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 transition-all flex items-center justify-center gap-2"
+        >
+          <Fingerprint size={20} />
+          Desbloquear Conteúdo
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <ScreenProtector>
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        onContextMenu={(e) => e.preventDefault()}
+        className="max-w-2xl mx-auto mt-12 p-8 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl select-none"
+      >
+      <div className="flex items-center justify-between mb-8 pb-6 border-b border-slate-100 dark:border-slate-800">
+        <div className="flex items-center gap-4">
+          <div className="size-12 rounded-2xl bg-green-100 dark:bg-green-900/20 text-green-600 flex items-center justify-center">
+            <ShieldCheck size={24} />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">{secret.name || 'Comunicação Segura'}</h2>
+            <p className="text-slate-500 text-xs font-medium">Visualizado agora • Criptografia de ponta-a-ponta</p>
+          </div>
+        </div>
+        <div className="px-3 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 text-[10px] font-bold rounded-full uppercase tracking-wider">
+          Seguro
+        </div>
+      </div>
+
+      <div className="space-y-6">
+        {secret.content && (
+          <div className="relative group/secret">
+            <div className={`p-6 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800 transition-all duration-75 ${!showRawSecret ? 'blur-[60px] select-none opacity-0 grayscale pointer-events-none' : 'blur-0 opacity-100'}`}>
+              <div className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed prose prose-slate dark:prose-invert max-w-none">
+                <Markdown>{secret.content}</Markdown>
+              </div>
+            </div>
+            {!showRawSecret && (
+              <div className="absolute inset-0 flex items-center justify-center z-10">
+                <button 
+                  onMouseDown={() => setShowRawSecret(true)}
+                  onMouseUp={() => setShowRawSecret(false)}
+                  onMouseLeave={() => setShowRawSecret(false)}
+                  onTouchStart={() => setShowRawSecret(true)}
+                  onTouchEnd={() => setShowRawSecret(false)}
+                  className="px-8 py-3 bg-blue-600 text-white rounded-full font-bold shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-2 select-none touch-none"
+                >
+                  <Fingerprint size={20} />
+                  Segure para Revelar
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {secret.key_values && secret.key_values.length > 0 && (
+          <div className="space-y-3">
+            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest ml-1">Dados Estruturados</h3>
+            <div className="grid grid-cols-1 gap-3 relative group/data">
+              <div className={`transition-all duration-75 space-y-3 ${!showRawSecret ? 'blur-[60px] select-none opacity-0 grayscale pointer-events-none' : 'blur-0 opacity-100'}`}>
+                {secret.key_values.map((kv: any, idx: number) => (
+                  <div key={idx} className="flex items-center justify-between p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm">
+                    <span className="text-sm font-bold text-slate-500 dark:text-slate-400">{kv.key}</span>
+                    <div className="flex items-center gap-3">
+                      <code className="text-sm font-mono font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded">
+                        {kv.value}
+                      </code>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigator.clipboard.writeText(kv.value);
+                          showNotification('Copiado!', 'success');
+                        }}
+                        className="p-2 text-slate-400 hover:text-blue-600 transition-colors"
+                      >
+                        <Copy size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {!showRawSecret && (
+                <div className="absolute inset-0 flex items-center justify-center z-10">
+                   <button 
+                    onMouseDown={() => setShowRawSecret(true)}
+                    onMouseUp={() => setShowRawSecret(false)}
+                    onMouseLeave={() => setShowRawSecret(false)}
+                    onTouchStart={() => setShowRawSecret(true)}
+                    onTouchEnd={() => setShowRawSecret(false)}
+                    className="px-8 py-3 bg-blue-600 text-white rounded-full font-bold shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-2 select-none touch-none"
+                  >
+                    <Fingerprint size={20} />
+                    Segure para Ver
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-12 p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-2xl flex items-start gap-4">
+        <div className="size-10 rounded-xl bg-amber-100 dark:bg-amber-900/20 text-amber-600 flex-shrink-0 flex items-center justify-center">
+          <Timer size={20} />
+        </div>
+        <div>
+          <h4 className="text-sm font-bold text-amber-900 dark:text-amber-300">Aviso de Segurança</h4>
+          <p className="text-xs text-amber-700 dark:text-amber-400 mt-1 leading-relaxed">
+            Esta informação foi configurada para ser destruída após a visualização ou em {secret.expiration || '24 horas'}. 
+            Certifique-se de salvar o que for necessário agora.
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-4 mt-8">
+        <button 
+          onClick={async () => {
+            const confirmBurn = window.confirm("Deseja incinerar este segredo agora? Ele será destruído permanentemente para todos.");
+            if (confirmBurn) {
+              try {
+                await supabase.from('secrets').update({ 
+                  status: 'completed', 
+                  content: '', 
+                  password: '',
+                  key_values: null
+                }).eq('id', id);
+                showNotification('Segredo incinerado com sucesso.', 'success');
+                onBack();
+              } catch (err) {
+                showNotification('Erro ao incinerar.', 'error');
+              }
+            }
+          }}
+          className="flex-1 py-4 bg-red-50 text-red-600 font-bold rounded-xl hover:bg-red-600 hover:text-white transition-all flex items-center justify-center gap-2"
+        >
+          <X size={20} />
+          Incinerar Agora
+        </button>
+        <button 
+          onClick={onBack}
+          className="flex-1 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold rounded-xl hover:opacity-90 transition-all"
+        >
+          Entendido, fechar
+        </button>
+      </div>
+    </motion.div>
+    
+    <AnimatePresence>
+      {showConfirmBurn && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+            className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[2.5rem] p-8 border border-slate-200 dark:border-slate-800 shadow-2xl text-center"
+          >
+            <div className="size-20 bg-red-100 dark:bg-red-900/20 text-red-600 rounded-3xl flex items-center justify-center mx-auto mb-6">
+              <Trash2 size={32} />
+            </div>
+            <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-4">Acesso Único Detectado</h3>
+            <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed mb-8">
+              ⚠️ Este dado foi marcado para <strong>Incineração Imediata</strong>. Ao clicar em visualizar, o conteúdo será apagado permanentemente do nosso servidor para garantir sua total privacidade.
+            </p>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={confirmAndRevealOneTime}
+                className="w-full py-4 bg-red-600 text-white font-bold rounded-2xl hover:bg-red-700 transition-all shadow-lg shadow-red-600/20"
+              >
+                Confirmar e Revelar
+              </button>
+              <button
+                onClick={() => {
+                  setShowConfirmBurn(false);
+                  onBack();
+                }}
+                className="w-full py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold rounded-2xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+              >
+                Cancelar
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  </ScreenProtector>
+  );
+};
