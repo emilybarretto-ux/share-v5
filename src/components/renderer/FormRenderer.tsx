@@ -3,10 +3,11 @@ import { motion } from 'motion/react';
 import { 
   CheckCircle2, ChevronRight, 
   Star, PenTool, ShieldCheck, Mail,
-  Upload, Clock, Calendar, ChevronDown
+  Upload, Clock, Calendar, ChevronDown, AlertCircle
 } from 'lucide-react';
 import { DynamicForm, FormField } from '../../types';
 import { supabase } from '../../lib/supabase';
+import { useNotification } from '../shared/NotificationProvider';
 
 interface FormRendererProps {
   key?: string;
@@ -114,8 +115,39 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [uploadingField, setUploadingField] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, boolean>>({});
+  const { showNotification } = useNotification();
+
+  const validateField = (field: FormField) => {
+    if (!field.required) return true;
+    
+    const value = formData[field.id];
+    let isValid = false;
+
+    if (field.type === 'checkbox' || field.type === 'grid-checkbox') {
+      isValid = value && (Array.isArray(value) ? value.length > 0 : Object.values(value).some((v: any) => Array.isArray(v) && v.length > 0));
+    } else if (field.type === 'grid-radio') {
+      // Check if all rows are answered in a required grid radio
+      const rows = field.rows || [];
+      const answers = value || {};
+      isValid = rows.every(row => answers[row]);
+    } else if (typeof value === 'object' && value !== null) {
+      isValid = Object.keys(value).length > 0;
+    } else {
+      isValid = value !== undefined && value !== null && value.toString().trim() !== '';
+    }
+
+    setErrors(prev => ({ ...prev, [field.id]: !isValid }));
+    return isValid;
+  };
 
   const handleNext = () => {
+    const field = fields[currentStep];
+    if (!validateField(field)) {
+      showNotification('Este campo é obrigatório.', 'error');
+      return;
+    }
+
     if (currentStep < fields.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
@@ -124,6 +156,18 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
   };
 
   const handleSubmit = async () => {
+    // Final validation check for all fields
+    const invalidFields = fields.filter(f => !validateField(f));
+    if (invalidFields.length > 0) {
+      showNotification(`Existem ${invalidFields.length} campos obrigatórios não preenchidos.`, 'error');
+      if (isStepMode) {
+        // Jump to first invalid step
+        const firstInvalidIdx = fields.findIndex(f => !validateField(f));
+        setCurrentStep(firstInvalidIdx);
+      }
+      return;
+    }
+
     try {
       setUploadingField('submitting'); // Reuse for submission state
       await onSubmit(formData);
@@ -137,6 +181,9 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
 
   const updateData = (fieldId: string, value: any) => {
     setFormData(prev => ({ ...prev, [fieldId]: value }));
+    if (errors[fieldId]) {
+      setErrors(prev => ({ ...prev, [fieldId]: false }));
+    }
   };
 
   if (isSubmitted) {
@@ -162,6 +209,7 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
 
   const renderField = (field: FormField) => {
     const fieldColor = field.customColor || settings.primaryColor;
+    const hasError = errors[field.id];
     
     switch (field.type) {
       case 'text':
@@ -172,99 +220,114 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
       case 'date':
       case 'time':
         return (
-          <div className="relative">
-            {field.type === 'date' && <Calendar size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary" />}
-            {field.type === 'time' && <Clock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary" />}
-            <input 
-              type={field.type === 'date' ? 'date' : field.type === 'time' ? 'time' : 'text'}
-              placeholder={field.placeholder}
-              onChange={(e) => updateData(field.id, e.target.value)}
-              className={`w-full p-4 bg-bg-base border border-border-base rounded-2xl focus:ring-2 outline-none transition-all text-text-primary ${ (field.type === 'date' || field.type === 'time') ? 'pl-12' : '' }`}
-              style={{ '--tw-ring-color': fieldColor } as any}
-            />
+          <div className="relative space-y-2">
+            <div className="relative">
+              {field.type === 'date' && <Calendar size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary" />}
+              {field.type === 'time' && <Clock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary" />}
+              <input 
+                type={field.type === 'date' ? 'date' : field.type === 'time' ? 'time' : 'text'}
+                placeholder={field.placeholder}
+                value={formData[field.id] || ''}
+                onChange={(e) => updateData(field.id, e.target.value)}
+                className={`w-full p-4 bg-bg-base border rounded-2xl focus:ring-2 outline-none transition-all text-text-primary ${ (field.type === 'date' || field.type === 'time') ? 'pl-12' : '' } ${hasError ? 'border-red-500 bg-red-50/30' : 'border-border-base'}`}
+                style={{ '--tw-ring-color': fieldColor } as any}
+              />
+            </div>
+            {hasError && <p className="text-[10px] text-red-500 font-bold ml-2">Este campo é obrigatório</p>}
           </div>
         );
       case 'textarea':
         return (
-          <textarea 
-            placeholder={field.placeholder}
-            onChange={(e) => updateData(field.id, e.target.value)}
-            className="w-full p-4 bg-bg-base border border-border-base rounded-2xl focus:ring-2 outline-none transition-all text-text-primary min-h-[120px] resize-none"
-            style={{ '--tw-ring-color': fieldColor } as any}
-          />
+          <div className="space-y-2">
+            <textarea 
+              placeholder={field.placeholder}
+              value={formData[field.id] || ''}
+              onChange={(e) => updateData(field.id, e.target.value)}
+              className={`w-full p-4 bg-bg-base border rounded-2xl focus:ring-2 outline-none transition-all text-text-primary min-h-[120px] resize-none ${hasError ? 'border-red-500 bg-red-50/30' : 'border-border-base'}`}
+              style={{ '--tw-ring-color': fieldColor } as any}
+            />
+            {hasError && <p className="text-[10px] text-red-500 font-bold ml-2">Este campo é obrigatório</p>}
+          </div>
         );
       case 'dropdown':
         return (
-          <div className="relative">
-            <select 
-              onChange={(e) => updateData(field.id, e.target.value)}
-              className="w-full p-4 bg-bg-base border border-border-base rounded-2xl focus:ring-2 outline-none transition-all text-text-primary appearance-none"
-              style={{ '--tw-ring-color': fieldColor } as any}
-            >
-              <option value="">Selecione uma opção</option>
-              {field.options?.map((opt, i) => (
-                <option key={i} value={opt}>{opt}</option>
-              ))}
-            </select>
-            <ChevronDown size={20} className="absolute right-4 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none" />
+          <div className="space-y-2">
+            <div className="relative">
+              <select 
+                value={formData[field.id] || ''}
+                onChange={(e) => updateData(field.id, e.target.value)}
+                className={`w-full p-4 bg-bg-base border rounded-2xl focus:ring-2 outline-none transition-all text-text-primary appearance-none ${hasError ? 'border-red-500 bg-red-50/30' : 'border-border-base'}`}
+                style={{ '--tw-ring-color': fieldColor } as any}
+              >
+                <option value="">Selecione uma opção</option>
+                {field.options?.map((opt, i) => (
+                  <option key={i} value={opt}>{opt}</option>
+                ))}
+              </select>
+              <ChevronDown size={20} className="absolute right-4 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none" />
+            </div>
+            {hasError && <p className="text-[10px] text-red-500 font-bold ml-2">Este campo é obrigatório</p>}
           </div>
         );
       case 'file':
         return (
-          <label className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border-base rounded-2xl cursor-pointer hover:bg-bg-base/50 transition-colors ${uploadingField === field.id ? 'opacity-50 cursor-wait' : ''}`}>
-            <div className="flex flex-col items-center justify-center pt-5 pb-6">
-              {uploadingField === field.id ? (
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent mb-2" style={{ borderColor: fieldColor }} />
-              ) : (
-                <Upload size={24} className="text-text-secondary mb-2" />
-              )}
-              <p className="text-xs text-text-secondary">
-                {uploadingField === field.id ? 'Enviando...' : (formData[field.id] ? 'Arquivo selecionado' : 'Clique para enviar arquivo')}
-              </p>
-              {formData[field.id] && !uploadingField && (
-                <p className="text-[10px] text-success-base mt-1 font-bold">✓ Pronto</p>
-              )}
-            </div>
-            <input 
-              type="file" 
-              className="hidden" 
-              disabled={uploadingField === field.id}
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  try {
-                    setUploadingField(field.id);
-                    const fileExt = file.name.split('.').pop();
-                    const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
-                    const filePath = `submissions/${fileName}`;
-
-                    const { error: uploadError } = await supabase.storage
-                      .from('ativos')
-                      .upload(filePath, file);
-
-                    if (uploadError) throw uploadError;
-
-                    const { data: { publicUrl } } = supabase.storage
-                      .from('ativos')
-                      .getPublicUrl(filePath);
-
-                    updateData(field.id, publicUrl);
-                  } catch (err) {
-                    console.error('Erro no upload do arquivo:', err);
-                    // Fallback to filename if upload fails
-                    updateData(field.id, file.name);
-                  } finally {
-                    setUploadingField(null);
+          <div className="space-y-2">
+            <label className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-2xl cursor-pointer hover:bg-bg-base/50 transition-colors ${uploadingField === field.id ? 'opacity-50 cursor-wait' : ''} ${hasError ? 'border-red-500 bg-red-50/30' : 'border-border-base'}`}>
+              <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                {uploadingField === field.id ? (
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent mb-2" style={{ borderColor: fieldColor }} />
+                ) : (
+                  <Upload size={24} className={hasError ? "text-red-500 mb-2" : "text-text-secondary mb-2"} />
+                )}
+                <p className={`text-xs ${hasError ? 'text-red-500' : 'text-text-secondary'}`}>
+                  {uploadingField === field.id ? 'Enviando...' : (formData[field.id] ? 'Arquivo selecionado' : 'Clique para enviar arquivo')}
+                </p>
+                {formData[field.id] && !uploadingField && (
+                  <p className="text-[10px] text-success-base mt-1 font-bold">✓ Pronto</p>
+                )}
+              </div>
+              <input 
+                type="file" 
+                className="hidden" 
+                disabled={uploadingField === field.id}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    try {
+                      setUploadingField(field.id);
+                      const fileExt = file.name.split('.').pop();
+                      const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
+                      const filePath = `submissions/${fileName}`;
+  
+                      const { error: uploadError } = await supabase.storage
+                        .from('ativos')
+                        .upload(filePath, file);
+  
+                      if (uploadError) throw uploadError;
+  
+                      const { data: { publicUrl } } = supabase.storage
+                        .from('ativos')
+                        .getPublicUrl(filePath);
+  
+                      updateData(field.id, publicUrl);
+                    } catch (err) {
+                      console.error('Erro no upload do arquivo:', err);
+                      // Fallback to filename if upload fails
+                      updateData(field.id, file.name);
+                    } finally {
+                      setUploadingField(null);
+                    }
                   }
-                }
-              }} 
-            />
-          </label>
+                }} 
+              />
+            </label>
+            {hasError && <p className="text-[10px] text-red-500 font-bold ml-2">O envio de arquivo é obrigatório</p>}
+          </div>
         );
       case 'scale':
         return (
           <div className="space-y-4">
-            <div className="flex justify-between px-2">
+            <div className={`flex justify-between px-2 p-2 rounded-3xl transition-all ${hasError ? 'bg-red-50/50 ring-1 ring-red-200' : ''}`}>
               {[1, 2, 3, 4, 5].map(val => (
                 <button 
                   key={val}
@@ -280,6 +343,7 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
               <span>Discordo</span>
               <span>Concordo</span>
             </div>
+            {hasError && <p className="text-[10px] text-red-500 font-bold ml-2">Por favor, selecione uma opção</p>}
           </div>
         );
       case 'radio':
@@ -301,14 +365,14 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
                 className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all text-left ${
                   (field.type === 'radio' ? formData[field.id] === opt : formData[field.id]?.includes(opt))
                     ? 'bg-accent/5'
-                    : 'bg-surface border-border-base'
+                    : `bg-surface ${hasError ? 'border-red-200' : 'border-border-base'}`
                 }`}
                 style={{ borderColor: (field.type === 'radio' ? formData[field.id] === opt : formData[field.id]?.includes(opt)) ? fieldColor : undefined }}
               >
                 <div 
                   className={`size-6 rounded-${field.type === 'radio' ? 'full' : 'md'} border-2 flex items-center justify-center transition-all`}
                   style={{ 
-                    borderColor: (field.type === 'radio' ? formData[field.id] === opt : formData[field.id]?.includes(opt)) ? fieldColor : 'var(--color-border-base)',
+                    borderColor: (field.type === 'radio' ? formData[field.id] === opt : formData[field.id]?.includes(opt)) ? fieldColor : (hasError ? '#f87171' : 'var(--color-border-base)'),
                     backgroundColor: (field.type === 'radio' ? formData[field.id] === opt : formData[field.id]?.includes(opt)) ? fieldColor : 'transparent'
                   }}
                 >
@@ -321,72 +385,84 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
                 <span className="font-bold text-text-primary">{renderText(opt)}</span>
               </button>
             ))}
+            {hasError && <p className="text-[10px] text-red-500 font-bold ml-2">Selecione pelo menos uma opção</p>}
           </div>
         );
       case 'rating':
         return (
-          <div className="flex justify-center gap-2">
-            {[1, 2, 3, 4, 5].map((val) => (
-              <button 
-                key={val}
-                onClick={() => updateData(field.id, val)}
-                className={`size-12 rounded-xl flex items-center justify-center transition-all ${formData[field.id] >= val ? 'text-white' : 'text-text-secondary bg-bg-base'}`}
-                style={{ backgroundColor: formData[field.id] >= val ? fieldColor : undefined }}
-              >
-                <Star size={24} fill={formData[field.id] >= val ? 'currentColor' : 'none'} />
-              </button>
-            ))}
+          <div className="space-y-4 text-center">
+            <div className={`flex justify-center gap-2 p-2 rounded-2xl ${hasError ? 'bg-red-50/50' : ''}`}>
+              {[1, 2, 3, 4, 5].map((val) => (
+                <button 
+                  key={val}
+                  onClick={() => updateData(field.id, val)}
+                  className={`size-12 rounded-xl flex items-center justify-center transition-all ${formData[field.id] >= val ? 'text-white' : 'text-text-secondary bg-bg-base'}`}
+                  style={{ backgroundColor: formData[field.id] >= val ? fieldColor : undefined }}
+                >
+                  <Star size={24} fill={formData[field.id] >= val ? 'currentColor' : 'none'} />
+                </button>
+              ))}
+            </div>
+            {hasError && <p className="text-[10px] text-red-500 font-bold">Por favor, escolha uma avaliação</p>}
           </div>
         );
       case 'grid-radio':
       case 'grid-checkbox':
         return (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr>
-                  <th className="p-2"></th>
-                  {field.columns?.map(col => (
-                    <th key={col} className="p-2 text-text-secondary font-bold">{col}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {field.rows?.map(row => (
-                  <tr key={row} className="border-t border-border-base">
-                    <td className="p-2 font-bold text-text-primary">{row}</td>
+          <div className="space-y-2">
+            <div className={`overflow-x-auto rounded-2xl ${hasError ? 'ring-1 ring-red-200 bg-red-50/10' : ''}`}>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr>
+                    <th className="p-2"></th>
                     {field.columns?.map(col => (
-                      <td key={col} className="p-2 text-center">
-                        <button 
-                          onClick={() => {
-                            const current = formData[field.id] || {};
-                            if (field.type === 'grid-radio') {
-                              updateData(field.id, { ...current, [row]: col });
-                            } else {
-                              const rowData = current[row] || [];
-                              const next = rowData.includes(col) ? rowData.filter((c: string) => c !== col) : [...rowData, col];
-                              updateData(field.id, { ...current, [row]: next });
-                            }
-                          }}
-                          className={`size-6 rounded-${field.type === 'grid-radio' ? 'full' : 'md'} border-2 mx-auto transition-all flex items-center justify-center`}
-                          style={{ 
-                            borderColor: (field.type === 'grid-radio' ? formData[field.id]?.[row] === col : formData[field.id]?.[row]?.includes(col)) ? fieldColor : 'var(--color-border-base)',
-                            backgroundColor: (field.type === 'grid-radio' ? formData[field.id]?.[row] === col : formData[field.id]?.[row]?.includes(col)) ? fieldColor : 'transparent'
-                          }}
-                        >
-                          {(field.type === 'grid-checkbox' && formData[field.id]?.[row]?.includes(col)) && <CheckCircle2 size={12} className="text-white" />}
-                          {(field.type === 'grid-radio' && formData[field.id]?.[row] === col) && <div className="size-2 bg-white rounded-full" />}
-                        </button>
-                      </td>
+                      <th key={col} className="p-2 text-text-secondary font-bold">{col}</th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {field.rows?.map(row => (
+                    <tr key={row} className="border-t border-border-base">
+                      <td className={`p-2 font-bold ${hasError && !formData[field.id]?.[row] ? 'text-red-500' : 'text-text-primary'}`}>{row}</td>
+                      {field.columns?.map(col => (
+                        <td key={col} className="p-2 text-center">
+                          <button 
+                            onClick={() => {
+                              const current = formData[field.id] || {};
+                              if (field.type === 'grid-radio') {
+                                updateData(field.id, { ...current, [row]: col });
+                              } else {
+                                const rowData = current[row] || [];
+                                const next = rowData.includes(col) ? rowData.filter((c: string) => c !== col) : [...rowData, col];
+                                updateData(field.id, { ...current, [row]: next });
+                              }
+                            }}
+                            className={`size-6 rounded-${field.type === 'grid-radio' ? 'full' : 'md'} border-2 mx-auto transition-all flex items-center justify-center`}
+                            style={{ 
+                              borderColor: (field.type === 'grid-radio' ? formData[field.id]?.[row] === col : formData[field.id]?.[row]?.includes(col)) ? fieldColor : (hasError && !formData[field.id]?.[row] ? '#f87171' : 'var(--color-border-base)'),
+                              backgroundColor: (field.type === 'grid-radio' ? formData[field.id]?.[row] === col : formData[field.id]?.[row]?.includes(col)) ? fieldColor : 'transparent'
+                            }}
+                          >
+                            {(field.type === 'grid-checkbox' && formData[field.id]?.[row]?.includes(col)) && <CheckCircle2 size={12} className="text-white" />}
+                            {(field.type === 'grid-radio' && formData[field.id]?.[row] === col) && <div className="size-2 bg-white rounded-full" />}
+                          </button>
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {hasError && <p className="text-[10px] text-red-500 font-bold ml-2">Todas as linhas são obrigatórias</p>}
           </div>
         );
       case 'signature':
-        return <SignaturePad onSave={(data) => updateData(field.id, data)} color={fieldColor} />;
+        return (
+          <div className="space-y-2">
+            <SignaturePad onSave={(data) => updateData(field.id, data)} color={fieldColor} />
+            {hasError && <p className="text-[10px] text-red-500 font-bold ml-2 text-center">A assinatura é obrigatória</p>}
+          </div>
+        );
       default:
         return <div className="p-4 bg-red-50 text-red-500 rounded-xl">Campo não implementado: {field.type}</div>;
     }
