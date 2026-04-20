@@ -334,7 +334,7 @@ export const DashboardScreen = ({
                               {link.expires_at && !expired && !(link.status === 'completed' && !link.content) && (
                                 <span className="text-[10px] text-text-secondary flex items-center gap-1">
                                   <Clock size={10} />
-                                  Expira em {new Date(link.expires_at).toLocaleString()}
+                                  Expira em {new Date(link.expires_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })} (Local)
                                 </span>
                               )}
                             </div>
@@ -390,7 +390,7 @@ export const DashboardScreen = ({
                                 <span className="w-fit px-1.5 py-0.5 bg-red-600 text-[8px] text-white font-black uppercase rounded tracking-tighter">Acesso Único</span>
                               )}
                               {req.expires_at && !expired && (
-                                <p className="text-[10px] text-accent font-medium">Expira em {new Date(req.expires_at).toLocaleString()}</p>
+                                <p className="text-[10px] text-accent font-medium">Expira em {new Date(req.expires_at).toLocaleString('pt-BR')} (Local)</p>
                               )}
                             </div>
                           </div>
@@ -502,6 +502,9 @@ export const DashboardScreen = ({
                       </li>
                       <li className="flex items-center gap-2 text-xs text-text-primary">
                         <Check size={14} className="text-success-base" /> Seguro: Criptografia de nível militar
+                      </li>
+                      <li className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">
+                        <Timer size={14} /> Fuso Horário: O banco de dados utiliza UTC (+00), mas a sua dashboard converte automaticamente para o seu horário local (UTC-3).
                       </li>
                     </ul>
                   </div>
