@@ -22,12 +22,24 @@ export const ViewSecret = ({ id, onBack }: ViewSecretProps) => {
   const [showPassword, setShowPassword] = useState(false);
   const [unlockError, setUnlockError] = useState<string | null>(null);
   const [showConfirmBurn, setShowConfirmBurn] = useState(false);
+  const [userIp, setUserIp] = useState<string>('');
+  const [isVerifyingSecurity, setIsVerifyingSecurity] = useState(true);
   const { showNotification } = useNotification();
 
   const [showRawSecret, setShowRawSecret] = useState(false);
 
   useEffect(() => {
-    fetchSecret();
+    const init = async () => {
+      try {
+        const res = await fetch('https://api.ipify.org?format=json');
+        const data = await res.json();
+        setUserIp(data.ip);
+      } catch (e) {
+        console.error('Erro ao obter IP:', e);
+      }
+      fetchSecret();
+    };
+    init();
   }, [id]);
 
   const fetchSecret = async () => {
@@ -65,6 +77,26 @@ export const ViewSecret = ({ id, onBack }: ViewSecretProps) => {
         }
 
         setSecret(data);
+
+        // --- VERIFICAÇÕES DE SEGURANÇA AVANÇADA ---
+        
+        // 1. Restrição de IP
+        if (data.restrict_ip && data.creator_ip && data.creator_ip !== userIp) {
+            setError('Acesso negado: Este link está restrito a um endereço IP específico.');
+            setLoading(false);
+            return;
+        }
+
+        // 2. Exigir Verificação por E-mail
+        if (data.require_email) {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                setError('Acesso restrito: Você precisa estar logado para visualizar este conteúdo.');
+                setLoading(false);
+                return;
+            }
+        }
+
         if (!data.password) {
           const maxViews = data.max_views !== null ? Number(data.max_views) : null;
           const isOneTime = maxViews === 1 || data.expiration === 'Acesso único';

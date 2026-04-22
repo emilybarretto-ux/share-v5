@@ -129,6 +129,10 @@ export default function App() {
   const [password, setPassword] = useState('');
   const [referenceName, setReferenceName] = useState('');
   const [isCreatingSecret, setIsCreatingSecret] = useState(false);
+  const [restrictIp, setRestrictIp] = useState(false);
+  const [requireEmail, setRequireEmail] = useState(false);
+  const [notifyAccess, setNotifyAccess] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   // --- ESTADOS DE AUTH ---
   const [loginEmail, setLoginEmail] = useState('');
@@ -549,6 +553,37 @@ export default function App() {
       const passwordHashed = hashPassword(password);
       const isOneTime = expiration.includes('Acesso único');
 
+      let fileUrl = '';
+      let creatorIp = '';
+
+      if (restrictIp) {
+        try {
+          const res = await fetch('https://api.ipify.org?format=json');
+          const ipData = await res.json();
+          creatorIp = ipData.ip;
+        } catch (e) {
+          console.error('Falha ao obter IP para restrição:', e);
+        }
+      }
+
+      if (selectedFile) {
+        const fileExt = selectedFile.name.split('.').pop();
+        const fileName = `${Math.random()}.${fileExt}`;
+        const filePath = `${user?.id || 'anonymous'}/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('secrets-files')
+          .upload(filePath, selectedFile);
+
+        if (uploadError) throw uploadError;
+        
+        const { data: { publicUrl } } = supabase.storage
+          .from('secrets-files')
+          .getPublicUrl(filePath);
+          
+        fileUrl = publicUrl;
+      }
+
       // Criptografar pares chave-valor se existirem
       let encryptedKeyValues: any = null;
       if (validPairs.length > 0) {
@@ -564,7 +599,12 @@ export default function App() {
         expires_at: isOneTime ? null : expiresAt.toISOString(),
         max_views: isOneTime ? 1 : (limitViews ? maxViews : null),
         status: 'active',
-        user_id: user?.id
+        user_id: user?.id,
+        restrict_ip: restrictIp,
+        require_email: requireEmail,
+        notify_access: notifyAccess,
+        file_url: fileUrl,
+        creator_ip: creatorIp
       }]).select();
 
       if (error) throw error;
@@ -744,6 +784,10 @@ export default function App() {
                 password={password} setPassword={setPassword} referenceName={referenceName} setReferenceName={setReferenceName}
                 handleCreateSecret={handleCreateSecret} setScreen={setScreen as any}
                 isCreating={isCreatingSecret}
+                restrictIp={restrictIp} setRestrictIp={setRestrictIp}
+                requireEmail={requireEmail} setRequireEmail={setRequireEmail}
+                notifyAccess={notifyAccess} setNotifyAccess={setNotifyAccess}
+                selectedFile={selectedFile} setSelectedFile={setSelectedFile}
               />
             </motion.div>
           )}

@@ -11,6 +11,9 @@ export interface SharedLink {
   password?: string;
   max_views?: number | null;
   key_values?: Array<{ key: string, value: string }>;
+  restrict_ip?: boolean;
+  require_email?: boolean;
+  notify_access?: boolean;
 }
 
 export interface DataRequest {
