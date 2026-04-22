@@ -47,8 +47,9 @@ export const ViewSecret = ({ id, onBack }: ViewSecretProps) => {
 
   const fetchSecret = async (currentIp: string) => {
     setLoading(true);
+    setError(null);
     try {
-      console.log('🔍 Iniciando verificação de segurança para o ID:', id);
+      console.log('🔍 Verificação de segurança iniciada para:', id);
       const { data, error: fetchError } = await supabase
         .from('secrets')
         .select('*')
@@ -56,45 +57,49 @@ export const ViewSecret = ({ id, onBack }: ViewSecretProps) => {
         .single();
 
       if (fetchError || !data) {
-        setError('Este link não existe mais ou foi removido.');
+        setError('Este link não existe mais ou foi removido permanentemente.');
         setLoading(false);
         return;
       }
 
-      setSecret(data);
+      // --- TRAVA ZERO: ACESSO JÁ ENCERRADO (Incinerado ou Limite atingido) ---
+      const maxViews = data.max_views !== null ? Number(data.max_views) : null;
+      const currentViews = Number(data.views || 0);
+      const isActuallyCompleted = data.status === 'completed' || (maxViews !== null && currentViews >= maxViews);
 
-      // 0. VERIFICAÇÃO DE EXPIRAÇÃO POR TEMPO
+      if (isActuallyCompleted) {
+          console.warn('🚫 [ViewSecret] Link já incinerado detectado.');
+          setError('Este segredo já foi incinerado permanentemente por limite de acessos ou ação do criador.');
+          
+          // Limpeza redundante se ainda houver conteúdo (segurança extra)
+          if (data.content) {
+            supabase.from('secrets').update({ status: 'completed', content: '', password: '', key_values: null }).eq('id', id).then(() => {});
+          }
+          setLoading(false);
+          return;
+      }
+
+      // --- TRAVA ZERO.1: EXPIRAÇÃO POR TEMPO ---
       if (data.expires_at) {
         const expiresDate = new Date(data.expires_at);
         if (expiresDate < new Date()) {
           console.warn('🚫 [ViewSecret] Link expirado por tempo.');
-          
-          // Tenta marcar como completado se ainda não estiver
-          if (data.status !== 'completed') {
-            await supabase.from('secrets').update({ status: 'completed', content: '', password: '', key_values: null }).eq('id', id);
-          }
-          
           setError('Este link expirou devido ao prazo de validade definido pelo criador.');
+          
+          if (data.status !== 'completed') {
+            supabase.from('secrets').update({ status: 'completed', content: '', password: '', key_values: null }).eq('id', id).then(() => {});
+          }
           setLoading(false);
           return;
         }
       }
 
-      // 0.1 VERIFICAÇÃO DE LIMITE DE ACESSOS (Caso já tenha sido atingido)
-      const maxViews = data.max_views !== null ? Number(data.max_views) : null;
-      if (maxViews !== null && data.views >= maxViews) {
-        console.warn('🚫 [ViewSecret] Limite de visualizações atingido.');
-        setError('Este link atingiu o limite máximo de visualizações e foi incinerado.');
-        setLoading(false);
-        return;
-      }
+      setSecret(data);
 
-      // 1. Log de Auditoria Primário (Útil para depuração)
-      console.log('🔍 [ViewSecret] Dados brutos do banco:', {
-        id,
+      // 1. Log de Auditoria
+      console.log('🔍 [ViewSecret] Próximas travas:', {
         require_email: data.require_email,
-        restrict_ip: data.restrict_ip,
-        creator_ip: data.creator_ip
+        restrict_ip: data.restrict_ip
       });
 
       // Conversão robusta de booleano (aceita true, 'true', 1, '1')
@@ -126,17 +131,6 @@ export const ViewSecret = ({ id, onBack }: ViewSecretProps) => {
       }
 
       // Se passou pelas travas, agora verificamos o acesso/desbloqueio
-      if (data.status === 'completed' || (data.max_views !== null && data.views >= data.max_views)) {
-          setError('Este segredo já foi incinerado permanentemente por limite de acessos ou ação do criador.');
-          setLoading(false);
-          
-          // Limpeza redundante (Segurança extra)
-          if (data.status !== 'completed' || data.content) {
-            supabase.from('secrets').update({ status: 'completed', content: '', password: '', key_values: null }).eq('id', id).then(() => {});
-          }
-          return;
-      }
-
       if (data.password) {
         console.log('🔑 [ViewSecret] Link protegido por senha. Aguardando entrada do usuário...');
       } else {
