@@ -148,6 +148,15 @@ export default function App() {
   const [requests, setRequests] = useState<DataRequest[]>([]);
   const [forms, setForms] = useState<any[]>([]);
   const [dashboardTab, setDashboardTab] = useState<'links' | 'requests' | 'forms' | 'security'>('links');
+
+  // Limpeza de estado quando o usuário muda (segurança extra)
+  useEffect(() => {
+    if (!user) {
+      setLinks([]);
+      setRequests([]);
+      setForms([]);
+    }
+  }, [user]);
   const [copied, setCopied] = useState(false);
   const [lastCreatedId, setLastCreatedId] = useState('');
   const [qrVisible, setQrVisible] = useState(false);
@@ -361,12 +370,25 @@ export default function App() {
     initializeAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('🔔 Evento de Auth:', event, session?.user?.email);
+      
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        if (session?.user) {
+          setUser(session.user);
+          // Limpamos os dados antes de recarregar para garantir isolamento
+          setLinks([]);
+          setRequests([]);
+          setForms([]);
+        }
         initializeAuth();
-      } else if (event === 'SIGNED_OUT') {
+      } else if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
         setUser(null);
+        setLinks([]);
+        setRequests([]);
+        setForms([]);
         setScreen('home');
         isInitializingRef.current = false;
+        localStorage.removeItem('app_screen');
       }
     });
 
@@ -389,6 +411,7 @@ export default function App() {
 
   const fetchLinks = async () => {
     if (!user) return;
+    console.log(`🔍 [DEBUG] Buscando links para: ${user.email} (${user.id})`);
     const { data, error } = await supabase
       .from('secrets')
       .select('*')
@@ -926,8 +949,10 @@ export default function App() {
             />
           )}
 
-          {screen === 'dashboard' && (
+          {screen === 'dashboard' && user && (
             <DashboardScreen 
+              key={`dashboard-${user.id}`}
+              userEmail={user.email || ''}
               links={links} requests={requests} forms={forms}
               dashboardTab={dashboardTab} setDashboardTab={setDashboardTab}
               fetchLinks={fetchLinks} fetchRequests={fetchRequests} fetchForms={fetchForms}

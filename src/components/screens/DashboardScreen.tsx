@@ -10,6 +10,7 @@ import { useNotification } from '../shared/NotificationProvider';
 
 interface DashboardScreenProps {
   key?: string;
+  userEmail: string;
   links: SharedLink[];
   requests: DataRequest[];
   forms: any[];
@@ -25,6 +26,7 @@ interface DashboardScreenProps {
 }
 
 export const DashboardScreen = ({
+  userEmail,
   links, requests, forms, dashboardTab, setDashboardTab,
   fetchLinks, fetchRequests, fetchForms, copied, setCopied, setScreen, handleCopy
 }: DashboardScreenProps) => {
@@ -233,6 +235,23 @@ export const DashboardScreen = ({
       className="flex-1 overflow-y-auto p-6 md:p-8 bg-bg-base"
     >
       <div className="max-w-5xl mx-auto space-y-8">
+        {/* User Profile Header */}
+        <div className="flex items-center justify-between pb-4 border-b border-border-base/50">
+          <div className="flex items-center gap-3">
+            <div className="size-12 rounded-2xl bg-accent/10 flex items-center justify-center text-accent">
+              <Mail size={24} />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-text-secondary uppercase tracking-widest">Sessão Ativa</p>
+              <h2 className="text-lg font-bold text-text-primary">{userEmail}</h2>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 px-3 py-1 bg-success-base/10 text-success-base rounded-full">
+            <div className="size-2 bg-success-base rounded-full animate-pulse" />
+            <span className="text-[10px] font-black uppercase tracking-wider">Conectado</span>
+          </div>
+        </div>
+
         {/* Header Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-surface p-6 rounded-panel border border-border-base shadow-sm">
