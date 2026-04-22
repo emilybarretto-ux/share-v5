@@ -13,6 +13,7 @@ interface ViewSecretProps {
   onBack: () => void;
 }
 
+
 export const ViewSecret = ({ id, onBack }: ViewSecretProps) => {
   const [loading, setLoading] = useState(true);
   const [secret, setSecret] = useState<any>(null);
