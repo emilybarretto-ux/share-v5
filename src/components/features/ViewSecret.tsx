@@ -180,7 +180,16 @@ const incrementViews = async () => {
         .update(updatePayload)
         .eq('id', id);
           
-      if (updateErr) throw updateErr;
+      if (updateErr) {
+        console.warn('⚠️ Falha ao atualizar status, tentando apenas limpar conteúdo...', updateErr.message);
+        // Fallback: Tenta limpar o conteúdo mesmo que o status falhe (evita erro de constraint)
+        const { error: fallbackErr } = await supabase
+          .from('secrets')
+          .update({ content: '', password: '', key_values: null })
+          .eq('id', id);
+        
+        if (fallbackErr) throw fallbackErr;
+      }
 
     } catch (e: any) {
       console.error('❌ [ViewSecret] Erro na incineração de segurança:', e.message);
