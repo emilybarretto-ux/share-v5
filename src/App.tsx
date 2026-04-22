@@ -591,6 +591,13 @@ export default function App() {
         encryptedKeyValues = encryptData(kvPayload, password);
       }
 
+      console.log('🚀 Criando segredo com as seguintes configurações:', {
+        restrictIp,
+        requireEmail,
+        notifyAccess,
+        creatorIp
+      });
+
       const { data, error } = await supabase.from('secrets').insert([{
         name: referenceName || 'Segredo sem nome',
         content: encryptedContent,
@@ -905,6 +912,7 @@ export default function App() {
             <SuccessScreen 
               generatedLinkId={lastCreatedId} qrVisible={qrVisible} setQrVisible={setQrVisible}
               copied={copied} handleCopy={() => handleCopy()} setScreen={setScreen as any}
+              restrictIp={restrictIp} requireEmail={requireEmail}
             />
           )}
 

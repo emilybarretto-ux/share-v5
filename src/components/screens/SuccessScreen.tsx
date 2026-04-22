@@ -12,10 +12,13 @@ interface SuccessScreenProps {
   copied: boolean;
   handleCopy: () => void;
   setScreen: (s: Screen) => void;
+  restrictIp?: boolean;
+  requireEmail?: boolean;
 }
 
 export const SuccessScreen = ({
-  generatedLinkId, qrVisible, setQrVisible, copied, handleCopy, setScreen
+  generatedLinkId, qrVisible, setQrVisible, copied, handleCopy, setScreen,
+  restrictIp = false, requireEmail = false
 }: SuccessScreenProps) => (
   <motion.div 
     key="success"
@@ -104,8 +107,22 @@ export const SuccessScreen = ({
     </div>
 
     <footer className="mt-12 text-center">
+      <div className="flex flex-wrap justify-center gap-2 mb-4">
+        {requireEmail && (
+          <div className="flex items-center gap-1.5 px-3 py-1 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-full text-[10px] font-black uppercase tracking-wider border border-blue-500/20">
+            <Mail size={12} />
+            Identificação Obrigatória
+          </div>
+        )}
+        {restrictIp && (
+          <div className="flex items-center gap-1.5 px-3 py-1 bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded-full text-[10px] font-black uppercase tracking-wider border border-purple-500/20">
+            <Globe size={12} />
+            IP Restrito
+          </div>
+        )}
+      </div>
       <p className="text-slate-500 dark:text-slate-600 text-xs font-medium tracking-wide">
-        Expiração em 7 dias • Proteção por Credencial • Sigilo Absoluto
+        Segurança Nível Militar • Criptografia End-to-End • Sigilo Absoluto
       </p>
     </footer>
   </motion.div>

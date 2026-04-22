@@ -244,32 +244,41 @@ export const HomeScreen = ({
               <div className="space-y-4">
                 <p className="text-[10px] font-black text-text-secondary uppercase tracking-[0.2em] opacity-60">Controle de Acesso</p>
                 <div className="space-y-4">
-                  <label className="flex items-center gap-4 cursor-pointer group/opt">
+                  <button 
+                    type="button"
+                    onClick={() => setRestrictIp(!restrictIp)}
+                    className="flex items-center gap-4 cursor-pointer group/opt w-full text-left"
+                  >
                     <div className={`size-6 rounded-lg border-2 flex items-center justify-center transition-all ${restrictIp ? 'bg-accent border-accent' : 'border-border-base bg-bg-base'}`}>
                       {restrictIp && <Check size={14} className="text-white" strokeWidth={4} />}
-                      <input type="checkbox" checked={restrictIp} onChange={(e) => setRestrictIp(e.target.checked)} className="hidden" />
                     </div>
                     <span className="text-sm font-bold text-text-secondary group-hover/opt:text-text-primary transition-colors">Restrição por endereço IP</span>
-                  </label>
-                  <label className="flex items-center gap-4 cursor-pointer group/opt">
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => setRequireEmail(!requireEmail)}
+                    className="flex items-center gap-4 cursor-pointer group/opt w-full text-left"
+                  >
                     <div className={`size-6 rounded-lg border-2 flex items-center justify-center transition-all ${requireEmail ? 'bg-accent border-accent' : 'border-border-base bg-bg-base'}`}>
                       {requireEmail && <Check size={14} className="text-white" strokeWidth={4} />}
-                      <input type="checkbox" checked={requireEmail} onChange={(e) => setRequireEmail(e.target.checked)} className="hidden" />
                     </div>
                     <span className="text-sm font-bold text-text-secondary group-hover/opt:text-text-primary transition-colors">Exigir verificação por e-mail</span>
-                  </label>
+                  </button>
                 </div>
               </div>
               <div className="space-y-4">
                 <p className="text-[10px] font-black text-text-secondary uppercase tracking-[0.2em] opacity-60">Uso e Limites</p>
                 <div className="space-y-4">
-                  <label className="flex items-center gap-4 cursor-pointer group/opt">
+                  <button 
+                    type="button"
+                    onClick={() => setNotifyAccess(!notifyAccess)}
+                    className="flex items-center gap-4 cursor-pointer group/opt w-full text-left"
+                  >
                     <div className={`size-6 rounded-lg border-2 flex items-center justify-center transition-all ${notifyAccess ? 'bg-accent border-accent' : 'border-border-base bg-bg-base'}`}>
                       {notifyAccess && <Check size={14} className="text-white" strokeWidth={4} />}
-                      <input type="checkbox" checked={notifyAccess} onChange={(e) => setNotifyAccess(e.target.checked)} className="hidden" />
                     </div>
                     <span className="text-sm font-bold text-text-secondary group-hover/opt:text-text-primary transition-colors">Notificação por e-mail ao acessar</span>
-                  </label>
+                  </button>
                 </div>
               </div>
             </div>

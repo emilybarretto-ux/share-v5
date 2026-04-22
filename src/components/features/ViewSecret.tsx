@@ -61,34 +61,41 @@ export const ViewSecret = ({ id, onBack }: ViewSecretProps) => {
       }
 
       setSecret(data);
-      console.log('📦 Dados do segredo carregados. Configurações de segurança:', {
-        restrict_ip: data.restrict_ip,
+
+      // 1. Log de Auditoria Primário (Útil para depuração)
+      console.log('🔍 [ViewSecret] Dados brutos do banco:', {
+        id,
         require_email: data.require_email,
-        has_password: !!data.password
+        restrict_ip: data.restrict_ip,
+        creator_ip: data.creator_ip
       });
 
-      // --- VERIFICAÇÕES DE SEGURANÇA AVANÇADA ---
-      
-      // 1. Restrição de IP (Usando o IP atual passado por argumento para evitar delay de estado)
-      if (data.restrict_ip && data.creator_ip) {
-          if (data.creator_ip !== currentIp) {
-              console.warn('🚫 Bloqueio por IP: IP do criador não coincide.', { creator: data.creator_ip, viewer: currentIp });
-              setError('Acesso negado: Este link está restrito a um endereço IP específico e você está em uma rede diferente.');
+      // Conversão robusta de booleano (aceita true, 'true', 1, '1')
+      const isIpRestricted = data.restrict_ip === true || data.restrict_ip === 'true' || data.restrict_ip === 1;
+      const isEmailRequired = data.require_email === true || data.require_email === 'true' || data.require_email === 1;
+
+      // --- TRAVA 1: RESTRIÇÃO DE IP (Antes de qualquer coisa) ---
+      if (isIpRestricted && data.creator_ip) {
+          if (data.creator_ip.trim() !== currentIp.trim()) {
+              console.warn('🚫 [ViewSecret] Bloqueio por IP detectado.');
+              setError('Acesso negado: Este link está restrito a um endereço IP específico.');
               setLoading(false);
               return;
           }
       }
 
-      // 2. Exigir Autenticação por E-mail
-      if (data.require_email) {
-          const { data: { user: authUser } } = await supabase.auth.getUser();
-          if (!authUser) {
-              console.warn('🚫 Bloqueio por E-mail: Usuário não autenticado.');
-              setError('Verificação Obrigatória: Este conteúdo exige que você esteja logado no sistema para garantir a trilha de auditoria.');
+      // --- TRAVA 2: EXIGIR E-MAIL (Antes de pedir senha) ---
+      if (isEmailRequired) {
+          console.log('🔐 [ViewSecret] Este segredo exige identificação. Verificando sessão...');
+          const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+          
+          if (authError || !authUser) {
+              console.warn('🚫 [ViewSecret] Bloqueio por E-mail: Usuário NÃO autenticado.');
+              setError('Verificação Obrigatória: O criador deste link exige que você esteja logado para acessar. Por favor, faça login e tente acessar o link novamente.');
               setLoading(false);
               return;
           }
-          console.log('✅ Usuário autenticado verificado:', authUser.email);
+          console.log('✅ [ViewSecret] Usuário autenticado:', authUser.email);
       }
 
       // Se passou pelas travas, agora verificamos o acesso/desbloqueio
@@ -98,17 +105,19 @@ export const ViewSecret = ({ id, onBack }: ViewSecretProps) => {
           return;
       }
 
-        if (!data.password) {
-          const maxViews = data.max_views !== null ? Number(data.max_views) : null;
-          const isOneTime = maxViews === 1 || data.expiration === 'Acesso único';
-          
-          if (isOneTime) {
-            setShowConfirmBurn(true);
-          } else {
-            setIsUnlocked(true);
-            incrementViews();
-          }
+      if (data.password) {
+        console.log('🔑 [ViewSecret] Link protegido por senha. Aguardando entrada do usuário...');
+      } else {
+        const maxViews = data.max_views !== null ? Number(data.max_views) : null;
+        const isOneTime = maxViews === 1 || data.expiration === 'Acesso único';
+        
+        if (isOneTime) {
+          setShowConfirmBurn(true);
+        } else {
+          setIsUnlocked(true);
+          incrementViews();
         }
+      }
     } catch (err) {
       console.error('Erro ao buscar segredo:', err);
       setError('Erro ao carregar os dados. Tente novamente.');
@@ -371,8 +380,22 @@ const incrementViews = async () => {
             <p className="text-slate-500 text-xs font-medium">Visualizado agora • Criptografia de ponta-a-ponta</p>
           </div>
         </div>
-        <div className="px-3 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 text-[10px] font-bold rounded-full uppercase tracking-wider">
-          Seguro
+        <div className="flex flex-wrap gap-2">
+          {secret.require_email && (
+            <div className="px-3 py-1 bg-amber-50 dark:bg-amber-900/20 text-amber-600 text-[10px] font-bold rounded-full uppercase tracking-wider flex items-center gap-1 border border-amber-100 dark:border-amber-900/40">
+              <span className="size-1.5 bg-amber-600 rounded-full animate-pulse" />
+              E-mail Identificado
+            </div>
+          )}
+          {secret.restrict_ip && (
+            <div className="px-3 py-1 bg-purple-50 dark:bg-purple-900/20 text-purple-600 text-[10px] font-bold rounded-full uppercase tracking-wider flex items-center gap-1 border border-purple-100 dark:border-purple-900/40">
+              <ShieldCheck size={10} />
+              IP Restrito
+            </div>
+          )}
+          <div className="px-3 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 text-[10px] font-bold rounded-full uppercase tracking-wider border border-blue-100 dark:border-blue-900/40">
+            Seguro
+          </div>
         </div>
       </div>
 
