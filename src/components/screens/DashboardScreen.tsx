@@ -33,6 +33,7 @@ export const DashboardScreen = ({
   const [requestToBurn, setRequestToBurn] = React.useState<string | null>(null);
   const [incineratedIds, setIncineratedIds] = React.useState<Set<string>>(new Set());
   const [tempMemory, setTempMemory] = React.useState<Record<string, string>>({});
+  const [selectedLinkDetails, setSelectedLinkDetails] = React.useState<SharedLink | null>(null);
 
   const confirmRevealAndBurn = async () => {
     if (!requestToBurn) return;
@@ -305,6 +306,7 @@ export const DashboardScreen = ({
                     <tr className="text-[10px] font-black text-text-secondary uppercase tracking-widest bg-bg-base/30">
                       <th className="px-6 py-4">Arquivo / Link</th>
                       <th className="px-6 py-4">Status / Expiração</th>
+                      <th className="px-6 py-4">Último Acesso</th>
                       <th className="px-6 py-4 text-center">Acessos</th>
                       <th className="px-6 py-4 text-right">Ações</th>
                     </tr>
@@ -317,7 +319,6 @@ export const DashboardScreen = ({
                           <td className="px-6 py-4">
                             <div className="flex flex-col">
                               <span className={`text-sm font-bold ${expired ? 'text-text-secondary line-through' : 'text-text-primary'}`}>{link.name}</span>
-                              <span className="text-[10px] font-mono text-text-secondary">bld.sh/{link.id}</span>
                             </div>
                           </td>
                           <td className="px-6 py-4">
@@ -338,6 +339,19 @@ export const DashboardScreen = ({
                                 </span>
                               )}
                             </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            {link.views > 0 ? (
+                              <button 
+                                onClick={() => setSelectedLinkDetails(link)}
+                                className="flex items-center gap-2 px-3 py-1.5 bg-accent/5 hover:bg-accent/10 text-accent rounded-lg text-[10px] font-bold transition-all border border-accent/10"
+                              >
+                                <Eye size={12} />
+                                VER REGISTRO
+                              </button>
+                            ) : (
+                              <span className="text-[10px] text-text-secondary italic">Sem acessos</span>
+                            )}
                           </td>
                           <td className="px-6 py-4 text-center">
                             <span className="text-sm font-bold text-text-primary">{link.views}</span>
@@ -696,6 +710,94 @@ export const DashboardScreen = ({
                   className="w-full py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold rounded-2xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
                 >
                   Cancelar
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Link Details Modal (Auditoria) */}
+      <AnimatePresence>
+        {selectedLinkDetails && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-bg-base/90 backdrop-blur-md">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-surface w-full max-w-lg rounded-[2.5rem] border border-border-base shadow-2xl overflow-hidden"
+            >
+              <div className="p-8 border-b border-border-base bg-bg-base/30 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="size-12 rounded-2xl bg-accent text-white flex items-center justify-center shadow-lg shadow-accent/20">
+                    <ShieldCheck size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-text-primary">Auditoria de Acesso</h3>
+                    <p className="text-xs text-text-secondary uppercase font-bold tracking-wider">{selectedLinkDetails.name}</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setSelectedLinkDetails(null)}
+                  className="p-2 hover:bg-bg-base rounded-xl transition-colors text-text-secondary"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-8 space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 bg-bg-base rounded-2xl border border-border-base">
+                    <p className="text-[10px] font-black text-text-secondary uppercase mb-1">Total de Views</p>
+                    <p className="text-2xl font-black text-text-primary">{selectedLinkDetails.views}</p>
+                  </div>
+                  <div className="p-4 bg-bg-base rounded-2xl border border-border-base">
+                    <p className="text-[10px] font-black text-text-secondary uppercase mb-1">Status</p>
+                    <p className={`text-xs font-bold uppercase ${selectedLinkDetails.status === 'completed' ? 'text-amber-600' : 'text-success-base'}`}>
+                      {selectedLinkDetails.status === 'completed' ? 'Cumprido/Incin.' : 'Ativo'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="text-[10px] font-black text-text-secondary uppercase tracking-widest border-b border-border-base pb-2">Informações do Último Visualizador</h4>
+                  
+                  <div className="flex items-center justify-between p-4 bg-accent/5 rounded-2xl border border-accent/10">
+                    <div className="flex items-center gap-3">
+                      <div className="size-10 rounded-xl bg-accent text-white flex items-center justify-center">
+                        <Mail size={18} />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-accent uppercase">E-mail Identificado</p>
+                        <p className="text-sm font-bold text-text-primary">
+                          {selectedLinkDetails.last_viewer_email || 'Acesso Anônimo (Sem login)'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 bg-bg-base rounded-2xl border border-border-base">
+                    <div className="flex items-center gap-3">
+                      <div className="size-10 rounded-xl bg-text-secondary/10 text-text-secondary flex items-center justify-center">
+                        <Upload size={18} />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-text-secondary uppercase">Config. Original</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          {selectedLinkDetails.require_email && <span className="px-2 py-0.5 bg-success-base/10 text-success-base text-[8px] font-black rounded">LOGIN OBRIGATÓRIO</span>}
+                          {selectedLinkDetails.restrict_ip && <span className="px-2 py-0.5 bg-blue-600/10 text-blue-600 text-[8px] font-black rounded">IP RESTRITO</span>}
+                          {!selectedLinkDetails.require_email && !selectedLinkDetails.restrict_ip && <span className="text-[10px] text-text-secondary italic">Link Público</span>}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <button 
+                  onClick={() => setSelectedLinkDetails(null)}
+                  className="w-full py-4 bg-bg-base border border-border-base hover:bg-surface text-text-primary font-bold rounded-2xl transition-all"
+                >
+                  Fechar Registro
                 </button>
               </div>
             </motion.div>

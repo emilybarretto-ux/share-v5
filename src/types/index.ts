@@ -14,6 +14,8 @@ export interface SharedLink {
   restrict_ip?: boolean;
   require_email?: boolean;
   notify_access?: boolean;
+  last_viewer_email?: string | null;
+  creator_ip?: string | null;
 }
 
 export interface DataRequest {

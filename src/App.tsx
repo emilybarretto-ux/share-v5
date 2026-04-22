@@ -388,12 +388,23 @@ export default function App() {
   // --- FUNÇÕES DE NEGÓCIO ---
 
   const fetchLinks = async () => {
-    const { data, error } = await supabase.from('secrets').select('*').order('created_at', { ascending: false });
+    if (!user) return;
+    const { data, error } = await supabase
+      .from('secrets')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
     if (!error && data) setLinks(data);
   };
 
   const fetchRequests = async () => {
-    const { data, error } = await supabase.from('requests').select('*').order('created_at', { ascending: false });
+    if (!user) return;
+    const { data, error } = await supabase
+      .from('requests')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+    
     if (!error && data) {
       // Auto-incineração de solicitações expiradas por tempo
       const now = new Date();
@@ -410,7 +421,11 @@ export default function App() {
           .in('id', expiredIds);
         
         // Refetch para garantir que a UI mostre os dados atualizados
-        const { data: updatedData } = await supabase.from('requests').select('*').order('created_at', { ascending: false });
+        const { data: updatedData } = await supabase
+          .from('requests')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
         if (updatedData) setRequests(updatedData);
       } else {
         setRequests(data);
@@ -419,7 +434,12 @@ export default function App() {
   };
 
   const fetchForms = async () => {
-    const { data, error } = await supabase.from('forms').select('*, form_responses(*)').order('created_at', { ascending: false });
+    if (!user) return;
+    const { data, error } = await supabase
+      .from('forms')
+      .select('*, form_responses(*)')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
     if (!error && data) setForms(data);
   };
 
@@ -431,6 +451,13 @@ export default function App() {
     setMfaFactorId('');
     setQrCodeUrl('');
     setMfaCode('');
+    
+    // Limpar estados do dashboard para não vazar pro próximo usuário
+    setLinks([]);
+    setRequests([]);
+    setForms([]);
+    setUser(null);
+    
     setScreen('home');
     showNotification('Você saiu da conta.', 'info');
   };

@@ -127,6 +127,10 @@ export const ViewSecret = ({ id, onBack }: ViewSecretProps) => {
 
 const incrementViews = async () => {
     try {
+      // Pega o usuário atual para registrar quem está visualizando
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      const viewerEmail = authUser?.email || null;
+
       // 1. Busca os dados mais recentes direto do banco
       const { data: currentData, error: fetchErr } = await supabase
         .from('secrets')
@@ -136,7 +140,7 @@ const incrementViews = async () => {
 
       if (fetchErr || !currentData) return;
 
-      // 2. Define as variáveis de verificação (o que faltava no seu código)
+      // 2. Define as variáveis de verificação
       const maxViews = currentData.max_views !== null ? Number(currentData.max_views) : null;
       const nextViews = currentData.views + 1;
       
@@ -146,30 +150,29 @@ const incrementViews = async () => {
       
       const reachedLimit = maxViews !== null && nextViews >= maxViews;
 
-      // 3. Verifica se deve incinerar
+      // 3. Atualiza os dados (incluindo o e-mail do visualizador)
+      const updatePayload: any = { 
+        views: nextViews,
+        last_viewer_email: viewerEmail
+      };
+
+      // Se deve incinerar, limpa os campos sensíveis
       if (isOneTime || reachedLimit) {
-        const { error: updateErr } = await supabase
-          .from('secrets')
-          .update({ 
-            status: 'completed',
-            content: '',
-            key_values: null, 
-            password: '', 
-            views: nextViews
-          })
-          .eq('id', id);
+        updatePayload.status = 'completed';
+        updatePayload.content = '';
+        updatePayload.key_values = null;
+        updatePayload.password = '';
+      }
+
+      const { error: updateErr } = await supabase
+        .from('secrets')
+        .update(updatePayload)
+        .eq('id', id);
           
-        if (updateErr) {
-          console.error('Erro ao incinerar:', updateErr);
-        } else {
-          console.log('✅ Incinerado com sucesso no banco!');
-        }
+      if (updateErr) {
+        console.error('Erro ao registrar visualização/incinarar:', updateErr);
       } else {
-        // Se não for acesso único, apenas soma a view
-        await supabase
-          .from('secrets')
-          .update({ views: nextViews })
-          .eq('id', id);
+        console.log('✅ Visualização registrada/Incineração processada.');
       }
     } catch (e: any) {
       console.error('Erro Fatal:', e.message);
