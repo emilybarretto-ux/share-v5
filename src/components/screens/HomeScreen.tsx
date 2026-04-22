@@ -1,6 +1,6 @@
-import React from 'react';
-// Version: 1.0.5 - Force redeploy
-import { motion } from 'motion/react';
+import React, { useState } from 'react';
+// Version: 1.0.6 - Fixed Advanced Settings X button
+import { motion, AnimatePresence } from 'motion/react';
 import { Settings, FileText, Upload, Plus, X, Lock, Dices, Timer, Link as LinkIcon, Info, Check, Globe } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Screen } from '../../types';
@@ -52,8 +52,11 @@ export const HomeScreen = ({
   notifyAccess, setNotifyAccess,
   selectedFile, setSelectedFile,
   redirectUrl, setRedirectUrl
-}: HomeScreenProps) => (
-  <motion.div 
+}: HomeScreenProps) => {
+  const [showAdvanced, setShowAdvanced] = useState(true);
+
+  return (
+    <motion.div 
     key="home"
     initial={{ opacity: 0, y: 20 }}
     animate={{ opacity: 1, y: 0 }}
@@ -228,90 +231,115 @@ export const HomeScreen = ({
           </div>
         </div>
 
+        {/* Botão para mostrar configurações avançadas caso estejam ocultas */}
+        {!showAdvanced && (
+          <motion.button 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            onClick={() => setShowAdvanced(true)}
+            className="flex items-center gap-2 px-6 py-3 bg-surface border border-border-base text-[10px] font-black text-text-secondary hover:text-accent hover:border-accent/30 rounded-2xl transition-all uppercase tracking-[0.2em] mx-auto shadow-sm"
+          >
+            <Settings size={14} />
+            Configurações Avançadas de Segurança
+          </motion.button>
+        )}
+
         {/* Configurações Avançadas como um Card Distinto */}
-        <div className="bg-surface border border-border-base rounded-[2rem] shadow-xl overflow-hidden group/advanced">
-          <div className="flex items-center justify-between p-6 bg-bg-base/30 border-b border-border-base">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-accent/10 text-accent rounded-xl">
-                <Settings size={22} />
-              </div>
-              <h3 className="text-sm font-black text-text-primary uppercase tracking-widest">Configurações Avançadas de Segurança</h3>
-            </div>
-            <button className="text-text-secondary hover:text-accent transition-colors">
-              <X size={20} />
-            </button>
-          </div>
-          
-          <div className="p-8 space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="space-y-4">
-                <p className="text-[10px] font-black text-text-secondary uppercase tracking-[0.2em] opacity-60">Controle de Acesso</p>
-                <div className="space-y-4">
-                  <button 
-                    type="button"
-                    onClick={() => setRestrictIp(!restrictIp)}
-                    className="flex items-center gap-4 cursor-pointer group/opt w-full text-left"
-                  >
-                    <div className={`size-6 rounded-lg border-2 flex items-center justify-center transition-all ${restrictIp ? 'bg-accent border-accent' : 'border-border-base bg-bg-base'}`}>
-                      {restrictIp && <Check size={14} className="text-white" strokeWidth={4} />}
-                    </div>
-                    <span className="text-sm font-bold text-text-secondary group-hover/opt:text-text-primary transition-colors">Restrição por endereço IP</span>
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => setRequireEmail(!requireEmail)}
-                    className="flex items-center gap-4 cursor-pointer group/opt w-full text-left"
-                  >
-                    <div className={`size-6 rounded-lg border-2 flex items-center justify-center transition-all ${requireEmail ? 'bg-accent border-accent' : 'border-border-base bg-bg-base'}`}>
-                      {requireEmail && <Check size={14} className="text-white" strokeWidth={4} />}
-                    </div>
-                    <span className="text-sm font-bold text-text-secondary group-hover/opt:text-text-primary transition-colors">Exigir verificação por e-mail</span>
-                  </button>
+        <AnimatePresence>
+          {showAdvanced && (
+            <motion.div 
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="bg-surface border border-border-base rounded-[2rem] shadow-xl overflow-hidden group/advanced"
+            >
+              <div className="flex items-center justify-between p-6 bg-bg-base/30 border-b border-border-base">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-accent/10 text-accent rounded-xl">
+                    <Settings size={22} />
+                  </div>
+                  <h3 className="text-sm font-black text-text-primary uppercase tracking-widest">Configurações Avançadas de Segurança</h3>
                 </div>
+                <button 
+                  onClick={() => setShowAdvanced(false)}
+                  className="text-text-secondary hover:text-accent transition-colors p-1"
+                >
+                  <X size={20} />
+                </button>
               </div>
-              <div className="space-y-4">
-                <p className="text-[10px] font-black text-text-secondary uppercase tracking-[0.2em] opacity-60">Uso e Limites</p>
-                <div className="space-y-4">
-                  <button 
-                    type="button"
-                    onClick={() => setNotifyAccess(!notifyAccess)}
-                    className="flex items-center gap-4 cursor-pointer group/opt w-full text-left"
-                  >
-                    <div className={`size-6 rounded-lg border-2 flex items-center justify-center transition-all ${notifyAccess ? 'bg-accent border-accent' : 'border-border-base bg-bg-base'}`}>
-                      {notifyAccess && <Check size={14} className="text-white" strokeWidth={4} />}
+              
+              <div className="p-8 space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-4">
+                    <p className="text-[10px] font-black text-text-secondary uppercase tracking-[0.2em] opacity-60">Controle de Acesso</p>
+                    <div className="space-y-4">
+                      <button 
+                        type="button"
+                        onClick={() => setRestrictIp(!restrictIp)}
+                        className="flex items-center gap-4 cursor-pointer group/opt w-full text-left"
+                      >
+                        <div className={`size-6 rounded-lg border-2 flex items-center justify-center transition-all ${restrictIp ? 'bg-accent border-accent' : 'border-border-base bg-bg-base'}`}>
+                          {restrictIp && <Check size={14} className="text-white" strokeWidth={4} />}
+                        </div>
+                        <span className="text-sm font-bold text-text-secondary group-hover/opt:text-text-primary transition-colors">Restrição por endereço IP</span>
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => setRequireEmail(!requireEmail)}
+                        className="flex items-center gap-4 cursor-pointer group/opt w-full text-left"
+                      >
+                        <div className={`size-6 rounded-lg border-2 flex items-center justify-center transition-all ${requireEmail ? 'bg-accent border-accent' : 'border-border-base bg-bg-base'}`}>
+                          {requireEmail && <Check size={14} className="text-white" strokeWidth={4} />}
+                        </div>
+                        <span className="text-sm font-bold text-text-secondary group-hover/opt:text-text-primary transition-colors">Exigir verificação por e-mail</span>
+                      </button>
                     </div>
-                    <span className="text-sm font-bold text-text-secondary group-hover/opt:text-text-primary transition-colors">Notificação por e-mail ao acessar</span>
-                  </button>
+                  </div>
+                  <div className="space-y-4">
+                    <p className="text-[10px] font-black text-text-secondary uppercase tracking-[0.2em] opacity-60">Uso e Limites</p>
+                    <div className="space-y-4">
+                      <button 
+                        type="button"
+                        onClick={() => setNotifyAccess(!notifyAccess)}
+                        className="flex items-center gap-4 cursor-pointer group/opt w-full text-left"
+                      >
+                        <div className={`size-6 rounded-lg border-2 flex items-center justify-center transition-all ${notifyAccess ? 'bg-accent border-accent' : 'border-border-base bg-bg-base'}`}>
+                          {notifyAccess && <Check size={14} className="text-white" strokeWidth={4} />}
+                        </div>
+                        <span className="text-sm font-bold text-text-secondary group-hover/opt:text-text-primary transition-colors">Notificação por e-mail ao acessar</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
 
-            <div className="pt-6 border-t border-border-base space-y-4">
-              <div className="flex flex-col gap-2">
-                <label className="text-[10px] font-black text-text-secondary uppercase tracking-widest ml-1">Redirecionar após visualizar (URL)</label>
-                <div className="relative flex items-center">
-                  <LinkIcon size={18} className="absolute left-4 text-text-secondary" />
-                  <input 
-                    type="url" 
-                    value={redirectUrl} 
-                    onChange={(e) => setRedirectUrl(e.target.value)} 
-                    placeholder="https://sua-empresa.com.br/obrigado" 
-                    className="w-full pl-12 py-3 bg-bg-base/40 border border-border-base rounded-xl focus:ring-2 focus:ring-accent outline-none text-text-primary text-sm font-medium" 
-                  />
+                <div className="pt-6 border-t border-border-base space-y-4">
+                  <div className="flex flex-col gap-2">
+                    <label className="text-[10px] font-black text-text-secondary uppercase tracking-widest ml-1">Redirecionar após visualizar (URL)</label>
+                    <div className="relative flex items-center">
+                      <LinkIcon size={18} className="absolute left-4 text-text-secondary" />
+                      <input 
+                        type="url" 
+                        value={redirectUrl} 
+                        onChange={(e) => setRedirectUrl(e.target.value)} 
+                        placeholder="https://sua-empresa.com.br/obrigado" 
+                        className="w-full pl-12 py-3 bg-bg-base/40 border border-border-base rounded-xl focus:ring-2 focus:ring-accent outline-none text-text-primary text-sm font-medium" 
+                      />
+                    </div>
+                    <p className="text-[10px] text-text-secondary ml-1 italic opacity-70">O usuário verá um botão para seguir para este link após acessar a informação.</p>
+                  </div>
                 </div>
-                <p className="text-[10px] text-text-secondary ml-1 italic opacity-70">O usuário verá um botão para seguir para este link após acessar a informação.</p>
-              </div>
-            </div>
 
-            <div className="pt-6 border-t border-border-base flex flex-col md:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-3 text-xs font-medium text-text-secondary bg-bg-base px-4 py-2 rounded-full border border-border-base">
-                <Info size={16} className="text-accent" />
-                <span>Dados criptografados em repouso e em trânsito.</span>
+                <div className="pt-6 border-t border-border-base flex flex-col md:flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 text-xs font-medium text-text-secondary bg-bg-base px-4 py-2 rounded-full border border-border-base">
+                    <Info size={16} className="text-accent" />
+                    <span>Dados criptografados em repouso e em trânsito.</span>
+                  </div>
+                  <button className="text-accent hover:underline text-xs font-black uppercase tracking-widest">Política de Segurança</button>
+                </div>
               </div>
-              <button className="text-accent hover:underline text-xs font-black uppercase tracking-widest">Política de Segurança</button>
-            </div>
-          </div>
-        </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
 
@@ -331,4 +359,5 @@ export const HomeScreen = ({
       </div>
     </footer>
   </motion.div>
-);
+  );
+};

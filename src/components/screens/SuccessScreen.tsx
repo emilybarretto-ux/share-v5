@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Check, Copy, QrCode, Lock, Mail, Settings } from 'lucide-react';
+import { Check, Copy, QrCode, Lock, Mail, Settings, Globe } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Screen } from '../../types';
 

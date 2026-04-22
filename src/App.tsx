@@ -382,7 +382,7 @@ export default function App() {
           setForms([]);
         }
         initializeAuth();
-      } else if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
+      } else if (event === 'SIGNED_OUT' || (event as any) === 'USER_DELETED') {
         setUser(null);
         setLinks([]);
         setRequests([]);
