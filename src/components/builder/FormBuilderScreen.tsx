@@ -52,8 +52,8 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
   
   // Design Settings
   const [primaryColor, setPrimaryColor] = useState('#2563eb');
-  const [titleColor, setTitleColor] = useState('#ffffff');
-  const [subtitleColor, setSubtitleColor] = useState('#94a3b8');
+  const [titleColor, setTitleColor] = useState('#0f172a');
+  const [subtitleColor, setSubtitleColor] = useState('#64748b');
   const [fontFamily, setFontFamily] = useState('Inter');
   const [layoutType, setLayoutType] = useState<'list' | 'step'>('list');
   const [borderRadius, setBorderRadius] = useState<'none' | 'large' | '3xl'>('large');
@@ -242,6 +242,15 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
     }
   };
 
+  const previewThemeStyles = {
+    default: { bg: 'bg-bg-base/50', card: 'bg-surface border-border-base' },
+    dark: { bg: 'bg-slate-950/90', card: 'bg-slate-900 border-slate-700' },
+    minimal: { bg: 'bg-neutral-50', card: 'bg-white border-slate-100 shadow-sm' },
+    enterprise: { bg: 'bg-[#f1f5f9]', card: 'bg-white border-slate-200 shadow-sm' },
+    vibrant: { bg: 'bg-pink-50/50', card: 'bg-white border-pink-100 shadow-lg shadow-pink-500/5' },
+    glass: { bg: 'bg-indigo-950/80', card: 'bg-white/10 backdrop-blur-xl border-white/20' }
+  }[themePreset || 'default'];
+
   if (isPreview) {
     return (
       <div className="fixed inset-0 z-[100] flex flex-col bg-bg-base">
@@ -426,7 +435,7 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
                                if (t.id === 'default') { setPrimaryColor('#2563eb'); setTitleColor('#0f172a'); setSubtitleColor('#64748b'); setBorderRadius('large'); }
                                if (t.id === 'dark') { setPrimaryColor('#6366f1'); setTitleColor('#ffffff'); setSubtitleColor('#94a3b8'); setBorderRadius('large'); }
                                if (t.id === 'enterprise') { setPrimaryColor('#0f172a'); setTitleColor('#0f172a'); setSubtitleColor('#64748b'); setBorderRadius('none'); }
-                               if (t.id === 'vibrant') { setPrimaryColor('#db2777'); setTitleColor('#db2777'); setSubtitleColor('#64748b'); setBorderRadius('3xl'); }
+                               if (t.id === 'vibrant') { setPrimaryColor('#db2777'); setTitleColor('#0f172a'); setSubtitleColor('#64748b'); setBorderRadius('3xl'); }
                                if (t.id === 'glass') { setPrimaryColor('#ffffff'); setTitleColor('#ffffff'); setSubtitleColor('#cbd5e1'); setBorderRadius('large'); }
                              }}
                              className={`group relative flex flex-col items-start gap-2 p-3 rounded-2xl border-2 transition-all hover:scale-[1.02] active:scale-95 text-left shadow-sm ${
@@ -585,7 +594,7 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
           </div>
         </aside>
 
-        <main className="flex-1 overflow-y-auto p-12 bg-bg-base/50 flex justify-center scrollbar-thin">
+        <main className={`flex-1 overflow-y-auto p-12 flex justify-center scrollbar-thin transition-colors duration-500 ${previewThemeStyles.bg}`}>
           <div className={`${viewMode === 'mobile' ? 'w-[375px]' : 'w-full max-w-2xl'} transition-all duration-500 ease-in-out`}>
              <div
                className="relative overflow-hidden shadow-md mb-4 group cursor-pointer min-h-[160px] w-full bg-bg-base border border-border-base flex items-center justify-center p-0"
@@ -635,7 +644,7 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
                )}
              </div>
 
-             <div className="bg-surface shadow-md p-8 mb-8 border border-border-base relative" style={{ borderRadius: borderRadius === 'none' ? '0' : '0.75rem' }}>
+             <div className={`shadow-md p-8 mb-8 border relative transition-all duration-500 ${previewThemeStyles.card}`} style={{ borderRadius: borderRadius === 'none' ? '0' : '0.75rem' }}>
                 <div className="mb-6 flex justify-start">
                   <div className="relative size-20 rounded-2xl border-2 border-dashed border-border-base flex items-center justify-center cursor-pointer hover:bg-bg-base transition-all overflow-hidden group" onClick={() => !isUploadingLogo && logoInputRef.current?.click()}>
                     {isUploadingLogo ? (
@@ -716,7 +725,7 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
                   <input 
                     value={selectedField.label} 
                     onChange={(e) => updateField(selectedField.id, { label: e.target.value })} 
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-sm text-white outline-none focus:ring-1 focus:ring-accent" 
+                    className="w-full px-4 py-3 bg-bg-base border border-border-base rounded-xl text-sm text-text-primary outline-none focus:ring-1 focus:ring-accent" 
                   />
                 </div>
 
@@ -726,13 +735,13 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
                      <select 
                         value={selectedField.mask || 'none'} 
                         onChange={(e) => updateField(selectedField.id, { mask: e.target.value as any })} 
-                        className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-xs text-white outline-none focus:ring-1 focus:ring-accent appearance-none cursor-pointer"
+                        className="w-full px-4 py-3 bg-bg-base border border-border-base rounded-xl text-xs text-text-primary outline-none focus:ring-1 focus:ring-accent appearance-none cursor-pointer"
                       >
-                        <option value="none" className="bg-[#1e293b]">Nenhuma</option>
-                        <option value="cpf" className="bg-[#1e293b]">CPF</option>
-                        <option value="cnpj" className="bg-[#1e293b]">CNPJ</option>
-                        <option value="tel" className="bg-[#1e293b]">WhatsApp/Tel</option>
-                        <option value="cep" className="bg-[#1e293b]">CEP</option>
+                        <option value="none" className="bg-surface text-text-primary">Nenhuma</option>
+                        <option value="cpf" className="bg-surface text-text-primary">CPF</option>
+                        <option value="cnpj" className="bg-surface text-text-primary">CNPJ</option>
+                        <option value="tel" className="bg-surface text-text-primary">WhatsApp/Tel</option>
+                        <option value="cep" className="bg-surface text-text-primary">CEP</option>
                      </select>
                    </div>
                 )}
@@ -741,7 +750,7 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
                   <div className="space-y-4">
                     <label className="text-[10px] font-black text-text-secondary uppercase tracking-widest">Opções & Imagens</label>
                     {selectedField.options?.map((opt, i) => (
-                      <div key={i} className="space-y-2 p-3 bg-white/5 border border-white/10 rounded-xl">
+                      <div key={i} className="space-y-2 p-3 bg-bg-base border border-border-base rounded-xl">
                         <div className="flex items-center gap-2">
                           <input 
                             value={opt} 
@@ -750,7 +759,7 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
                               newOpts[i] = e.target.value;
                               updateField(selectedField.id, { options: newOpts });
                             }}
-                            className="flex-1 bg-transparent text-xs font-bold text-white outline-none" 
+                            className="flex-1 bg-transparent text-xs font-bold text-text-primary outline-none" 
                           />
                           <button className="text-text-secondary hover:text-red-400 p-1" onClick={() => updateField(selectedField.id, { options: selectedField.options?.filter((_, idx) => idx !== i) })}><X size={14} /></button>
                         </div>
@@ -761,7 +770,7 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
                               const current = selectedField.imageOptions || {};
                               updateField(selectedField.id, { imageOptions: { ...current, [opt]: e.target.value } });
                            }}
-                           className="w-full p-2 bg-white/5 border border-white/10 rounded-lg text-[9px] text-white placeholder:text-white/20 outline-none focus:ring-1 focus:ring-accent"
+                           className="w-full p-2 bg-surface/50 border border-border-base rounded-lg text-[9px] text-text-primary placeholder:text-text-secondary/50 outline-none focus:ring-1 focus:ring-accent"
                         />
                       </div>
                     ))}
@@ -770,72 +779,75 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
                 )}
 
                 {/* Lógica de Salto */}
-                <div className="pt-6 border-t border-white/10 space-y-4">
+                <div className="pt-6 border-t border-border-base space-y-4">
                      <div className="flex items-center gap-2 text-accent">
                        <GitBranch size={16} />
                        <h4 className="text-[10px] font-black uppercase tracking-widest">Lógica Condicional</h4>
                      </div>
                      
-                     <div className="p-4 bg-black/20 border border-white/5 rounded-2xl space-y-4">
-                       <div className="grid grid-cols-2 gap-2">
-                          <div className="space-y-1">
-                            <label className="text-[9px] font-black text-text-secondary uppercase tracking-tighter">Condição:</label>
+                      <div className="p-4 bg-bg-base border border-border-base rounded-2xl space-y-4 shadow-sm">
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-black text-text-secondary uppercase tracking-widest">Se a Resposta:</label>
+                          <div className="grid grid-cols-2 gap-2">
                             <select 
                               value={selectedField.logic?.conditionOperator || 'equals'}
-                              onChange={(e) => updateField(selectedField.id, { logic: { ...selectedField.logic, action: 'jump', conditionOperator: e.target.value as any } })}
-                              className="w-full px-2 py-2 text-[10px] border border-white/10 rounded-xl focus:ring-1 focus:ring-accent outline-none bg-white/5 text-white font-bold appearance-none cursor-pointer hover:bg-white/10 transition-colors"
+                              onChange={(e) => updateField(selectedField.id, { logic: { ...selectedField.logic, action: selectedField.logic?.action || 'jump', conditionOperator: e.target.value as any } })}
+                              className="w-full px-2 py-2 text-[10px] border border-border-base rounded-xl focus:ring-1 focus:ring-accent outline-none bg-surface text-text-primary font-bold"
                             >
-                              <option value="equals" className="bg-[#1e293b] text-white">Igual a</option>
-                              <option value="not_equals" className="bg-[#1e293b] text-white">Diferente de</option>
-                              <option value="greater" className="bg-[#1e293b] text-white">Maior que</option>
-                              <option value="less" className="bg-[#1e293b] text-white">Menor que</option>
-                              <option value="contains" className="bg-[#1e293b] text-white">Contém</option>
+                              <option value="equals">Igual a</option>
+                              <option value="not_equals">Diferente de</option>
+                              <option value="greater">Maior que</option>
+                              <option value="less">Menor que</option>
+                              <option value="contains">Contém</option>
                             </select>
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-[9px] font-black text-text-secondary uppercase tracking-tighter">Valor:</label>
                             <input 
-                              placeholder="Ex: Sim"
+                              placeholder="Valor"
                               value={selectedField.logic?.conditionValue || ''}
-                              onChange={(e) => updateField(selectedField.id, { logic: { ...selectedField.logic, action: 'jump', conditionValue: e.target.value } })}
-                              className="w-full px-3 py-2 text-[10px] border border-white/10 rounded-xl focus:ring-1 focus:ring-accent outline-none bg-white/5 text-white placeholder:text-white/20"
+                              onChange={(e) => updateField(selectedField.id, { logic: { ...selectedField.logic, action: selectedField.logic?.action || 'jump', conditionValue: e.target.value } })}
+                              className="w-full px-3 py-2 text-[10px] border border-border-base rounded-xl focus:ring-1 focus:ring-accent outline-none bg-surface text-text-primary"
                             />
                           </div>
-                       </div>
+                        </div>
 
-                       <div className="flex flex-col items-center justify-center -my-2 opacity-30">
-                         <div className="h-4 w-px bg-text-secondary" />
-                         <ArrowRight size={12} className="rotate-90" />
-                       </div>
+                        <div className="space-y-2">
+                          <label className="text-[9px] font-black text-text-secondary uppercase tracking-widest">Então faça isso:</label>
+                          <div className="grid grid-cols-1 gap-2">
+                            <select 
+                              value={selectedField.logic?.action || 'jump'}
+                              onChange={(e) => updateField(selectedField.id, { logic: { ...selectedField.logic, action: e.target.value as any } })}
+                              className="w-full px-3 py-2 text-[10px] border border-border-base rounded-xl focus:ring-1 focus:ring-accent outline-none bg-surface text-text-primary font-black"
+                            >
+                              <option value="jump">Pular Para...</option>
+                              <option value="hide">Ocultar Pergunta...</option>
+                            </select>
 
-                       <div className="space-y-2">
-                         <label className="text-[9px] font-black text-text-secondary uppercase tracking-widest">Então faça isso:</label>
-                         <select 
-                           value={selectedField.logic?.targetId || ''}
-                           onChange={(e) => updateField(selectedField.id, { logic: { ...selectedField.logic, action: 'jump', targetId: e.target.value } })}
-                           className="w-full px-3 py-2 text-[11px] border border-white/10 rounded-xl focus:ring-1 focus:ring-accent outline-none bg-white/5 text-white font-black appearance-none cursor-pointer hover:bg-white/10 transition-colors"
-                         >
-                           <option value="" className="bg-[#1e293b] text-white">Ir para próxima pergunta</option>
-                           <option value="end" className="bg-[#1e293b] text-white">Terminar Formulário</option>
-                           <optgroup label="Pular para Pergunta:" className="bg-[#1e293b] text-white/50 italic">
-                             {fields.filter(f => f.id !== selectedField.id).map(f => (
-                               <option key={f.id} value={f.id} className="bg-[#1e293b] text-white">{f.label.substring(0, 30)}{f.label.length > 30 ? '...' : ''}</option>
-                             ))}
-                           </optgroup>
-                         </select>
-                       </div>
-                     </div>
+                            <select 
+                              value={selectedField.logic?.targetId || ''}
+                              onChange={(e) => updateField(selectedField.id, { logic: { ...selectedField.logic, targetId: e.target.value } })}
+                              className="w-full px-3 py-2 text-[10px] border border-border-base rounded-xl focus:ring-1 focus:ring-accent outline-none bg-surface text-text-primary font-black"
+                            >
+                              <option value="">Selecione o destino</option>
+                              {selectedField.logic?.action === 'jump' && <option value="end">Terminar Formulário</option>}
+                              <optgroup label={selectedField.logic?.action === 'jump' ? "Pular para:" : "Ocultar:"}>
+                                {fields.filter(f => f.id !== selectedField.id).map(f => (
+                                  <option key={f.id} value={f.id}>{f.label.substring(0, 30)}</option>
+                                ))}
+                              </optgroup>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
                      <p className="text-[9px] text-text-secondary italic leading-relaxed">A lógica de salto permite criar fluxos personalizados baseados na resposta do usuário.</p>
                    </div>
                 
-                 <div className="flex items-center justify-between p-4 bg-white/5 border border-white/5 rounded-2xl group cursor-pointer hover:bg-white/10 transition-all font-bold" onClick={() => updateField(selectedField.id, { required: !selectedField.required })}>
+                 <div className="flex items-center justify-between p-4 bg-bg-base border border-border-base rounded-2xl group cursor-pointer hover:bg-surface transition-all font-bold shadow-sm" onClick={() => updateField(selectedField.id, { required: !selectedField.required })}>
                     <div className="flex items-center gap-3">
-                      <div className={`size-5 rounded-lg border-2 flex items-center justify-center transition-all ${selectedField.required ? 'bg-accent border-accent' : 'border-white/20'}`}>
+                      <div className={`size-5 rounded-lg border-2 flex items-center justify-center transition-all ${selectedField.required ? 'bg-accent border-accent' : 'border-border-base'}`}>
                         {selectedField.required && <Check size={12} className="text-white" strokeWidth={4} />}
                       </div>
-                      <span className="text-[11px] font-black text-white uppercase tracking-widest">Obrigatório</span>
+                      <span className="text-[11px] font-black text-text-primary uppercase tracking-widest">Obrigatório</span>
                     </div>
-                    <div className={`w-8 h-4 rounded-full p-0.5 transition-all flex items-center ${selectedField.required ? 'bg-accent' : 'bg-white/10'}`}>
+                    <div className={`w-8 h-4 rounded-full p-0.5 transition-all flex items-center ${selectedField.required ? 'bg-accent' : 'bg-text-secondary/20'}`}>
                        <div className={`size-3 rounded-full bg-white shadow-sm transition-all ${selectedField.required ? 'translate-x-4' : 'translate-x-0'}`} />
                     </div>
                  </div>

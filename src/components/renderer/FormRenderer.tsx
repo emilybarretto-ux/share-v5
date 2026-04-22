@@ -139,14 +139,49 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
   const [uploadingField, setUploadingField] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string | null>>({});
 
-  // Cálculo de campos visíveis baseado na lógica de salto
+  // Helper para verificar condições de lógica
+  const checkCondition = (field: FormField) => {
+    if (!field.logic?.conditionValue) return false;
+    
+    const value = formData[field.id];
+    const conditionValue = field.logic.conditionValue;
+    const operator = field.logic.conditionOperator || 'equals';
+    
+    const valStr = value?.toString() || '';
+    const condStr = conditionValue.toString();
+
+    switch (operator) {
+      case 'equals': return valStr === condStr;
+      case 'not_equals': return valStr !== condStr && valStr !== '';
+      case 'greater': return parseFloat(valStr) > parseFloat(condStr);
+      case 'less': return parseFloat(valStr) < parseFloat(condStr);
+      case 'contains': return valStr.toLowerCase().includes(condStr.toLowerCase());
+      default: return false;
+    }
+  };
+
+  // Cálculo de campos visíveis baseado na lógica
   const visibleFields = useMemo(() => {
-    const visible: any[] = [];
+    const visible: FormField[] = [];
+    const hiddenIds = new Set<string>();
     let skipUntil: string | null = null;
     let isTerminated = false;
 
+    // Primeiro passamos coletando quem deve ser escondido por outros
+    for (const field of fields) {
+      if (field.logic?.action === 'hide' && checkCondition(field)) {
+        if (field.logic.targetId) {
+          hiddenIds.add(field.logic.targetId);
+        }
+      }
+    }
+
+    // Segundo passamos montando a lista final
     for (const field of fields) {
       if (isTerminated) break;
+
+      // Se este campo foi marcado para ser escondido por outro
+      if (hiddenIds.has(field.id)) continue;
 
       if (skipUntil) {
         if (field.id === skipUntil) {
@@ -158,50 +193,19 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
 
       visible.push(field);
 
-      // Verifica se o campo tem lógica e se já foi respondido
       // No modo lista, interrompemos a exibição se houver lógica e o campo estiver vazio
-      if (settings.layout === 'list' && field.logic?.action === 'jump') {
+      if (settings.layout === 'list' && field.logic) {
         const value = formData[field.id];
-        if (!value || (Array.isArray(value) && value.length === 0) || (typeof value === 'object' && Object.keys(value).length === 0)) {
-          break;
-        }
+        const isEmpty = !value || (Array.isArray(value) && value.length === 0) || (typeof value === 'object' && Object.keys(value).length === 0);
+        if (isEmpty) break;
       }
 
-      // Verifica lógica de salto
-      if (field.logic?.action === 'jump' && field.logic.conditionValue) {
-        const value = formData[field.id];
-        const conditionValue = field.logic.conditionValue;
-        const operator = field.logic.conditionOperator || 'equals';
-        
-        let shouldJump = false;
-        
-        const valStr = value?.toString() || '';
-        const condStr = conditionValue.toString();
-
-        switch (operator) {
-          case 'equals':
-            shouldJump = valStr === condStr;
-            break;
-          case 'not_equals':
-            shouldJump = valStr !== condStr && valStr !== '';
-            break;
-          case 'greater':
-            shouldJump = parseFloat(valStr) > parseFloat(condStr);
-            break;
-          case 'less':
-            shouldJump = parseFloat(valStr) < parseFloat(condStr);
-            break;
-          case 'contains':
-            shouldJump = valStr.toLowerCase().includes(condStr.toLowerCase());
-            break;
-        }
-
-        if (shouldJump) {
-          if (field.logic.targetId === 'end') {
-            isTerminated = true;
-          } else if (field.logic.targetId) {
-            skipUntil = field.logic.targetId;
-          }
+      // Verifica lógica de salto (Forward Jump)
+      if (field.logic?.action === 'jump' && checkCondition(field)) {
+        if (field.logic.targetId === 'end') {
+          isTerminated = true;
+        } else if (field.logic.targetId) {
+          skipUntil = field.logic.targetId;
         }
       }
     }
@@ -264,43 +268,16 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
     }
 
     // Logic Jump Handle
-    if (field.logic?.action === 'jump' && field.logic.targetId && field.logic.conditionValue) {
-      const value = formData[field.id];
-      const conditionValue = field.logic.conditionValue;
-      const operator = field.logic.conditionOperator || 'equals';
-      
-      let shouldJump = false;
-      const valStr = value?.toString() || '';
-      const condStr = conditionValue.toString();
-
-      switch (operator) {
-        case 'equals':
-          shouldJump = valStr === condStr;
-          break;
-        case 'not_equals':
-          shouldJump = valStr !== condStr && valStr !== '';
-          break;
-        case 'greater':
-          shouldJump = parseFloat(valStr) > parseFloat(condStr);
-          break;
-        case 'less':
-          shouldJump = parseFloat(valStr) < parseFloat(condStr);
-          break;
-        case 'contains':
-          shouldJump = valStr.toLowerCase().includes(condStr.toLowerCase());
-          break;
+    if (field.logic?.action === 'jump' && checkCondition(field)) {
+      if (field.logic.targetId === 'end') {
+        handleSubmit();
+        return;
       }
-
-      if (shouldJump) {
-        if (field.logic.targetId === 'end') {
-          handleSubmit();
-          return;
-        }
-        const targetIdx = fields.findIndex(f => f.id === field.logic?.targetId);
-        if (targetIdx !== -1) {
-          setCurrentStep(targetIdx);
-          return;
-        }
+      
+      const targetIdx = fields.findIndex(f => f.id === field.logic?.targetId);
+      if (targetIdx !== -1) {
+        setCurrentStep(targetIdx);
+        return;
       }
     }
 
