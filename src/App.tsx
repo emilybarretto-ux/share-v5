@@ -607,11 +607,11 @@ export default function App() {
         max_views: isOneTime ? 1 : (limitViews ? maxViews : null),
         status: 'active',
         user_id: user?.id,
-        restrict_ip: restrictIp,
-        require_email: requireEmail,
-        notify_access: notifyAccess,
-        file_url: fileUrl,
-        creator_ip: creatorIp
+        restrict_ip: !!restrictIp,
+        require_email: !!requireEmail,
+        notify_access: !!notifyAccess,
+        file_url: fileUrl || null,
+        creator_ip: creatorIp || null
       }]).select();
 
       if (error) throw error;
