@@ -143,13 +143,12 @@ const incrementViews = async () => {
 
       // 2. Define as variáveis de verificação
       const maxViews = currentData.max_views !== null ? Number(currentData.max_views) : null;
-      const nextViews = currentData.views + 1;
+      const nextViews = (currentData.views || 0) + 1;
       
-      const isOneTime = maxViews === 1 || 
-                        currentData.expiration === 'Acesso único' || 
-                        currentData.expiration_detail === 'Acesso único';
-      
+      const isOneTime = maxViews === 1;
       const reachedLimit = maxViews !== null && nextViews >= maxViews;
+
+      console.log('🛡️ [Incineração] Verificando limites:', { maxViews, nextViews, isOneTime, reachedLimit });
 
       // 3. Atualiza os dados (incluindo o e-mail do visualizador)
       const updatePayload: any = { 
@@ -260,7 +259,11 @@ const incrementViews = async () => {
 
   const confirmAndRevealOneTime = async () => {
     try {
-      // Se tiver senha, precisamos re-descriptografar o que está no state (que ainda é o original do fetch)
+      // 1. Tentar incinerar PRIMEIRO no banco de dados
+      // Se falhar (ex: RLS), a gente avisa e não mostra o dado (para garantir segurança)
+      console.log('🔥 Iniciando processo de autodestruição para acesso único...');
+      
+      // Se tiver senha, precisamos preparar o conteúdo descriptografado antes de apagar
       const cleanPassword = password.trim();
       let finalContent = secret.content;
       let finalKV = secret.key_values;
@@ -280,13 +283,17 @@ const incrementViews = async () => {
         }
       }
 
+      // Agora executamos a incineração no banco
+      await incrementViews();
+
+      // Só então revelamos na tela
       setSecret({ ...secret, content: finalContent, key_values: finalKV });
       setIsUnlocked(true);
       setShowConfirmBurn(false);
-      await incrementViews();
-      showNotification('Privacidade Máxima: Dado incinerado do servidor com sucesso.', 'success');
-    } catch (e) {
-      showNotification('Erro ao revelar dado seguro.', 'error');
+      showNotification('Privacidade Máxima: Este dado foi incinerado do servidor.', 'success');
+    } catch (e: any) {
+      console.error('Erro na incineração:', e);
+      showNotification('Erro de segurança: Não foi possível garantir a autodestruição do código. Acesso negado.', 'error');
     }
   };
 
