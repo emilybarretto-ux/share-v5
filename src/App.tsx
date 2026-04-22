@@ -133,6 +133,7 @@ export default function App() {
   const [requireEmail, setRequireEmail] = useState(false);
   const [notifyAccess, setNotifyAccess] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [redirectUrl, setRedirectUrl] = useState('');
 
   // --- ESTADOS DE AUTH ---
   const [loginEmail, setLoginEmail] = useState('');
@@ -661,7 +662,8 @@ export default function App() {
         require_email: !!requireEmail,
         notify_access: !!notifyAccess,
         file_url: fileUrl || null,
-        creator_ip: creatorIp || null
+        creator_ip: creatorIp || null,
+        redirect_url: redirectUrl || null
       }]).select();
 
       if (error) throw error;
@@ -845,6 +847,7 @@ export default function App() {
                 requireEmail={requireEmail} setRequireEmail={setRequireEmail}
                 notifyAccess={notifyAccess} setNotifyAccess={setNotifyAccess}
                 selectedFile={selectedFile} setSelectedFile={setSelectedFile}
+                redirectUrl={redirectUrl} setRedirectUrl={setRedirectUrl}
               />
             </motion.div>
           )}

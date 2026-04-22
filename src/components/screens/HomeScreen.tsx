@@ -35,6 +35,8 @@ interface HomeScreenProps {
   setNotifyAccess: (v: boolean) => void;
   selectedFile: File | null;
   setSelectedFile: (f: File | null) => void;
+  redirectUrl: string;
+  setRedirectUrl: (r: string) => void;
 }
 
 export const HomeScreen = ({
@@ -48,7 +50,8 @@ export const HomeScreen = ({
   restrictIp, setRestrictIp,
   requireEmail, setRequireEmail,
   notifyAccess, setNotifyAccess,
-  selectedFile, setSelectedFile
+  selectedFile, setSelectedFile,
+  redirectUrl, setRedirectUrl
 }: HomeScreenProps) => (
   <motion.div 
     key="home"
@@ -280,6 +283,23 @@ export const HomeScreen = ({
                     <span className="text-sm font-bold text-text-secondary group-hover/opt:text-text-primary transition-colors">Notificação por e-mail ao acessar</span>
                   </button>
                 </div>
+              </div>
+            </div>
+
+            <div className="pt-6 border-t border-border-base space-y-4">
+              <div className="flex flex-col gap-2">
+                <label className="text-[10px] font-black text-text-secondary uppercase tracking-widest ml-1">Redirecionar após visualizar (URL)</label>
+                <div className="relative flex items-center">
+                  <LinkIcon size={18} className="absolute left-4 text-text-secondary" />
+                  <input 
+                    type="url" 
+                    value={redirectUrl} 
+                    onChange={(e) => setRedirectUrl(e.target.value)} 
+                    placeholder="https://sua-empresa.com.br/obrigado" 
+                    className="w-full pl-12 py-3 bg-bg-base/40 border border-border-base rounded-xl focus:ring-2 focus:ring-accent outline-none text-text-primary text-sm font-medium" 
+                  />
+                </div>
+                <p className="text-[10px] text-text-secondary ml-1 italic opacity-70">O usuário verá um botão para seguir para este link após acessar a informação.</p>
               </div>
             </div>
 

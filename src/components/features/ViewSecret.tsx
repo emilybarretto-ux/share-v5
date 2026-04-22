@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShieldCheck, Lock, Eye, EyeOff, Copy, X, Timer, Fingerprint, Trash2 } from 'lucide-react';
+import { ShieldCheck, Lock, Eye, EyeOff, Copy, X, Timer, Fingerprint, Trash2, ExternalLink } from 'lucide-react';
 import Markdown from 'react-markdown';
 import { supabase } from '../../lib/supabase';
 import { decryptData, hashPassword } from '../../lib/crypto';
@@ -518,6 +518,25 @@ const incrementViews = async () => {
           Entendido, fechar
         </button>
       </div>
+
+      {secret.redirect_url && (
+        <motion.div 
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800"
+        >
+          <a 
+            href={secret.redirect_url.startsWith('http') ? secret.redirect_url : `https://${secret.redirect_url}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full py-5 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl shadow-xl shadow-blue-600/20 transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
+          >
+            <ExternalLink size={20} strokeWidth={3} />
+            Continuar para o site destino
+          </a>
+          <p className="text-[10px] text-center text-slate-400 mt-3 uppercase font-black tracking-widest opacity-60">Você está sendo redirecionado para um link externo fornecido pelo criador</p>
+        </motion.div>
+      )}
     </motion.div>
     
     <AnimatePresence>
