@@ -429,7 +429,7 @@ const incrementViews = async () => {
           </div>
         )}
 
-        {secret.key_values && secret.key_values.length > 0 && (
+        {secret.key_values && Array.isArray(secret.key_values) && secret.key_values.length > 0 && (
           <div className="space-y-3">
             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest ml-1">Dados Estruturados</h3>
             <div className="grid grid-cols-1 gap-3 relative group/data">
