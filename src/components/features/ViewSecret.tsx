@@ -65,7 +65,12 @@ export const ViewSecret = ({ id, onBack }: ViewSecretProps) => {
       // --- TRAVA ZERO: ACESSO JÁ ENCERRADO (Incinerado ou Limite atingido) ---
       const maxViews = data.max_views !== null ? Number(data.max_views) : null;
       const currentViews = Number(data.views || 0);
-      const isActuallyCompleted = data.status === 'completed' || (maxViews !== null && currentViews >= maxViews);
+      
+      // Se não tem conteúdo ou o limite foi atingido/status é completed
+      const isActuallyCompleted = 
+        data.status === 'completed' || 
+        (maxViews !== null && currentViews >= maxViews) ||
+        (!data.content); // Se o conteúdo sumiu (pelo fallback de incineração), o link está morto
 
       if (isActuallyCompleted) {
           console.warn('🚫 [ViewSecret] Link já incinerado detectado.');
@@ -181,11 +186,17 @@ const incrementViews = async () => {
         .eq('id', id);
           
       if (updateErr) {
-        console.warn('⚠️ Falha ao atualizar status, tentando apenas limpar conteúdo...', updateErr.message);
-        // Fallback: Tenta limpar o conteúdo mesmo que o status falhe (evita erro de constraint)
+        console.warn('⚠️ Falha ao atualizar status, tentando apenas limpar conteúdo e incrementar views...', updateErr.message);
+        // Fallback: Tenta limpar o conteúdo e AUMENTAR as views mesmo que o status falhe
         const { error: fallbackErr } = await supabase
           .from('secrets')
-          .update({ content: '', password: '', key_values: null })
+          .update({ 
+            content: '', 
+            password: '', 
+            key_values: null,
+            views: nextViews, // Crucial: aumenta a view para o bloqueio de 'TRAVA ZERO' funcionar
+            last_viewer_email: viewerEmail
+          })
           .eq('id', id);
         
         if (fallbackErr) throw fallbackErr;
@@ -272,8 +283,8 @@ const incrementViews = async () => {
         }
       }
     } catch (err) {
-      console.error('Erro fatal:', err);
-      setUnlockError('Ocorreu um erro interno. Tente novamente.');
+      console.error('Erro fatal no desbloqueio/incineração:', err);
+      setError('Falha de segurança crítica durante o processamento dos dados. Link invalidado.');
     }
   };
 
@@ -313,7 +324,8 @@ const incrementViews = async () => {
       showNotification('Privacidade Máxima: Este dado foi incinerado do servidor.', 'success');
     } catch (e: any) {
       console.error('Erro na incineração:', e);
-      showNotification('Erro de segurança: Não foi possível garantir a autodestruição do código. Acesso negado.', 'error');
+      setError('Erro de segurança: Não foi possível garantir a autodestruição dos dados. Por precaução, o acesso foi bloqueado.');
+      setShowConfirmBurn(false);
     }
   };
 
