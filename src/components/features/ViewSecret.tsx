@@ -63,6 +63,32 @@ export const ViewSecret = ({ id, onBack }: ViewSecretProps) => {
 
       setSecret(data);
 
+      // 0. VERIFICAÇÃO DE EXPIRAÇÃO POR TEMPO
+      if (data.expires_at) {
+        const expiresDate = new Date(data.expires_at);
+        if (expiresDate < new Date()) {
+          console.warn('🚫 [ViewSecret] Link expirado por tempo.');
+          
+          // Tenta marcar como completado se ainda não estiver
+          if (data.status !== 'completed') {
+            await supabase.from('secrets').update({ status: 'completed', content: '', password: '', key_values: null }).eq('id', id);
+          }
+          
+          setError('Este link expirou devido ao prazo de validade definido pelo criador.');
+          setLoading(false);
+          return;
+        }
+      }
+
+      // 0.1 VERIFICAÇÃO DE LIMITE DE ACESSOS (Caso já tenha sido atingido)
+      const maxViews = data.max_views !== null ? Number(data.max_views) : null;
+      if (maxViews !== null && data.views >= maxViews) {
+        console.warn('🚫 [ViewSecret] Limite de visualizações atingido.');
+        setError('Este link atingiu o limite máximo de visualizações e foi incinerado.');
+        setLoading(false);
+        return;
+      }
+
       // 1. Log de Auditoria Primário (Útil para depuração)
       console.log('🔍 [ViewSecret] Dados brutos do banco:', {
         id,
@@ -100,9 +126,14 @@ export const ViewSecret = ({ id, onBack }: ViewSecretProps) => {
       }
 
       // Se passou pelas travas, agora verificamos o acesso/desbloqueio
-      if (data.status === 'completed' && !data.content) {
-          setError('Este segredo já foi incinerado permanentemente.');
+      if (data.status === 'completed' || (data.max_views !== null && data.views >= data.max_views)) {
+          setError('Este segredo já foi incinerado permanentemente por limite de acessos ou ação do criador.');
           setLoading(false);
+          
+          // Limpeza redundante (Segurança extra)
+          if (data.status !== 'completed' || data.content) {
+            supabase.from('secrets').update({ status: 'completed', content: '', password: '', key_values: null }).eq('id', id).then(() => {});
+          }
           return;
       }
 
@@ -110,7 +141,7 @@ export const ViewSecret = ({ id, onBack }: ViewSecretProps) => {
         console.log('🔑 [ViewSecret] Link protegido por senha. Aguardando entrada do usuário...');
       } else {
         const maxViews = data.max_views !== null ? Number(data.max_views) : null;
-        const isOneTime = maxViews === 1 || data.expiration === 'Acesso único';
+        const isOneTime = maxViews === 1;
         
         if (isOneTime) {
           setShowConfirmBurn(true);
@@ -128,35 +159,19 @@ export const ViewSecret = ({ id, onBack }: ViewSecretProps) => {
 
 const incrementViews = async () => {
     try {
-      // Pega o usuário atual para registrar quem está visualizando
       const { data: { user: authUser } } = await supabase.auth.getUser();
       const viewerEmail = authUser?.email || null;
 
-      // 1. Busca os dados mais recentes direto do banco
-      const { data: currentData, error: fetchErr } = await supabase
-        .from('secrets')
-        .select('*')
-        .eq('id', id)
-        .single();
-
-      if (fetchErr || !currentData) return;
-
-      // 2. Define as variáveis de verificação
-      const maxViews = currentData.max_views !== null ? Number(currentData.max_views) : null;
-      const nextViews = (currentData.views || 0) + 1;
-      
+      const maxViews = secret.max_views !== null ? Number(secret.max_views) : null;
+      const nextViews = (secret.views || 0) + 1;
       const isOneTime = maxViews === 1;
       const reachedLimit = maxViews !== null && nextViews >= maxViews;
 
-      console.log('🛡️ [Incineração] Verificando limites:', { maxViews, nextViews, isOneTime, reachedLimit });
-
-      // 3. Atualiza os dados (incluindo o e-mail do visualizador)
       const updatePayload: any = { 
         views: nextViews,
         last_viewer_email: viewerEmail
       };
 
-      // Se deve incinerar, limpa os campos sensíveis
       if (isOneTime || reachedLimit) {
         updatePayload.status = 'completed';
         updatePayload.content = '';
@@ -164,18 +179,20 @@ const incrementViews = async () => {
         updatePayload.password = '';
       }
 
+      console.log('🔥 [ViewSecret] Gravando visualização/incineração...', updatePayload);
+      
       const { error: updateErr } = await supabase
         .from('secrets')
         .update(updatePayload)
         .eq('id', id);
           
-      if (updateErr) {
-        console.error('Erro ao registrar visualização/incinarar:', updateErr);
-      } else {
-        console.log('✅ Visualização registrada/Incineração processada.');
-      }
+      if (updateErr) throw updateErr;
+
     } catch (e: any) {
-      console.error('Erro Fatal:', e.message);
+      console.error('❌ [ViewSecret] Erro na incineração de segurança:', e.message);
+      // Aqui NÃO bloqueamos o usuário se for apenas incremento de view, 
+      // mas se for incineração crítica, o caller handleUnlock/confirmAndReveal já trata
+      throw e; 
     }
   };
 
@@ -192,7 +209,7 @@ const incrementViews = async () => {
       
       const maxViews = secret.max_views !== null ? Number(secret.max_views) : null;
       const nextViews = secret.views + 1;
-      const isOneTime = maxViews === 1 || secret.expiration === 'Acesso único';
+      const isOneTime = maxViews === 1;
 
       if (isEncrypted) {
         const inputHash = hashPassword(cleanPassword);

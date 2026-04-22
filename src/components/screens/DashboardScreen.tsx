@@ -337,7 +337,12 @@ export const DashboardScreen = ({
                         <tr key={link.id} className={`hover:bg-bg-base/30 transition-colors ${expired ? 'opacity-60' : ''}`}>
                           <td className="px-6 py-4">
                             <div className="flex flex-col">
-                              <span className={`text-sm font-bold ${expired ? 'text-text-secondary line-through' : 'text-text-primary'}`}>{link.name}</span>
+                              <div className="flex items-center gap-2">
+                                <span className={`text-sm font-bold ${expired ? 'text-text-secondary line-through' : 'text-text-primary'}`}>{link.name}</span>
+                                {link.max_views === 1 && (
+                                  <span className="px-1.5 py-0.5 bg-red-600/10 text-red-600 text-[8px] font-black uppercase rounded border border-red-600/20 tracking-tighter">Acesso Único</span>
+                                )}
+                              </div>
                             </div>
                           </td>
                           <td className="px-6 py-4">
