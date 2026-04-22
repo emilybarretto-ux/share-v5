@@ -30,72 +30,73 @@ export const ViewSecret = ({ id, onBack }: ViewSecretProps) => {
 
   useEffect(() => {
     const init = async () => {
+      let currentIp = '';
       try {
         const res = await fetch('https://api.ipify.org?format=json');
         const data = await res.json();
-        setUserIp(data.ip);
+        currentIp = data.ip;
+        setUserIp(currentIp);
       } catch (e) {
         console.error('Erro ao obter IP:', e);
       }
-      fetchSecret();
+      fetchSecret(currentIp);
     };
     init();
   }, [id]);
 
-  const fetchSecret = async () => {
+  const fetchSecret = async (currentIp: string) => {
     setLoading(true);
     try {
+      console.log('🔍 Iniciando verificação de segurança para o ID:', id);
       const { data, error: fetchError } = await supabase
         .from('secrets')
         .select('*')
         .eq('id', id)
         .single();
 
-      if (fetchError) {
-        setError('Este link não existe mais.');
-      } else {
-        if (data.status === 'completed' && !data.content) {
+      if (fetchError || !data) {
+        setError('Este link não existe mais ou foi removido.');
+        setLoading(false);
+        return;
+      }
+
+      setSecret(data);
+      console.log('📦 Dados do segredo carregados. Configurações de segurança:', {
+        restrict_ip: data.restrict_ip,
+        require_email: data.require_email,
+        has_password: !!data.password
+      });
+
+      // --- VERIFICAÇÕES DE SEGURANÇA AVANÇADA ---
+      
+      // 1. Restrição de IP (Usando o IP atual passado por argumento para evitar delay de estado)
+      if (data.restrict_ip && data.creator_ip) {
+          if (data.creator_ip !== currentIp) {
+              console.warn('🚫 Bloqueio por IP: IP do criador não coincide.', { creator: data.creator_ip, viewer: currentIp });
+              setError('Acesso negado: Este link está restrito a um endereço IP específico e você está em uma rede diferente.');
+              setLoading(false);
+              return;
+          }
+      }
+
+      // 2. Exigir Autenticação por E-mail
+      if (data.require_email) {
+          const { data: { user: authUser } } = await supabase.auth.getUser();
+          if (!authUser) {
+              console.warn('🚫 Bloqueio por E-mail: Usuário não autenticado.');
+              setError('Verificação Obrigatória: Este conteúdo exige que você esteja logado no sistema para garantir a trilha de auditoria.');
+              setLoading(false);
+              return;
+          }
+          console.log('✅ Usuário autenticado verificado:', authUser.email);
+      }
+
+      // Se passou pelas travas, agora verificamos o acesso/desbloqueio
+      if (data.status === 'completed' && !data.content) {
           setError('Este segredo já foi incinerado permanentemente.');
           setLoading(false);
           return;
-        }
-
-        // Verificar Expiração
-        if (data.expires_at && new Date(data.expires_at) < new Date()) {
-          await supabase.from('secrets').update({ status: 'completed', content: '', password: '', key_values: null }).eq('id', id);
-          setError('Este link expirou e foi destruído permanentemente.');
-          setLoading(false);
-          return;
-        }
-
-        // Verificar Máximo de Visualizações (se não for o dono que está vendo agora)
-        if (data.max_views !== null && data.views >= data.max_views) {
-          await supabase.from('secrets').update({ status: 'completed', content: '', password: '', key_values: null }).eq('id', id);
-          setError('Este link atingiu o limite de visualizações e foi destruído.');
-          setLoading(false);
-          return;
-        }
-
-        setSecret(data);
-
-        // --- VERIFICAÇÕES DE SEGURANÇA AVANÇADA ---
-        
-        // 1. Restrição de IP
-        if (data.restrict_ip && data.creator_ip && data.creator_ip !== userIp) {
-            setError('Acesso negado: Este link está restrito a um endereço IP específico.');
-            setLoading(false);
-            return;
-        }
-
-        // 2. Exigir Verificação por E-mail
-        if (data.require_email) {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
-                setError('Acesso restrito: Você precisa estar logado para visualizar este conteúdo.');
-                setLoading(false);
-                return;
-            }
-        }
+      }
 
         if (!data.password) {
           const maxViews = data.max_views !== null ? Number(data.max_views) : null;
@@ -108,7 +109,6 @@ export const ViewSecret = ({ id, onBack }: ViewSecretProps) => {
             incrementViews();
           }
         }
-      }
     } catch (err) {
       console.error('Erro ao buscar segredo:', err);
       setError('Erro ao carregar os dados. Tente novamente.');
