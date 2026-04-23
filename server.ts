@@ -21,19 +21,13 @@ async function startServer() {
     next();
   });
 
-  app.get('/vault/health', (req, res) => {
-    res.json({ status: 'ok', message: 'Vault API is alive' });
+  app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', message: 'API is alive' });
   });
 
-  // Supabase Client (Prefered with Service Role Key to bypass RLS)
-  const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
-  
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
   // ROTA PRINCIPAL DE CRIAÇÃO
-  app.post('/vault/create-secret', async (req, res) => {
-    console.log('[DEBUG] Recebido POST no Vault');
+  app.post('/api/create-secret', async (req, res) => {
+    console.log('[DEBUG] Recebido POST em /api/create-secret');
     
     let serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     
@@ -123,12 +117,10 @@ ALTER TABLE public.requests DISABLE ROW LEVEL SECURITY;
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Bold Share Server running on http://localhost:${PORT}`);
-    if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      console.log('✅ Chave de Serviço (Service Role Key) detectada. O servidor usará privilégios administrativos para criar segredos.');
-    } else {
-      console.warn('⚠️ AVISO: SUPABASE_SERVICE_ROLE_KEY não configurada. O RLS do Supabase impedirá a criação de segredos se não houver políticas públicas ativas.');
-    }
   });
+
+  return app;
 }
 
-startServer();
+export const app = startServer();
+export default app;

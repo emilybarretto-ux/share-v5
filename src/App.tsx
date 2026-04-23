@@ -801,13 +801,13 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
         redirect_url: redirectUrl || null
       };
 
-      console.log('🚀 Enviando para o Vault...');
+      console.log('🚀 Enviando para o Backend...');
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 segundos de timeout
 
       try {
-        const resp = await fetch('/vault/create-secret', {
+        const resp = await fetch('/api/create-secret', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(secretData),
