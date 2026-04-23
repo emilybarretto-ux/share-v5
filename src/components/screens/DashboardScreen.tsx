@@ -339,15 +339,14 @@ export const DashboardScreen = ({
                       let statusLabel = 'Ativo';
                       if (isIncinerated) statusLabel = reachedLimit ? 'Limite Atingido' : 'Incinerado';
                       else if (expired) statusLabel = 'Expirado';
+                      else if (link.max_views === 1) statusLabel = 'Acesso Único';
+                      
                       return (
                         <tr key={link.id} className={`hover:bg-bg-base/30 transition-colors ${expired || isIncinerated ? 'opacity-60' : ''}`}>
                           <td className="px-6 py-4">
                             <div className="flex flex-col">
                               <div className="flex items-center gap-2">
                                 <span className={`text-sm font-bold ${expired ? 'text-text-secondary line-through' : 'text-text-primary'}`}>{link.name}</span>
-                                {link.max_views === 1 && (
-                                  <span className="px-1.5 py-0.5 bg-red-600/10 text-red-600 text-[8px] font-black uppercase rounded border border-red-600/20 tracking-tighter">Acesso Único</span>
-                                )}
                               </div>
                             </div>
                           </td>
@@ -358,9 +357,11 @@ export const DashboardScreen = ({
                                   ? 'text-amber-600 bg-amber-50'
                                   : expired 
                                     ? 'text-red-600 bg-red-50' 
-                                    : 'text-success-base bg-success-base/10'
+                                    : statusLabel === 'Acesso Único'
+                                      ? 'text-red-600 bg-red-50'
+                                      : 'text-success-base bg-success-base/10'
                               }`}>
-                                {isIncinerated ? statusLabel : expired ? 'Expirado' : 'Ativo'}
+                                {statusLabel}
                               </span>
                               {link.max_views && !isIncinerated && (
                                 <span className="text-[9px] text-text-secondary font-bold uppercase tracking-tighter bg-bg-base px-1.5 py-0.5 rounded border border-border-base w-fit">
@@ -447,9 +448,27 @@ export const DashboardScreen = ({
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${expired ? 'bg-bg-base text-text-secondary' : isIncinerated ? 'bg-amber-600 text-white shadow-lg shadow-amber-500/20' : req.status === 'completed' ? 'bg-success-base text-white' : 'bg-blue-600 text-white'}`}>
-                        {expired ? 'Expirado' : isIncinerated ? 'Incinerado' : req.status === 'completed' ? 'Concluído' : 'Aguardando'}
-                      </span>
+                          <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                            expired 
+                              ? 'bg-bg-base text-text-secondary' 
+                              : isIncinerated 
+                                ? 'bg-amber-600 text-white shadow-lg shadow-amber-500/20' 
+                                : req.status === 'completed' && req.response?.startsWith('[ONE_TIME]')
+                                  ? 'bg-red-600 text-white shadow-lg shadow-red-500/20'
+                                  : req.status === 'completed' 
+                                    ? 'bg-success-base text-white' 
+                                    : 'bg-blue-600 text-white'
+                          }`}>
+                            {expired 
+                              ? 'Expirado' 
+                              : isIncinerated 
+                                ? 'Incinerado' 
+                                : (req.status === 'completed' && req.response?.startsWith('[ONE_TIME]')) 
+                                  ? 'Acesso Único' 
+                                  : req.status === 'completed' 
+                                    ? 'Respondido' 
+                                    : 'Aguardando'}
+                          </span>
                           <div className="flex items-center gap-2">
                             {req.status === 'active' && !expired && !isIncinerated && (
                               <button 
