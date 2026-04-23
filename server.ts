@@ -1,4 +1,5 @@
 import express from 'express';
+import cors from 'cors';
 import { createServer as createViteServer } from 'vite';
 import { createClient } from '@supabase/supabase-js';
 import path from 'path';
@@ -10,7 +11,18 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  app.use(cors());
   app.use(express.json());
+
+  // Log de requisições para depuração
+  app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+  });
+
+  app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', time: new Date().toISOString() });
+  });
 
   // Supabase Client (Prefered with Service Role Key to bypass RLS)
   const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
@@ -18,8 +30,16 @@ async function startServer() {
   
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-  // API Route to bypass RLS for creation
-  app.post('/api/secrets', async (req, res) => {
+  // API Route to bypass RLS for creation (MUDADO PARA ALL E NOVO NOME PARA TESTE)
+  app.all('/api/create-secret', async (req, res) => {
+    if (req.method === 'OPTIONS') {
+      return res.status(200).end();
+    }
+
+    if (req.method !== 'POST') {
+      return res.status(405).json({ error: `Método ${req.method} não suportado. Use POST.` });
+    }
+
     // Debugging environment variables and robust lookup
     let serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     

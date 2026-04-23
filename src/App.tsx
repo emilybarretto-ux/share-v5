@@ -803,7 +803,7 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
         redirect_url: redirectUrl || null
       };
 
-      const resp = await fetch('/api/secrets', {
+      const resp = await fetch('/api/create-secret', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(secretData)
