@@ -68,67 +68,65 @@ const handleSubmit = async (formData: any) => {
   }
 };
 
-  if (isSubmitted) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-bg-base p-6">
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="max-w-md w-full bg-surface p-8 rounded-[2rem] border border-border-base text-center space-y-6 shadow-xl"
-        >
-          <div className="size-16 bg-accent/10 text-accent rounded-2xl flex items-center justify-center mx-auto">
-            <ShieldCheck size={32} />
-          </div>
-          <h2 className="text-2xl font-bold text-text-primary">Resposta Enviada!</h2>
-          <p className="text-text-secondary">Seu formulário foi enviado com sucesso e segurança.</p>
-          <button onClick={onBack} className="w-full py-3 bg-accent text-white rounded-xl font-bold shadow-lg hover:opacity-90 transition-all">
-            Ok, entendi
-          </button>
-        </motion.div>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-bg-base">
-        <div className="size-12 border-4 border-accent/30 border-t-accent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  if (error || !form) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-bg-base p-6">
-        <div className="max-w-md w-full bg-surface p-8 rounded-[2rem] border border-border-base text-center space-y-6 shadow-xl">
-          <div className="size-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto">
-            <ShieldCheck size={32} />
-          </div>
-          <h2 className="text-2xl font-bold text-text-primary">Ops!</h2>
-          <p className="text-text-secondary">{error}</p>
-          <button onClick={onBack} className="w-full py-3 bg-bg-base rounded-xl font-bold text-text-primary hover:opacity-80 transition-all">Voltar</button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <ScreenProtector>
-      <div className="min-h-screen bg-bg-base select-none" onContextMenu={(e) => e.preventDefault()}>
-        <FormRenderer 
-          form={form} 
-          onBack={onBack} 
-          onSubmit={handleSubmit} 
-        />
-        
-        {/* Footer Branding */}
+    <div className="min-h-screen bg-bg-base/50 backdrop-blur-sm select-none" onContextMenu={(e) => e.preventDefault()}>
+      <ScreenProtector active={!loading && !error && !isSubmitted}>
+        <div className="min-h-screen flex items-center justify-center p-6">
+          {loading ? (
+            <div className="size-12 border-4 border-accent/30 border-t-accent rounded-full animate-spin" />
+          ) : error || !form ? (
+            <div className="max-w-md w-full bg-surface p-8 rounded-[2rem] border border-border-base text-center space-y-6 shadow-xl">
+              <div className="size-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto">
+                <ShieldCheck size={32} />
+              </div>
+              <h2 className="text-2xl font-bold text-text-primary">Ops!</h2>
+              <p className="text-text-secondary">{error || 'Formulário não encontrado'}</p>
+              <button 
+                onClick={onBack} 
+                className="w-full py-3 bg-bg-base rounded-xl font-bold text-text-primary hover:opacity-80 transition-all border border-border-base"
+              >
+                Voltar
+              </button>
+            </div>
+          ) : isSubmitted ? (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="max-w-md w-full bg-surface p-8 rounded-[2rem] border border-border-base text-center space-y-6 shadow-xl"
+            >
+              <div className="size-16 bg-accent/10 text-accent rounded-2xl flex items-center justify-center mx-auto">
+                <ShieldCheck size={32} />
+              </div>
+              <h2 className="text-2xl font-bold text-text-primary">Resposta Enviada!</h2>
+              <p className="text-text-secondary">Seu formulário foi enviado com sucesso e segurança.</p>
+              <button 
+                onClick={onBack} 
+                className="w-full py-3 bg-accent text-white rounded-xl font-bold shadow-lg hover:opacity-90 transition-all"
+              >
+                Ok, entendi
+              </button>
+            </motion.div>
+          ) : (
+            <div className="w-full max-w-4xl">
+              <FormRenderer 
+                form={form} 
+                onBack={onBack} 
+                onSubmit={handleSubmit} 
+              />
+            </div>
+          )}
+        </div>
+      </ScreenProtector>
+      
+      {/* Footer Branding - Apenas se não estiver carregando e não deu erro */}
+      {!loading && !error && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 bg-surface/80 backdrop-blur-md border border-border-base rounded-full shadow-lg z-10 pointer-events-none">
           <div className="size-6 bg-accent rounded flex items-center justify-center text-white">
             <ShieldCheck size={14} />
           </div>
           <span className="text-[10px] font-black text-text-secondary uppercase tracking-widest">Powered by Bold Share</span>
         </div>
-      </div>
-    </ScreenProtector>
+      )}
+    </div>
   );
 };

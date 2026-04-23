@@ -988,20 +988,19 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
     showNotification('Copiado!', 'success');
   };
 
-  // Renderização de Carregamento
-  if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-bg-base">
-      <div className="size-12 border-4 border-accent/30 border-t-accent rounded-full animate-spin" />
-    </div>
-  );
-
   const queryParams = new URLSearchParams(window.location.search);
   const viewingFormId = queryParams.get('form') || '';
   const viewingSecretId = queryParams.get('id') || '';
   const fillingRequestId = queryParams.get('request') || '';
 
   return (
-    <div className="min-h-screen bg-bg-base text-text-primary font-sans">
+    <div className={`min-h-screen ${darkMode ? 'dark' : ''} bg-bg-base text-text-primary transition-colors duration-300 font-sans selection:bg-accent/20 selection:text-accent`}>
+      {loading ? (
+        <div className="min-h-screen flex items-center justify-center bg-bg-base">
+          <div className="size-12 border-4 border-accent/30 border-t-accent rounded-full animate-spin" />
+        </div>
+      ) : (
+        <>
       <nav className="border-b border-border-base bg-surface sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4 flex-1">
@@ -1252,6 +1251,8 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
 
         </AnimatePresence>
       </main>
+      </>
+      )}
     </div>
   );
 }
