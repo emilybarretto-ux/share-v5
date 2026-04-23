@@ -25,6 +25,60 @@ async function startServer() {
     res.json({ status: 'ok', message: 'API is alive' });
   });
 
+  // ROTA DE VISUALIZAÇÃO E EVENTOS (Notificações)
+  app.post('/api/view-event', async (req, res) => {
+    const { id, viewerEmail, viewerIp } = req.body;
+    
+    if (!id) return res.status(400).json({ error: 'ID é obrigatório' });
+
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+    const supabase = createClient(supabaseUrl, serviceKey);
+
+    try {
+      const { data: secret, error: fetchError } = await supabase
+        .from('secrets')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (fetchError || !secret) return res.status(404).json({ error: 'Não encontrado' });
+
+      const nextViews = (secret.views || 0) + 1;
+      const maxViews = secret.max_views !== null ? Number(secret.max_views) : null;
+      const isOneTime = maxViews === 1;
+      const reachedLimit = maxViews !== null && nextViews >= maxViews;
+
+      const updatePayload: any = { views: nextViews, last_viewer_email: viewerEmail || null };
+      if (isOneTime || reachedLimit) {
+        updatePayload.status = 'completed';
+        updatePayload.content = '';
+        updatePayload.key_values = null;
+        updatePayload.password = '';
+        updatePayload.file_url = null;
+      }
+
+      await supabase.from('secrets').update(updatePayload).eq('id', id);
+
+      // Notificação Resend
+      if (secret.notify_access && secret.creator_email && process.env.RESEND_API_KEY) {
+        const { Resend } = await import('resend');
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        
+        await resend.emails.send({
+          from: 'Bold Share <onboarding@resend.dev>',
+          to: secret.creator_email,
+          subject: `Notificação de Acesso: ${secret.name}`,
+          html: `<p>Seu segredo <strong>"${secret.name}"</strong> foi visualizado por ${viewerEmail || 'Usuário Anônimo'} (IP: ${viewerIp || 'Desconhecido'}).</p>`
+        }).catch(e => console.error('Erro Resend:', e));
+      }
+
+      return res.json({ success: true, incinerated: reachedLimit || isOneTime });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
   // ROTA PRINCIPAL DE CRIAÇÃO
   app.post('/api/create-secret', async (req, res) => {
     console.log('[DEBUG] Recebido POST em /api/create-secret');

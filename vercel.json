@@ -6,6 +6,10 @@
       "destination": "/api/create-secret.ts"
     },
     {
+      "source": "/api/view-event",
+      "destination": "/api/view-event.ts"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

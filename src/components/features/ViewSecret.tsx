@@ -178,59 +178,32 @@ export const ViewSecret = ({ id, onBack }: ViewSecretProps) => {
     setLoading(false);
   };
 
-const incrementViews = async () => {
+  const incrementViews = async () => {
     try {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       const viewerEmail = authUser?.email || null;
 
-      const maxViews = secret.max_views !== null ? Number(secret.max_views) : null;
-      const nextViews = (secret.views || 0) + 1;
-      const isOneTime = maxViews === 1;
-      const reachedLimit = maxViews !== null && nextViews >= maxViews;
-
-      const updatePayload: any = { 
-        views: nextViews,
-        last_viewer_email: viewerEmail
-      };
-
-      if (isOneTime || reachedLimit) {
-        updatePayload.status = 'completed';
-        updatePayload.content = '';
-        updatePayload.key_values = null;
-        updatePayload.password = '';
-        updatePayload.file_url = null;
-      }
-
-      console.log('🔥 [ViewSecret] Gravando visualização/incineração...', updatePayload);
+      console.log('🔥 [ViewSecret] Notificando servidor sobre visualização...');
       
-      const { error: updateErr } = await supabase
-        .from('secrets')
-        .update(updatePayload)
-        .eq('id', id);
-          
-      if (updateErr) {
-        console.warn('⚠️ Falha ao atualizar status, tentando apenas limpar conteúdo e incrementar views...', updateErr.message);
-        // Fallback: Tenta limpar o conteúdo e AUMENTAR as views mesmo que o status falhe
-        const { error: fallbackErr } = await supabase
-          .from('secrets')
-          .update({ 
-            content: '', 
-            password: '', 
-            key_values: null,
-            file_url: null,
-            views: nextViews, // Crucial: aumenta a view para o bloqueio de 'TRAVA ZERO' funcionar
-            last_viewer_email: viewerEmail
-          })
-          .eq('id', id);
-        
-        if (fallbackErr) throw fallbackErr;
+      const resp = await fetch('/api/view-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id,
+          viewerEmail,
+          viewerIp: userIp
+        })
+      });
+
+      if (!resp.ok) {
+        throw new Error(`Falha ao registrar visualização: ${resp.status}`);
       }
+      
+      const resData = await resp.json();
+      console.log('✅ [ViewSecret] Resposta do servidor:', resData);
 
     } catch (e: any) {
-      console.error('❌ [ViewSecret] Erro na incineração de segurança:', e.message);
-      // Aqui NÃO bloqueamos o usuário se for apenas incremento de view, 
-      // mas se for incineração crítica, o caller handleUnlock/confirmAndReveal já trata
-      throw e; 
+      console.error('❌ [ViewSecret] Erro no registro de visualização:', e.message);
     }
   };
 

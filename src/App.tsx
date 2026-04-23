@@ -793,6 +793,7 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
         max_views: isOneTime ? 1 : (limitViews ? maxViews : null),
         status: 'active',
         user_id: user?.id,
+        creator_email: user?.email || null,
         restrict_ip: !!restrictIp,
         require_email: !!requireEmail,
         notify_access: !!notifyAccess,
