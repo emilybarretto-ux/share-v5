@@ -27,7 +27,7 @@ async function startServer() {
 
   // ROTA DE VISUALIZAÇÃO E EVENTOS (Notificações)
   app.post('/api/view-event', async (req, res) => {
-    const { id, viewerEmail, viewerIp } = req.body;
+    const { id, viewerEmail, viewerIp, action = 'increment' } = req.body;
     
     if (!id) return res.status(400).json({ error: 'ID é obrigatório' });
 
@@ -44,24 +44,37 @@ async function startServer() {
 
       if (fetchError || !secret) return res.status(404).json({ error: 'Não encontrado' });
 
-      const nextViews = (secret.views || 0) + 1;
       const maxViews = secret.max_views !== null ? Number(secret.max_views) : null;
       const isOneTime = maxViews === 1;
-      const reachedLimit = maxViews !== null && nextViews >= maxViews;
 
-      const updatePayload: any = { views: nextViews, last_viewer_email: viewerEmail || null };
-      if (isOneTime || reachedLimit) {
-        updatePayload.status = 'completed';
-        updatePayload.content = '';
-        updatePayload.key_values = null;
-        updatePayload.password = '';
-        updatePayload.file_url = null;
+      let updatePayload: any = {};
+
+      if (action === 'burn') {
+        updatePayload = {
+          status: 'completed',
+          content: '',
+          password: '',
+          key_values: null,
+          file_url: null
+        };
+      } else {
+        const nextViews = (secret.views || 0) + 1;
+        const reachedLimit = maxViews !== null && nextViews >= maxViews;
+
+        updatePayload = { views: nextViews };
+        if (isOneTime || reachedLimit) {
+          updatePayload.status = 'completed';
+        }
       }
 
-      await supabase.from('secrets').update(updatePayload).eq('id', id);
+      const { error: updateError } = await supabase.from('secrets').update(updatePayload).eq('id', id);
+      
+      if (updateError) {
+        return res.status(500).json({ error: `Erro no banco: ${updateError.message}` });
+      }
 
-      // Notificação Resend
-      if (secret.notify_access && secret.creator_email && process.env.RESEND_API_KEY) {
+      // Notificação Resend (Apenas no primeiro acesso)
+      if (action === 'increment' && secret.notify_access && secret.creator_email && process.env.RESEND_API_KEY) {
         const { Resend } = await import('resend');
         const resend = new Resend(process.env.RESEND_API_KEY);
         
@@ -73,7 +86,7 @@ async function startServer() {
         }).catch(e => console.error('Erro Resend:', e));
       }
 
-      return res.json({ success: true, incinerated: reachedLimit || isOneTime });
+      return res.json({ success: true, incinerated: action === 'burn' });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
     }
