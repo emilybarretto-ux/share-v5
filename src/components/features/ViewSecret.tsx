@@ -664,7 +664,7 @@ export const ViewSecret = ({ id, onBack, setScreen }: ViewSecretProps) => {
         </motion.div>
       )}
     </motion.div>
-    
+
     <AnimatePresence>
       {showConfirmBurn && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md">

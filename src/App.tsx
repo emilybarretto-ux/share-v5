@@ -995,6 +995,11 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
     </div>
   );
 
+  const queryParams = new URLSearchParams(window.location.search);
+  const viewingFormId = queryParams.get('form') || '';
+  const viewingSecretId = queryParams.get('id') || '';
+  const fillingRequestId = queryParams.get('request') || '';
+
   return (
     <div className="min-h-screen bg-bg-base text-text-primary font-sans">
       <nav className="border-b border-border-base bg-surface sticky top-0 z-50">
@@ -1076,7 +1081,7 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
           {screen === 'view-form' && (
             <motion.div key="view-form-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <ViewForm 
-                id={new URLSearchParams(window.location.search).get('form') || ''} 
+                id={viewingFormId} 
                 onBack={() => { window.history.pushState({}, '', '/'); setScreen('home'); }} 
               />
             </motion.div>
@@ -1205,7 +1210,7 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
           {screen === 'view-secret' && (
             <motion.div key="view-secret-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <ViewSecret 
-                id={new URLSearchParams(window.location.search).get('id') || ''} 
+                id={viewingSecretId} 
                 onBack={() => { window.history.pushState({}, '', '/'); setScreen('home'); }} 
                 setScreen={setScreen as any}
               />
@@ -1215,7 +1220,7 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
           {screen === 'fill-request' && (
             <motion.div key="fill-request-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <FillRequest 
-                id={new URLSearchParams(window.location.search).get('request') || ''} 
+                id={fillingRequestId} 
                 onSuccess={() => { window.history.pushState({}, '', '/'); setScreen('home'); }} 
               />
             </motion.div>
