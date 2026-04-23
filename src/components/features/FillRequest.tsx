@@ -80,26 +80,22 @@ export const FillRequest = ({ id, onSuccess }: FillRequestProps) => {
   // Removido timer de redirecionamento automático por window.location para não quebrar o estado SPA
 
   if (loading) return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-20 text-center text-slate-500 font-bold">
+    <div className="p-20 text-center text-slate-500 font-bold">
       <div className="size-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
       Carregando solicitação segura...
-    </motion.div>
+    </div>
   );
 
   if (!request) return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-20 text-center text-red-500 font-bold">
+    <div className="p-20 text-center text-red-500 font-bold">
       Esta solicitação é inválida ou já foi removida.
-    </motion.div>
+    </div>
   );
 
   // Removida a tela de sucesso estática para permitir redirecionamento direto via App.tsx
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="max-w-2xl mx-auto px-4 py-12"
-    >
+    <div className="max-w-2xl mx-auto px-4 py-12">
       <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden">
         <div className="p-8 border-b border-slate-100 dark:border-slate-800 bg-blue-600 text-white">
           <div className="flex items-center gap-4 mb-4">
@@ -171,6 +167,6 @@ export const FillRequest = ({ id, onSuccess }: FillRequestProps) => {
           </div>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 };

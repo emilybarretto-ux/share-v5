@@ -1089,106 +1089,117 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
           )}
 
           {screen === 'setup-2fa' as any && (
-            <div className="max-w-md mx-auto mt-20 p-8 bg-surface border border-border-base rounded-3xl shadow-xl text-center">
-              <div className="size-16 bg-accent/10 text-accent rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <ShieldCheck size={32} />
-              </div>
-              <h2 className="text-2xl font-bold text-text-primary mb-2">Segurança Obrigatória</h2>
-              <p className="text-text-secondary text-sm mb-6">Escaneie o QR Code abaixo para ativar o 2FA. Se o seu token der erro, use o botão de reset abaixo.</p>
-              <div className="flex justify-center mb-6 bg-white p-4 rounded-xl inline-block min-h-[232px] flex-col items-center">
-                {qrCodeUrl ? (
-                  <QRCodeSVG value={qrCodeUrl} size={200} />
-                ) : (
-                  <div className="size-[200px] flex flex-col items-center justify-center gap-4 text-text-secondary">
-                    <RefreshCcw className="animate-spin" size={32} />
-                    <p className="text-[10px] uppercase font-black">Gerando QR Code...</p>
-                    <button 
-                      onClick={resetMFA}
-                      className="mt-2 px-4 py-2 bg-accent text-white rounded-lg text-xs font-bold"
-                    >
-                      Tentar Gerar Novamente
-                    </button>
-                  </div>
-                )}
-              </div>
-              <div className="space-y-4">
-                <input 
-                  type="text" maxLength={6} value={mfaCode}
-                  onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ''))}
-                  placeholder="000000"
-                  className="w-full px-4 py-4 text-center text-2xl tracking-[0.5em] font-mono bg-bg-base border border-border-base rounded-xl outline-none"
-                />
-                <button onClick={handleVerify2FA} disabled={isVerifying || mfaCode.length !== 6} className="w-full py-4 bg-accent text-white font-bold rounded-xl active:scale-95 transition-transform">
-                  {isVerifying ? 'Verificando...' : 'Ativar 2FA'}
-                </button>
-                
-                <div className="pt-4 border-t border-border-base flex flex-col gap-2">
-                  <button onClick={resetMFA} disabled={isVerifying} className="text-xs font-bold text-accent hover:underline">
-                    Token inválido? Gerar novo QR Code
+            <motion.div key="setup-2fa" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <div className="max-w-md mx-auto mt-20 p-8 bg-surface border border-border-base rounded-3xl shadow-xl text-center">
+                <div className="size-16 bg-accent/10 text-accent rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <ShieldCheck size={32} />
+                </div>
+                <h2 className="text-2xl font-bold text-text-primary mb-2">Segurança Obrigatória</h2>
+                <p className="text-text-secondary text-sm mb-6">Escaneie o QR Code abaixo para ativar o 2FA. Se o seu token der erro, use o botão de reset abaixo.</p>
+                <div className="flex justify-center mb-6 bg-white p-4 rounded-xl inline-block min-h-[232px] flex-col items-center">
+                  {qrCodeUrl ? (
+                    <QRCodeSVG value={qrCodeUrl} size={200} />
+                  ) : (
+                    <div className="size-[200px] flex flex-col items-center justify-center gap-4 text-text-secondary">
+                      <RefreshCcw className="animate-spin" size={32} />
+                      <p className="text-[10px] uppercase font-black">Gerando QR Code...</p>
+                      <button 
+                        onClick={resetMFA}
+                        className="mt-2 px-4 py-2 bg-accent text-white rounded-lg text-xs font-bold"
+                      >
+                        Tentar Gerar Novamente
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-4">
+                  <input 
+                    type="text" maxLength={6} value={mfaCode}
+                    onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ''))}
+                    placeholder="000000"
+                    className="w-full px-4 py-4 text-center text-2xl tracking-[0.5em] font-mono bg-bg-base border border-border-base rounded-xl outline-none"
+                  />
+                  <button onClick={handleVerify2FA} disabled={isVerifying || mfaCode.length !== 6} className="w-full py-4 bg-accent text-white font-bold rounded-xl active:scale-95 transition-transform">
+                    {isVerifying ? 'Verificando...' : 'Ativar 2FA'}
                   </button>
-                  <button onClick={handleLogout} className="text-sm text-text-secondary hover:text-red-500 font-bold">Cancelar e Sair</button>
+                  
+                  <div className="pt-4 border-t border-border-base flex flex-col gap-2">
+                    <button onClick={resetMFA} disabled={isVerifying} className="text-xs font-bold text-accent hover:underline">
+                      Token inválido? Gerar novo QR Code
+                    </button>
+                    <button onClick={handleLogout} className="text-sm text-text-secondary hover:text-red-500 font-bold">Cancelar e Sair</button>
+                  </div>
                 </div>
               </div>
-            </div>
+            </motion.div>
           )}
 
           {screen === 'verify-2fa' as any && (
-            <div className="max-w-md mx-auto mt-20 p-8 bg-surface border border-border-base rounded-3xl shadow-xl text-center">
-              <div className="size-16 bg-accent/10 text-accent rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <Lock size={32} />
+            <motion.div key="verify-2fa" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <div className="max-w-md mx-auto mt-20 p-8 bg-surface border border-border-base rounded-3xl shadow-xl text-center">
+                <div className="size-16 bg-accent/10 text-accent rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <Lock size={32} />
+                </div>
+                <h2 className="text-2xl font-bold text-text-primary mb-2">Código de Segurança</h2>
+                <p className="text-text-secondary text-sm mb-8">Digite o código do seu aplicativo autenticador.</p>
+                <div className="space-y-4">
+                  <input 
+                    type="text" maxLength={6} value={mfaCode}
+                    onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ''))}
+                    placeholder="000000"
+                    className="w-full px-4 py-4 text-center text-3xl tracking-[0.5em] font-mono bg-bg-base border border-border-base rounded-xl outline-none"
+                  />
+                  <button onClick={handleVerify2FA} disabled={isVerifying || mfaCode.length !== 6} className="w-full py-4 bg-accent text-white font-bold rounded-xl">
+                    {isVerifying ? 'Verificando...' : 'Entrar'}
+                  </button>
+                  <button onClick={handleLogout} className="text-sm text-text-secondary hover:text-red-500 font-bold">Voltar</button>
+                </div>
               </div>
-              <h2 className="text-2xl font-bold text-text-primary mb-2">Código de Segurança</h2>
-              <p className="text-text-secondary text-sm mb-8">Digite o código do seu aplicativo autenticador.</p>
-              <div className="space-y-4">
-                <input 
-                  type="text" maxLength={6} value={mfaCode}
-                  onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ''))}
-                  placeholder="000000"
-                  className="w-full px-4 py-4 text-center text-3xl tracking-[0.5em] font-mono bg-bg-base border border-border-base rounded-xl outline-none"
-                />
-                <button onClick={handleVerify2FA} disabled={isVerifying || mfaCode.length !== 6} className="w-full py-4 bg-accent text-white font-bold rounded-xl">
-                  {isVerifying ? 'Verificando...' : 'Entrar'}
-                </button>
-                <button onClick={handleLogout} className="text-sm text-text-secondary hover:text-red-500 font-bold">Voltar</button>
-              </div>
-            </div>
+            </motion.div>
           )}
 
           {screen === 'register' && (
-            <RegisterScreen 
-              registerName={registerName} setRegisterName={setRegisterName}
-              registerEmail={registerEmail} setRegisterEmail={setRegisterEmail}
-              registerPassword={registerPassword} setRegisterPassword={setRegisterPassword}
-              handleRegister={handleRegister} isRegistering={isRegistering} setScreen={setScreen as any}
-            />
+            <motion.div key="register" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <RegisterScreen 
+                registerName={registerName} setRegisterName={setRegisterName}
+                registerEmail={registerEmail} setRegisterEmail={setRegisterEmail}
+                registerPassword={registerPassword} setRegisterPassword={setRegisterPassword}
+                handleRegister={handleRegister} isRegistering={isRegistering} setScreen={setScreen as any}
+              />
+            </motion.div>
           )}
 
           {screen === 'dashboard' && user && (
-            <DashboardScreen 
-              key={`dashboard-${user.id}`}
-              userEmail={user.email || ''}
-              links={links} requests={requests} forms={forms}
-              dashboardTab={dashboardTab} setDashboardTab={setDashboardTab}
-              fetchLinks={fetchLinks} fetchRequests={fetchRequests} fetchForms={fetchForms}
-              copied={copied} setCopied={setCopied} setScreen={setScreen as any} handleCopy={handleCopy}
-            />
+            <motion.div key={`dashboard-${user.id}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <DashboardScreen 
+                userEmail={user.email || ''}
+                links={links} requests={requests} forms={forms}
+                dashboardTab={dashboardTab} setDashboardTab={setDashboardTab}
+                fetchLinks={fetchLinks} fetchRequests={fetchRequests} fetchForms={fetchForms}
+                copied={copied} setCopied={setCopied} setScreen={setScreen as any} handleCopy={handleCopy}
+              />
+            </motion.div>
           )}
 
           {screen === 'success' && (
-            <SuccessScreen 
-              generatedLinkId={lastCreatedId} qrVisible={qrVisible} setQrVisible={setQrVisible}
-              copied={copied} handleCopy={() => handleCopy()} setScreen={setScreen as any}
-              restrictIp={restrictIp} requireEmail={requireEmail}
-            />
+            <motion.div key="success" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <SuccessScreen 
+                generatedLinkId={lastCreatedId} qrVisible={qrVisible} setQrVisible={setQrVisible}
+                copied={copied} handleCopy={() => handleCopy()} setScreen={setScreen as any}
+                restrictIp={restrictIp} requireEmail={requireEmail}
+              />
+            </motion.div>
           )}
 
           {screen === 'request-success' && (
-            <RequestSuccessScreen 
-              generatedLinkId={lastCreatedId}
-              copied={copied}
-              handleCopy={(text) => handleCopy(text)}
-              setScreen={setScreen as any}
-            />
+            <motion.div key="request-success" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <RequestSuccessScreen 
+                generatedLinkId={lastCreatedId}
+                copied={copied}
+                handleCopy={(text) => handleCopy(text)}
+                setScreen={setScreen as any}
+              />
+            </motion.div>
           )}
 
           {screen === 'view-secret' && (
