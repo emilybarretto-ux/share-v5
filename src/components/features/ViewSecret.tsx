@@ -34,6 +34,7 @@ export const ViewSecret = ({ id, user, onBack, setScreen }: ViewSecretProps) => 
   const [otpCode, setOtpCode] = useState('');
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const hasVerifiedManually = React.useRef(false); 
   const hasIncrementedOnce = React.useRef(false); // Previne duplo incremento no mesmo mount
   const { showNotification } = useNotification();
 
@@ -53,7 +54,7 @@ export const ViewSecret = ({ id, user, onBack, setScreen }: ViewSecretProps) => 
       fetchSecret(currentIp);
     };
     init();
-  }, [id, user]); // Re-fetch when user changes (e.g. after login)
+  }, [id]); // Removido 'user' daqui para evitar o loop de auto-show após login se quisermos ser "Manuais"
 
   const fetchSecret = async (currentIp: string) => {
     setLoading(true);
@@ -156,10 +157,20 @@ export const ViewSecret = ({ id, user, onBack, setScreen }: ViewSecretProps) => 
       // --- TRAVA 2: EXIGIR E-MAIL (Antes de pedir senha) ---
       if (isEmailRequired) {
           console.log('🔐 [ViewSecret] Este segredo exige identificação. Verificando sessão...');
+          
+          // Se o segredo exige e-mail e ainda não validamos localmente NESTA SESSÃO do componente
+          // Mostramos o portão mesmo que já esteja logado, forçando o clique no link/token (Não automático)
+          if (!hasVerifiedManually.current) {
+              console.warn('🚫 [ViewSecret] Bloqueio por E-mail: Validação manual pendente.');
+              setError('AUTH_REQUIRED');
+              setLoading(false);
+              return;
+          }
+
           const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
           
           if (authError || !authUser) {
-              console.warn('🚫 [ViewSecret] Bloqueio por E-mail: Usuário NÃO autenticado.');
+              console.warn('🚫 [ViewSecret] Bloqueio por E-mail: Usuário NÃO autenticado no Supabase.');
               setError('AUTH_REQUIRED');
               setLoading(false);
               return;
@@ -493,8 +504,11 @@ export const ViewSecret = ({ id, user, onBack, setScreen }: ViewSecretProps) => 
 
       if (verifyError) throw verifyError;
       
+      hasVerifiedManually.current = true;
       showNotification('Identidade verificada!', 'success');
-      // O App.tsx vai detectar o onAuthStateChange e recarregar o componente automaticamente
+      
+      // Recarrega o segredo agora que a identidade foi marcada como validada localmente
+      fetchSecret(userIp || '0.0.0.0');
     } catch (err: any) {
       console.error('Erro ao verificar OTP:', err);
       showNotification('Token inválido ou expirado.', 'error');

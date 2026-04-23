@@ -422,7 +422,9 @@ export default function App() {
           
           // Se o nível atual é aal1 OU se já passou 2 horas da última verificação
           // NÃO redirecionamos para 2FA se o usuário estiver visualizando um segredo ou preenchendo uma solicitação/formulário
-          const isViewingScreen = ['view-secret', 'fill-request', 'view-form'].includes(screenRef.current);
+          const params = new URLSearchParams(window.location.search);
+          const isViewingScreen = ['view-secret', 'fill-request', 'view-form'].includes(screenRef.current) || params.has('id') || params.has('uid');
+          
           if ((mfaData?.currentLevel === 'aal1' || needsVerification) && !isViewingScreen) {
             setScreen('verify-2fa' as any);
             setLoading(false);
