@@ -108,7 +108,13 @@ export const ViewSecret = ({ id, onBack }: ViewSecretProps) => {
           setError('Este link expirou devido ao prazo de validade definido pelo criador.');
           
           if (data.status !== 'completed') {
-            supabase.from('secrets').update({ status: 'completed', content: '', password: '', key_values: null }).eq('id', id).then(() => {});
+            supabase.from('secrets').update({ 
+              status: 'completed', 
+              content: '', 
+              password: '', 
+              key_values: null,
+              file_url: null 
+            }).eq('id', id).then(() => {});
           }
           setLoading(false);
           return;
@@ -192,6 +198,7 @@ const incrementViews = async () => {
         updatePayload.content = '';
         updatePayload.key_values = null;
         updatePayload.password = '';
+        updatePayload.file_url = null;
       }
 
       console.log('🔥 [ViewSecret] Gravando visualização/incineração...', updatePayload);
@@ -210,6 +217,7 @@ const incrementViews = async () => {
             content: '', 
             password: '', 
             key_values: null,
+            file_url: null,
             views: nextViews, // Crucial: aumenta a view para o bloqueio de 'TRAVA ZERO' funcionar
             last_viewer_email: viewerEmail
           })
