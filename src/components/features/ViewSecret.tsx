@@ -32,6 +32,7 @@ export const ViewSecret = ({ id, onBack, setScreen }: ViewSecretProps) => {
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState('');
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
   const hasIncrementedOnce = React.useRef(false); // Previne duplo incremento no mesmo mount
   const { showNotification } = useNotification();
 
@@ -431,6 +432,7 @@ export const ViewSecret = ({ id, onBack, setScreen }: ViewSecretProps) => {
     }
 
     setIsSendingOtp(true);
+    setResendCooldown(15); // 15 segundos de cooldown
     try {
       const { error: otpError } = await supabase.auth.signInWithOtp({
         email: verificationEmail.trim().toLowerCase(),
@@ -452,6 +454,13 @@ export const ViewSecret = ({ id, onBack, setScreen }: ViewSecretProps) => {
       setIsSendingOtp(false);
     }
   };
+
+  useEffect(() => {
+    if (resendCooldown > 0) {
+      const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [resendCooldown]);
 
   const handleVerifyOTP = async () => {
     if (otpCode.length < 6) return;
@@ -550,8 +559,8 @@ export const ViewSecret = ({ id, onBack, setScreen }: ViewSecretProps) => {
                           type="text"
                           maxLength={8}
                           value={otpCode}
-                          onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                          placeholder="000000"
+                          onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                          placeholder="00000000"
                           className="w-full px-4 py-4 text-center text-2xl tracking-[0.3em] font-mono bg-white dark:bg-slate-900 border border-border-base rounded-xl outline-none focus:ring-2 focus:ring-green-600 dark:text-white"
                         />
                         <button 
@@ -567,11 +576,11 @@ export const ViewSecret = ({ id, onBack, setScreen }: ViewSecretProps) => {
                       <div className="pt-2 flex flex-col gap-3">
                         <button 
                           onClick={handleSendToken} 
-                          disabled={isSendingOtp}
-                          className="text-[10px] font-black uppercase text-slate-500 hover:text-accent transition-colors flex items-center justify-center gap-1 mx-auto"
+                          disabled={isSendingOtp || resendCooldown > 0}
+                          className="text-[10px] font-black uppercase text-slate-500 hover:text-accent transition-colors flex items-center justify-center gap-1 mx-auto disabled:opacity-50"
                         >
                           <RefreshCcw size={10} className={isSendingOtp ? 'animate-spin' : ''} />
-                          Reenviar código para {verificationEmail}
+                          {resendCooldown > 0 ? `Aguarde ${resendCooldown}s para reenviar` : `Reenviar código para ${verificationEmail}`}
                         </button>
                         <button 
                           onClick={() => { setOtpSent(false); setOtpCode(''); }} 
