@@ -224,6 +224,8 @@ export default function App() {
   const [errorSql, setErrorSql] = useState<string | null>(null);
   const [restrictIp, setRestrictIp] = useState(false);
   const [requireEmail, setRequireEmail] = useState(false);
+  const [allowedEmails, setAllowedEmails] = useState<string[]>([]);
+  const [allowedDomain, setAllowedDomain] = useState('');
   const [notifyAccess, setNotifyAccess] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [redirectUrl, setRedirectUrl] = useState('');
@@ -818,6 +820,8 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
         status: 'active',
         user_id: user?.id,
         creator_email: user?.email || null,
+        allowed_email: allowedEmails.length > 0 ? allowedEmails.join(',').toLowerCase() : null,
+        allowed_domain: allowedDomain ? allowedDomain.trim().toLowerCase() : null,
         restrict_ip: !!restrictIp,
         require_email: !!requireEmail,
         notify_access: !!notifyAccess,
@@ -874,6 +878,8 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
           setMaxViews(1);
           setRestrictIp(false);
           setRequireEmail(false);
+          setAllowedEmails([]);
+          setAllowedDomain('');
           setNotifyAccess(false);
           setRedirectUrl('');
           setScreen('success');
@@ -1060,6 +1066,8 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
                 isCreating={isCreatingSecret}
                 restrictIp={restrictIp} setRestrictIp={setRestrictIp}
                 requireEmail={requireEmail} setRequireEmail={setRequireEmail}
+                allowedEmails={allowedEmails} setAllowedEmails={setAllowedEmails}
+                allowedDomain={allowedDomain} setAllowedDomain={setAllowedDomain}
                 notifyAccess={notifyAccess} setNotifyAccess={setNotifyAccess}
                 selectedFile={selectedFile} setSelectedFile={setSelectedFile}
                 redirectUrl={redirectUrl} setRedirectUrl={setRedirectUrl}

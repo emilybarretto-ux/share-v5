@@ -13,6 +13,8 @@ export interface SharedLink {
   key_values?: Array<{ key: string, value: string }>;
   restrict_ip?: boolean;
   require_email?: boolean;
+  allowed_email?: string | null;
+  allowed_domain?: string | null;
   notify_access?: boolean;
   last_viewer_email?: string | null;
   creator_ip?: string | null;

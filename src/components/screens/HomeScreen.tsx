@@ -31,6 +31,10 @@ interface HomeScreenProps {
   setRestrictIp: (v: boolean) => void;
   requireEmail: boolean;
   setRequireEmail: (v: boolean) => void;
+  allowedEmails: string[];
+  setAllowedEmails: (v: string[]) => void;
+  allowedDomain: string;
+  setAllowedDomain: (v: string) => void;
   notifyAccess: boolean;
   setNotifyAccess: (v: boolean) => void;
   selectedFile: File | null;
@@ -49,11 +53,26 @@ export const HomeScreen = ({
   isCreating = false,
   restrictIp, setRestrictIp,
   requireEmail, setRequireEmail,
+  allowedEmails, setAllowedEmails,
+  allowedDomain, setAllowedDomain,
   notifyAccess, setNotifyAccess,
   selectedFile, setSelectedFile,
   redirectUrl, setRedirectUrl
 }: HomeScreenProps) => {
   const [showAdvanced, setShowAdvanced] = useState(true);
+  const [emailInput, setEmailInput] = useState('');
+
+  const addEmail = () => {
+    if (!emailInput || !emailInput.includes('@')) return;
+    if (!allowedEmails.includes(emailInput.trim().toLowerCase())) {
+      setAllowedEmails([...allowedEmails, emailInput.trim().toLowerCase()]);
+    }
+    setEmailInput('');
+  };
+
+  const removeEmail = (email: string) => {
+    setAllowedEmails(allowedEmails.filter(e => e !== email));
+  };
 
   return (
     <motion.div 
@@ -305,6 +324,70 @@ export const HomeScreen = ({
                         <span className="text-sm font-bold text-text-secondary group-hover/opt:text-text-primary transition-colors">Exigir verificação por e-mail</span>
                       </button>
                     </div>
+
+                    {requireEmail && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="space-y-4 pt-2"
+                      >
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-text-secondary uppercase tracking-widest ml-1">E-mails Autorizados (Lista)</label>
+                          <div className="flex gap-2">
+                            <input 
+                              type="email" 
+                              value={emailInput} 
+                              onChange={(e) => setEmailInput(e.target.value)} 
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  addEmail();
+                                }
+                              }}
+                              placeholder="Adicionar e-mail (ex: joao@empresa.com)" 
+                              className="flex-1 px-4 py-3 bg-bg-base/40 border border-border-base rounded-xl focus:ring-2 focus:ring-accent outline-none text-text-primary text-sm font-medium" 
+                            />
+                            <button 
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                addEmail();
+                              }}
+                              className="px-6 bg-accent text-white rounded-xl font-bold text-xs hover:opacity-90 transition-all uppercase cursor-pointer shadow-lg shadow-accent/20 active:scale-95"
+                            >
+                              Add
+                            </button>
+                          </div>
+                          
+                          {allowedEmails.length > 0 && (
+                            <div className="flex flex-wrap gap-2 pt-1">
+                              {allowedEmails.map(email => (
+                                <div key={email} className="flex items-center gap-2 px-3 py-1.5 bg-accent/10 border border-accent/20 rounded-lg text-accent text-xs font-bold group/tag">
+                                  <span>{email}</span>
+                                  <button onClick={() => removeEmail(email)} className="hover:text-red-500">
+                                    <X size={14} strokeWidth={3} />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-text-secondary uppercase tracking-widest ml-1">Domínio Permitido (Opcional)</label>
+                          <div className="relative flex items-center">
+                            <span className="absolute left-4 text-text-secondary font-bold text-sm">@</span>
+                            <input 
+                              type="text" 
+                              value={allowedDomain} 
+                              onChange={(e) => setAllowedDomain(e.target.value.replace('@', ''))} 
+                              placeholder="empresa.com.br" 
+                              className="w-full pl-8 pr-4 py-3 bg-bg-base/40 border border-border-base rounded-xl focus:ring-2 focus:ring-accent outline-none text-text-primary text-sm font-medium" 
+                            />
+                          </div>
+                          <p className="text-[9px] text-text-secondary ml-1 italic opacity-70">Apenas usuários deste domínio poderão acessar o token.</p>
+                        </div>
+                      </motion.div>
+                    )}
                   </div>
                   <div className="space-y-4">
                     <p className="text-[10px] font-black text-text-secondary uppercase tracking-[0.2em] opacity-60">Uso e Limites</p>

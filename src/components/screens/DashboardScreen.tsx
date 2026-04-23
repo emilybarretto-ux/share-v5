@@ -376,6 +376,18 @@ export const DashboardScreen = ({
                                   Expira em {new Date(link.expires_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })} (Local)
                                 </span>
                               )}
+                              {link.allowed_email && (
+                                <span className="text-[9px] text-accent font-bold truncate max-w-[150px]" title={link.allowed_email}>
+                                  {link.allowed_email.includes(',') 
+                                    ? `${link.allowed_email.split(',').length} e-mails autorizados`
+                                    : `Exclusivo p/: ${link.allowed_email}`}
+                                </span>
+                              )}
+                              {link.allowed_domain && (
+                                <span className="text-[9px] text-purple-500 font-bold">
+                                  Domínio: @{link.allowed_domain}
+                                </span>
+                              )}
                             </div>
                           </td>
                           <td className="px-6 py-4">

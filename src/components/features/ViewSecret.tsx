@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShieldCheck, Lock, Eye, EyeOff, Copy, X, Timer, Fingerprint, Trash2, ExternalLink, Download, FileIcon, ImageIcon, Key } from 'lucide-react';
+import { ShieldCheck, Lock, Eye, EyeOff, Copy, X, Timer, Fingerprint, Trash2, ExternalLink, Download, FileIcon, ImageIcon, Key, Mail, RefreshCcw, Info, Check } from 'lucide-react';
 import Markdown from 'react-markdown';
 import { supabase } from '../../lib/supabase';
 import { decryptData, hashPassword } from '../../lib/crypto';
@@ -27,6 +27,11 @@ export const ViewSecret = ({ id, onBack, setScreen }: ViewSecretProps) => {
   const [isUnlocking, setIsUnlocking] = useState(false);
   const [userIp, setUserIp] = useState<string>('');
   const [isVerifyingSecurity, setIsVerifyingSecurity] = useState(true);
+  const [verificationEmail, setVerificationEmail] = useState('');
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const hasIncrementedOnce = React.useRef(false); // Previne duplo incremento no mesmo mount
   const { showNotification } = useNotification();
 
@@ -158,6 +163,26 @@ export const ViewSecret = ({ id, onBack, setScreen }: ViewSecretProps) => {
               return;
           }
           console.log('✅ [ViewSecret] Usuário autenticado:', authUser.email);
+
+          // --- NOVO: Verificação de E-mail ou Domínio Específicos ---
+          const email = authUser.email?.toLowerCase() || '';
+          
+          if (data.allowed_email) {
+            const allowedList = data.allowed_email.split(',').map((e: string) => e.trim().toLowerCase());
+            if (!allowedList.includes(email)) {
+              console.warn('🚫 [ViewSecret] E-mail não autorizado:', email);
+              setError(`ACESSO_NEGADO_EMAIL:${data.allowed_email}`);
+              setLoading(false);
+              return;
+            }
+          }
+
+          if (data.allowed_domain && !email.endsWith(`@${data.allowed_domain.toLowerCase()}`)) {
+            console.warn('🚫 [ViewSecret] Domínio não autorizado:', email);
+            setError(`ACESSO_NEGADO_DOMINIO:${data.allowed_domain}`);
+            setLoading(false);
+            return;
+          }
       }
 
       // Se passou pelas travas, agora verificamos o acesso/desbloqueio
@@ -399,6 +424,59 @@ export const ViewSecret = ({ id, onBack, setScreen }: ViewSecretProps) => {
     }
   };
 
+  const handleSendToken = async () => {
+    if (!verificationEmail || !verificationEmail.includes('@')) {
+      showNotification('Por favor, insira um e-mail válido.', 'info');
+      return;
+    }
+
+    setIsSendingOtp(true);
+    try {
+      // Usar a URL atual como redirect para voltar exatamente para este segredo
+      const redirectUrl = window.location.href;
+      
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        email: verificationEmail,
+        options: {
+          emailRedirectTo: redirectUrl,
+        }
+      });
+
+      if (otpError) throw otpError;
+      
+      setOtpSent(true);
+      showNotification('Token (Link de Acesso) enviado para seu e-mail!', 'success');
+    } catch (err: any) {
+      console.error('Erro ao enviar OTP:', err);
+      showNotification('Erro ao enviar e-mail: ' + err.message, 'error');
+    } finally {
+      setIsSendingOtp(false);
+    }
+  };
+
+  const handleVerifyOTP = async () => {
+    if (otpCode.length < 6) return;
+    
+    setIsVerifyingOtp(true);
+    try {
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        email: verificationEmail.trim().toLowerCase(),
+        token: otpCode,
+        type: 'email'
+      });
+
+      if (verifyError) throw verifyError;
+      
+      showNotification('Identidade verificada!', 'success');
+      // O App.tsx vai detectar o onAuthStateChange e recarregar o componente automaticamente
+    } catch (err: any) {
+      console.error('Erro ao verificar OTP:', err);
+      showNotification('Token inválido ou expirado.', 'error');
+    } finally {
+      setIsVerifyingOtp(false);
+    }
+  };
+
   return (
     <div className="min-h-screen py-12 px-4 flex items-center justify-center">
       <ScreenProtector active={isUnlocked && !loading && !hasBurned && !error}>
@@ -417,24 +495,98 @@ export const ViewSecret = ({ id, onBack, setScreen }: ViewSecretProps) => {
             </h2>
             <p className="text-slate-500 dark:text-slate-400 mb-8">
               {error === 'AUTH_REQUIRED' 
-                ? 'O criador deste link exige que você esteja logado para acessar os dados com segurança.' 
+                ? 'O criador deste link exige que você verifique sua identidade por e-mail para acessar os dados.' 
+                : error.startsWith('ACESSO_NEGADO_EMAIL')
+                ? `Acesso negado: Este segredo só pode ser lido pelo e-mail: ${error.split(':')[1]}`
+                : error.startsWith('ACESSO_NEGADO_DOMINIO')
+                ? `Acesso negado: Este segredo só pode ser lido por usuários do domínio: @${error.split(':')[1]}`
                 : error}
             </p>
             
-            <div className="space-y-3">
+            <div className="space-y-4">
               {error === 'AUTH_REQUIRED' && (
-                <button 
-                  onClick={() => {
-                    localStorage.setItem('redirect_after_auth', window.location.search);
-                    setScreen('login');
-                  }}
-                  className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:opacity-90 transition-all flex items-center justify-center gap-2"
-                >
-                  <Fingerprint size={20} />
-                  Fazer Login agora
-                </button>
+                <div className="space-y-4">
+                  {!otpSent ? (
+                    <div className="space-y-3">
+                      <div className="relative">
+                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                        <input 
+                          type="email"
+                          value={verificationEmail}
+                          onChange={(e) => setVerificationEmail(e.target.value)}
+                          placeholder="seu-email@dominio.com"
+                          className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none dark:text-white"
+                        />
+                      </div>
+                      <button 
+                        onClick={handleSendToken}
+                        disabled={isSendingOtp}
+                        className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:opacity-90 transition-all flex items-center justify-center gap-2"
+                      >
+                        {isSendingOtp ? (
+                          <RefreshCcw className="animate-spin" size={20} />
+                        ) : (
+                          <Fingerprint size={20} />
+                        )}
+                        {isSendingOtp ? 'Enviando...' : 'Obter Token via E-mail'}
+                      </button>
+                      <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/10 rounded-xl text-[10px] text-blue-600 dark:text-blue-400 text-left">
+                        <Info size={14} />
+                        <span>Você receberá um link de acesso único. Após clicar nele, volte para esta aba.</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-6 bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-900/30 rounded-2xl text-center space-y-3">
+                      <div className="size-12 bg-green-100 dark:bg-green-900/20 text-green-600 rounded-full flex items-center justify-center mx-auto">
+                        <Check size={24} />
+                      </div>
+                      <p className="text-sm font-bold text-green-700 dark:text-green-400">Token Enviado!</p>
+                      <p className="text-xs text-green-600 dark:text-green-500">Verifique seu e-mail e digite o código de 6 dígitos enviado ou clique no link.</p>
+                      
+                      <div className="space-y-3 py-2">
+                        <input 
+                          type="text"
+                          maxLength={6}
+                          value={otpCode}
+                          onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                          placeholder="000000"
+                          className="w-full px-4 py-4 text-center text-3xl tracking-[0.5em] font-mono bg-white dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-xl outline-none"
+                        />
+                        <button 
+                          onClick={handleVerifyOTP}
+                          disabled={isVerifyingOtp || otpCode.length < 6}
+                          className="w-full py-4 bg-green-600 text-white font-bold rounded-xl shadow-lg shadow-green-600/20 hover:opacity-90 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                        >
+                          {isVerifyingOtp ? <RefreshCcw className="animate-spin" size={20} /> : <ShieldCheck size={20} />}
+                          {isVerifyingOtp ? 'Verificando...' : 'Confirmar Token'}
+                        </button>
+                      </div>
+
+                      <button onClick={() => { setOtpSent(false); setOtpCode(''); }} className="text-[10px] font-black uppercase text-accent hover:underline">Tentar outro e-mail</button>
+                    </div>
+                  )}
+                  
+                  <div className="relative py-4">
+                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200 dark:border-slate-800"></div></div>
+                    <div className="relative flex justify-center text-[10px] uppercase font-black text-slate-400"><span className="bg-white dark:bg-slate-900 px-2">Ou</span></div>
+                  </div>
+
+                  <button 
+                    onClick={() => {
+                      localStorage.setItem('redirect_after_auth', window.location.search);
+                      setScreen('login');
+                    }}
+                    className="w-full py-3 bg-surface border border-border-base text-text-primary text-sm font-bold rounded-xl hover:bg-bg-base transition-all"
+                  >
+                    Entrar com Senha
+                  </button>
+                </div>
               )}
-              <button onClick={onBack} className="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-200 transition-colors">
+              <button 
+                onClick={onBack} 
+                className="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-200 transition-colors"
+                disabled={isSendingOtp}
+              >
                 Voltar ao Início
               </button>
             </div>
