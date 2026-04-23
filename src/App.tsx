@@ -1074,7 +1074,7 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
           )}
 
           {screen === 'view-form' && (
-            <motion.div key={`form-${new URLSearchParams(window.location.search).get('form')}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div key="view-form-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <ViewForm 
                 id={new URLSearchParams(window.location.search).get('form') || ''} 
                 onBack={() => { window.history.pushState({}, '', '/'); setScreen('home'); }} 
@@ -1192,7 +1192,7 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
           )}
 
           {screen === 'view-secret' && (
-            <motion.div key={`secret-${new URLSearchParams(window.location.search).get('id')}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div key="view-secret-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <ViewSecret 
                 id={new URLSearchParams(window.location.search).get('id') || ''} 
                 onBack={() => { window.history.pushState({}, '', '/'); setScreen('home'); }} 
@@ -1202,7 +1202,7 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
           )}
 
           {screen === 'fill-request' && (
-            <motion.div key={`request-${new URLSearchParams(window.location.search).get('request')}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div key="fill-request-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <FillRequest 
                 id={new URLSearchParams(window.location.search).get('request') || ''} 
                 onSuccess={() => { window.history.pushState({}, '', '/'); setScreen('home'); }} 

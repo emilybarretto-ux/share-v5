@@ -77,18 +77,20 @@ export const FillRequest = ({ id, onSuccess }: FillRequestProps) => {
     }
   };
 
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (request?.status === 'completed') {
-       timer = setTimeout(() => {
-         window.location.href = '/';
-       }, 5000);
-    }
-    return () => clearTimeout(timer);
-  }, [request?.status]);
+  // Removido timer de redirecionamento automático por window.location para não quebrar o estado SPA
 
-  if (loading) return <div className="p-20 text-center">Carregando solicitação...</div>;
-  if (!request) return <div className="p-20 text-center">Solicitação inválida.</div>;
+  if (loading) return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-20 text-center text-slate-500 font-bold">
+      <div className="size-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+      Carregando solicitação segura...
+    </motion.div>
+  );
+
+  if (!request) return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-20 text-center text-red-500 font-bold">
+      Esta solicitação é inválida ou já foi removida.
+    </motion.div>
+  );
 
   // Removida a tela de sucesso estática para permitir redirecionamento direto via App.tsx
 
