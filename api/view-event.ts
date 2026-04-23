@@ -61,6 +61,9 @@ export default async function handler(req: any, res: any) {
 
       if (reachedLimit || isOneTime) {
         updatePayload.status = 'completed';
+        // Segurança extra: se atingiu o limite, limpamos o conteúdo já aqui
+        updatePayload.content = '';
+        updatePayload.password = '';
       }
     }
 
@@ -68,9 +71,24 @@ export default async function handler(req: any, res: any) {
     
     if (updateError) {
       console.error('[DATABASE ERROR] Update failed:', updateError);
+      
+      // FALLBACK: Se o erro for na constraint de status, tentamos salvar ao menos a incineração do conteúdo
+      if (updateError.message.includes('status') || updateError.message.includes('check constraint')) {
+        const fallbackPayload = { ...updatePayload };
+        delete fallbackPayload.status;
+        const { error: fallbackError } = await supabase.from('secrets').update(fallbackPayload).eq('id', id);
+        if (!fallbackError) {
+          return res.status(200).json({ 
+            success: true, 
+            incinerated: reachedLimit || isOneTime || action === 'burn',
+            warning: 'Status não suportado pelo banco, mas dados incinerados com sucesso.' 
+          });
+        }
+      }
+
       return res.status(500).json({ 
         error: `Erro ao processar estado no banco: ${updateError.message}`,
-        details: updateError.hint || 'Verifique se você adicionou o SUPABASE_SERVICE_ROLE_KEY nas configurações.'
+        details: updateError.hint || 'Verifique se a tabela "secrets" aceita o status "completed".'
       });
     }
 

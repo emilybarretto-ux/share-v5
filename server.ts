@@ -63,12 +63,32 @@ async function startServer() {
         updatePayload = { views: nextViews };
         if (isOneTime || reachedLimit) {
           updatePayload.status = 'completed';
+          updatePayload.content = '';
+          updatePayload.password = '';
         }
       }
 
       const { error: updateError } = await supabase.from('secrets').update(updatePayload).eq('id', id);
       
       if (updateError) {
+        console.error('[DATABASE ERROR] Update failed:', updateError);
+        
+        // Fallback para erro de constraint de status: Garante a incineração do conteúdo
+        if (updateError.message.includes('status') || updateError.message.includes('check constraint')) {
+          console.warn('[SERVER] Status update failed, trying fallback without status change...');
+          const fallbackPayload = { ...updatePayload };
+          delete fallbackPayload.status;
+          
+          const { error: fallbackError } = await supabase.from('secrets').update(fallbackPayload).eq('id', id);
+          if (!fallbackError) {
+            return res.json({ 
+              success: true, 
+              incinerated: true,
+              warning: 'Status constraint error bypassed, content cleared for security.' 
+            });
+          }
+        }
+        
         return res.status(500).json({ error: `Erro no banco: ${updateError.message}` });
       }
 
