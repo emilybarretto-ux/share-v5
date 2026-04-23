@@ -194,18 +194,24 @@ export const ViewSecret = ({ id, onBack, setScreen }: ViewSecretProps) => {
   };
 
   const [hasBurned, setHasBurned] = useState(false);
+  const maxViews = secret?.max_views !== null ? Number(secret?.max_views) : null;
+  const isOneTime = maxViews === 1;
+  const isLimited = maxViews !== null;
+  const currentViews = secret?.views || 0;
+  const reachedLimit = isLimited && (currentViews + 1) >= maxViews;
+  const willBeIncinerated = isOneTime || reachedLimit;
 
   useEffect(() => {
     // Timer de incineração automática (5 minutos)
     let burnTimer: any;
-    if (isUnlocked && secret?.max_views === 1 && !hasBurned) {
+    if (isUnlocked && willBeIncinerated && !hasBurned) {
       console.log('⏰ Timer de autodestruição iniciado: 5 minutos.');
       burnTimer = setTimeout(() => {
         handleFinalBurn();
       }, 5 * 60 * 1000); // 5 minutos
     }
     return () => clearTimeout(burnTimer);
-  }, [isUnlocked, secret, hasBurned]);
+  }, [isUnlocked, willBeIncinerated, hasBurned]);
 
   const handleFinalBurn = async () => {
     if (hasBurned) return;
@@ -611,22 +617,26 @@ export const ViewSecret = ({ id, onBack, setScreen }: ViewSecretProps) => {
         )}
       </div>
 
-      <div className="mt-12 p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-2xl flex items-start gap-4">
-        <div className="size-10 rounded-xl bg-amber-100 dark:bg-amber-900/20 text-amber-600 flex-shrink-0 flex items-center justify-center">
-          <Timer size={20} />
+      {willBeIncinerated && (
+        <div className="mt-12 p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-2xl flex items-start gap-4">
+          <div className="size-10 rounded-xl bg-amber-100 dark:bg-amber-900/20 text-amber-600 flex-shrink-0 flex items-center justify-center">
+            <Timer size={20} />
+          </div>
+          <div>
+            <h4 className="text-sm font-bold text-amber-900 dark:text-amber-300">Aviso de Segurança</h4>
+            <p className="text-xs text-amber-700 dark:text-amber-400 mt-1 leading-relaxed">
+              Esta informação foi configurada para ser destruída após a visualização. Ela será incinerada do servidor ao fechar esta página ou em 5 minutos.
+            </p>
+          </div>
         </div>
-        <div>
-          <h4 className="text-sm font-bold text-amber-900 dark:text-amber-300">Aviso de Segurança</h4>
-          <p className="text-xs text-amber-700 dark:text-amber-400 mt-1 leading-relaxed">
-            Esta informação foi configurada para ser destruída após a visualização. Ela será incinerada do servidor ao fechar esta página ou em 5 minutos.
-          </p>
-        </div>
-      </div>
+      )}
 
       <div className="flex flex-col sm:flex-row gap-4 mt-8">
         <button 
           onClick={async () => {
-            await handleFinalBurn();
+            if (willBeIncinerated) {
+              await handleFinalBurn();
+            }
             onBack();
           }}
           className="w-full py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold rounded-xl hover:opacity-90 transition-all shadow-xl"
