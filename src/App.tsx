@@ -402,6 +402,18 @@ export default function App() {
 
         setUser(currentUser);
 
+        // --- BYPASS PARA TELAS PÚBLICAS (Segredos, Solicitações, Formulários) ---
+        // Se o usuário está apenas visualizando um conteúdo, não forçamos 2FA/MFA da conta dele
+        const urlParams = new URLSearchParams(window.location.search);
+        const isPublicId = urlParams.has('id') || urlParams.has('request') || urlParams.has('form') || urlParams.has('uid');
+        const isPublicScreen = ['view-secret', 'fill-request', 'view-form'].includes(screenRef.current) || isPublicId;
+
+        if (isPublicScreen) {
+          console.log('🔓 [App] Usuário em tela pública. Ignorando verificações de MFA da conta.');
+          setLoading(false);
+          return;
+        }
+
         const { data: mfaData, error: mfaError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
         if (mfaError) throw mfaError;
         
@@ -1071,7 +1083,7 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
       <main className="relative">
         <AnimatePresence mode="wait">
           {screen === 'home' && (
-            <motion.div key="home" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div key="home-screen-container" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <HomeScreen 
                 secretText={secretText} setSecretText={setSecretText}
                 keyValuePairs={keyValuePairs} addPair={addPair} removePair={removePair} updatePair={updatePair}
@@ -1087,6 +1099,7 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
                 notifyAccess={notifyAccess} setNotifyAccess={setNotifyAccess}
                 selectedFile={selectedFile} setSelectedFile={setSelectedFile}
                 redirectUrl={redirectUrl} setRedirectUrl={setRedirectUrl}
+                user={user}
               />
             </motion.div>
           )}

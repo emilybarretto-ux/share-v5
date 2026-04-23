@@ -7,6 +7,7 @@ import { Screen } from '../../types';
 
 interface HomeScreenProps { 
   key?: string;
+  user: any;
   secretText: string;
   setSecretText: (t: string) => void;
   keyValuePairs: Array<{ id: number, key: string, value: string }>;
@@ -44,6 +45,7 @@ interface HomeScreenProps {
 }
 
 export const HomeScreen = ({
+  user,
   secretText, setSecretText,
   keyValuePairs, addPair, removePair, updatePair,
   handleFormat, expiration, setExpiration,

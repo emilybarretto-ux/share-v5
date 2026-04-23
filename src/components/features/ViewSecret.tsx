@@ -478,7 +478,12 @@ export const ViewSecret = ({ id, user, onBack, setScreen }: ViewSecretProps) => 
       showNotification('Token enviado! Verifique seu e-mail.', 'success');
     } catch (err: any) {
       console.error('Erro ao enviar OTP:', err);
-      showNotification('Erro ao enviar e-mail: ' + err.message, 'error');
+      if (err.status === 429 || err.message?.includes('after')) {
+        const seconds = err.message.match(/\d+/) || [15];
+        showNotification(`Limite atingido. Aguarde ${seconds[0]} segundos para tentar novamente.`, 'info');
+      } else {
+        showNotification('Erro ao enviar e-mail: ' + err.message, 'error');
+      }
     } finally {
       setIsSendingOtp(false);
     }
@@ -526,8 +531,10 @@ export const ViewSecret = ({ id, user, onBack, setScreen }: ViewSecretProps) => 
             <p className="text-slate-500 font-medium">Buscando dados seguros...</p>
           </div>
         ) : error ? (
-          <div className="max-w-md mx-auto p-8 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl">
-            <div className={`size-16 rounded-2xl flex items-center justify-center mx-auto mb-6 ${error === 'AUTH_REQUIRED' ? 'bg-amber-100 dark:bg-amber-900/20 text-amber-600' : 'bg-red-100 dark:bg-red-900/20 text-red-600'}`}>
+          <div className="max-w-md mx-auto p-8 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl" key="error-container">
+            <div 
+              key={error === 'AUTH_REQUIRED' ? 'icon-auth' : 'icon-error'}
+              className={`size-16 rounded-2xl flex items-center justify-center mx-auto mb-6 ${error === 'AUTH_REQUIRED' ? 'bg-amber-100 dark:bg-amber-900/20 text-amber-600' : 'bg-red-100 dark:bg-red-900/20 text-red-600'}`}>
               {error === 'AUTH_REQUIRED' ? <ShieldCheck size={32} /> : <X size={32} />}
             </div>
             <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
@@ -543,88 +550,97 @@ export const ViewSecret = ({ id, user, onBack, setScreen }: ViewSecretProps) => 
                 : error}
             </p>
             
-            <div className="space-y-4" key="auth-container">
-              {(error === 'AUTH_REQUIRED' || error.startsWith('ACESSO_NEGADO_')) && (
-                <div className="space-y-4" key="otp-flow">
-                  {!otpSent ? (
-                    <div className="space-y-3" key="otp-input">
-                      <div className="text-left px-1">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">E-mail para receber o token</label>
-                      </div>
-                      <div className="relative">
-                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                        <input 
-                          type="email"
-                          value={verificationEmail}
-                          onChange={(e) => setVerificationEmail(e.target.value)}
-                          placeholder="seu-email@exemplo.com"
-                          className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none dark:text-white font-medium"
-                        />
-                      </div>
-                      <button 
-                        onClick={handleSendToken}
-                        disabled={isSendingOtp}
-                        className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:opacity-90 transition-all flex items-center justify-center gap-2"
-                      >
-                        {isSendingOtp ? (
-                          <RefreshCcw className="animate-spin" size={20} />
-                        ) : (
-                          <Mail size={20} />
-                        )}
-                        {isSendingOtp ? 'Enviando...' : 'Receber Token no E-mail'}
-                      </button>
-                      <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-900/10 rounded-xl text-[10px] text-blue-600 dark:text-blue-400 text-left">
-                        <Info size={14} className="mt-0.5 shrink-0" />
-                        <span>Se o seu e-mail estiver na lista de permissão, um código de 8 dígitos será enviado agora.</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="p-6 bg-slate-50 dark:bg-slate-950 border border-border-base rounded-2xl text-center space-y-4 shadow-sm" key="otp-verify">
-                      <div className="size-12 bg-green-100 dark:bg-green-900/20 text-green-600 rounded-full flex items-center justify-center mx-auto">
-                        <Check size={24} />
-                      </div>
-                      <p className="text-sm font-bold text-green-700 dark:text-green-400">Token Enviado!</p>
-                      <p className="text-xs text-green-600 dark:text-green-500">Digite o código de 8 dígitos enviado para o seu e-mail para validar seu acesso.</p>
-                      
-                      <div className="space-y-3 py-2">
-                        <input 
-                          type="text"
-                          maxLength={8}
-                          value={otpCode}
-                          onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                          placeholder="00000000"
-                          className="w-full px-4 py-4 text-center text-2xl tracking-[0.3em] font-mono bg-white dark:bg-slate-900 border border-border-base rounded-xl outline-none focus:ring-2 focus:ring-green-600 dark:text-white"
-                        />
+            <div className="space-y-4">
+              <AnimatePresence mode="wait">
+                {(error === 'AUTH_REQUIRED' || error.startsWith('ACESSO_NEGADO_')) && (
+                  <motion.div 
+                    key="otp-flow-wrapper"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="space-y-4 overflow-hidden"
+                  >
+                    {!otpSent ? (
+                      <div className="space-y-3" key="otp-input-group">
+                        <div className="text-left px-1">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">E-mail para receber o token</label>
+                        </div>
+                        <div className="relative">
+                          <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                          <input 
+                            type="email"
+                            value={verificationEmail}
+                            onChange={(e) => setVerificationEmail(e.target.value)}
+                            placeholder="seu-email@exemplo.com"
+                            className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none dark:text-white font-medium"
+                          />
+                        </div>
                         <button 
-                          onClick={handleVerifyOTP}
-                          disabled={isVerifyingOtp || otpCode.length < 6}
-                          className="w-full py-4 bg-green-600 text-white font-bold rounded-xl shadow-lg shadow-green-600/20 hover:opacity-90 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                          onClick={handleSendToken}
+                          disabled={isSendingOtp}
+                          className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:opacity-90 transition-all flex items-center justify-center gap-2"
                         >
-                          {isVerifyingOtp ? <RefreshCcw className="animate-spin" size={20} /> : <ShieldCheck size={20} />}
-                          {isVerifyingOtp ? 'Verificando...' : 'Confirmar Token'}
+                          {isSendingOtp ? (
+                            <RefreshCcw className="animate-spin" size={20} />
+                          ) : (
+                            <Mail size={20} />
+                          )}
+                          {isSendingOtp ? 'Enviando...' : 'Receber Token no E-mail'}
                         </button>
+                        <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-900/10 rounded-xl text-[10px] text-blue-600 dark:text-blue-400 text-left">
+                          <div className="mt-0.5 shrink-0"><Info size={14} /></div>
+                          <span>Se o seu e-mail estiver na lista de permissão, um código de 8 dígitos será enviado agora.</span>
+                        </div>
                       </div>
-
-                      <div className="pt-2 flex flex-col gap-3">
-                        <button 
-                          onClick={handleSendToken} 
-                          disabled={isSendingOtp || resendCooldown > 0}
-                          className="text-[10px] font-black uppercase text-slate-500 hover:text-accent transition-colors flex items-center justify-center gap-1 mx-auto disabled:opacity-50"
-                        >
-                          <RefreshCcw size={10} className={isSendingOtp ? 'animate-spin' : ''} />
-                          {resendCooldown > 0 ? `Aguarde ${resendCooldown}s para reenviar` : `Reenviar código para ${verificationEmail}`}
-                        </button>
-                        <button 
-                          onClick={() => { setOtpSent(false); setOtpCode(''); }} 
-                          className="text-[10px] font-black uppercase text-accent hover:underline"
-                        >
-                          Usar outro e-mail
-                        </button>
+                    ) : (
+                      <div className="p-6 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-center space-y-4 shadow-sm" key="otp-verify-group">
+                        <div className="size-12 bg-green-100 dark:bg-green-900/20 text-green-600 rounded-full flex items-center justify-center mx-auto">
+                          <Check size={24} />
+                        </div>
+                        <p className="text-sm font-bold text-green-700 dark:text-green-400">Token Enviado!</p>
+                        <p className="text-xs text-green-600 dark:text-green-500 leading-tight">Digite o código de 8 dígitos enviado para o seu e-mail para validar seu acesso.</p>
+                        
+                        <div className="space-y-3 py-2">
+                          <input 
+                            type="text"
+                            maxLength={8}
+                            value={otpCode}
+                            onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                            placeholder="00000000"
+                            className="w-full px-4 py-4 text-center text-2xl tracking-[0.3em] font-mono bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-green-600 dark:text-white"
+                          />
+                          <button 
+                            onClick={handleVerifyOTP}
+                            disabled={isVerifyingOtp || otpCode.length < 6}
+                            className="w-full py-4 bg-green-600 text-white font-bold rounded-xl shadow-lg shadow-green-600/20 hover:opacity-90 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                          >
+                            {isVerifyingOtp ? <RefreshCcw className="animate-spin" size={20} /> : <ShieldCheck size={20} />}
+                            {isVerifyingOtp ? 'Verificando...' : 'Confirmar Token'}
+                          </button>
+                        </div>
+  
+                        <div className="pt-2 flex flex-col gap-3">
+                          <button 
+                            onClick={handleSendToken} 
+                            disabled={isSendingOtp || resendCooldown > 0}
+                            className="text-[10px] font-black uppercase text-slate-500 hover:text-accent transition-colors flex items-center justify-center gap-1 mx-auto disabled:opacity-50"
+                          >
+                            <RefreshCcw size={10} className={isSendingOtp ? 'animate-spin' : ''} />
+                            {resendCooldown > 0 ? `Aguarde ${resendCooldown}s para reenviar` : `Reenviar código para ${verificationEmail}`}
+                          </button>
+                          <button 
+                            onClick={() => { setOtpSent(false); setOtpCode(''); }} 
+                            className="text-[10px] font-black uppercase text-accent hover:underline focus:outline-none"
+                          >
+                            Usar outro e-mail
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              )}
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+  
               <button 
                 key="back-button"
                 onClick={onBack} 
@@ -636,7 +652,7 @@ export const ViewSecret = ({ id, user, onBack, setScreen }: ViewSecretProps) => 
             </div>
           </div>
         ) : !isUnlocked && !showConfirmBurn ? (
-          <div className="max-w-md mx-auto p-8 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl">
+          <div key="password-gate-container" className="max-w-md mx-auto p-8 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl">
             <div className="size-16 bg-blue-100 dark:bg-blue-900/20 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
               <Lock size={32} />
             </div>
@@ -696,6 +712,7 @@ export const ViewSecret = ({ id, user, onBack, setScreen }: ViewSecretProps) => 
           </div>
         ) : (
           <motion.div 
+            key="revealed-secret-container"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden mx-auto"
