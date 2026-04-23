@@ -26,6 +26,7 @@ export const ViewSecret = ({ id, onBack, setScreen }: ViewSecretProps) => {
   const [showConfirmBurn, setShowConfirmBurn] = useState(false);
   const [userIp, setUserIp] = useState<string>('');
   const [isVerifyingSecurity, setIsVerifyingSecurity] = useState(true);
+  const hasIncrementedOnce = React.useRef(false); // Previne duplo incremento no mesmo mount
   const { showNotification } = useNotification();
 
   const [showRawSecret, setShowRawSecret] = useState(false);
@@ -163,13 +164,26 @@ export const ViewSecret = ({ id, onBack, setScreen }: ViewSecretProps) => {
         console.log('🔑 [ViewSecret] Link protegido por senha. Aguardando entrada do usuário...');
       } else {
         const maxViews = data.max_views !== null ? Number(data.max_views) : null;
+        const currentViews = Number(data.views || 0);
+        const isLimited = maxViews !== null && maxViews > 0;
         const isOneTime = maxViews === 1;
         
+        // Se for um link de acesso ÚNICO, sempre mostramos o modal de confirmação.
+        // Se for um link LIMITADO (ex: 5 acessos) e o usuário estiver logando agora (pós-redirect),
+        // evitamos o incremento automático para não queimar um acesso sem intenção.
         if (isOneTime) {
+          setShowConfirmBurn(true);
+        } else if (isLimited && currentViews === 0) {
+          // Para o primeiro acesso de links limitados, também pedimos confirmação
+          // Isso resolve o problema de "incinerar de vez" por causa de re-mounts/login redirect
           setShowConfirmBurn(true);
         } else {
           setIsUnlocked(true);
-          incrementViews();
+          // Só incrementa se ainda não o fez neste ciclo de renderização
+          if (!hasIncrementedOnce.current) {
+            hasIncrementedOnce.current = true;
+            incrementViews();
+          }
         }
       }
     } catch (err) {
@@ -209,6 +223,13 @@ export const ViewSecret = ({ id, onBack, setScreen }: ViewSecretProps) => {
   };
 
   const incrementViews = async () => {
+    // Se já incrementamos ou se já está desbloqueado e foi um mount redundante, evitamos
+    // Isso é crucial para lidar com o redirecionamento do Login/2FA sem queimar visualizações
+    if (hasIncrementedOnce.current && isUnlocked) {
+      console.log('⏭️ [ViewSecret] Incremento ignorado: já processado nesta sessão.');
+      return;
+    }
+
     try {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       const viewerEmail = authUser?.email || null;
@@ -321,6 +342,11 @@ export const ViewSecret = ({ id, onBack, setScreen }: ViewSecretProps) => {
 
   const confirmAndRevealOneTime = async () => {
     try {
+      if (hasIncrementedOnce.current) {
+        console.warn('⚠️ [ViewSecret] Tentativa de incremento duplicado em link de acesso único.');
+        return;
+      }
+
       // 1. Tentar incinerar PRIMEIRO no banco de dados
       // Se falhar (ex: RLS), a gente avisa e não mostra o dado (para garantir segurança)
       console.log('🔥 Iniciando processo de autodestruição para acesso único...');
@@ -346,7 +372,10 @@ export const ViewSecret = ({ id, onBack, setScreen }: ViewSecretProps) => {
       }
 
       // Agora executamos a incineração no banco
-      await incrementViews();
+      if (!hasIncrementedOnce.current) {
+        hasIncrementedOnce.current = true;
+        await incrementViews();
+      }
 
       // Só então revelamos na tela
       setSecret({ ...secret, content: finalContent, key_values: finalKV });
@@ -697,9 +726,14 @@ export const ViewSecret = ({ id, onBack, setScreen }: ViewSecretProps) => {
             <div className="size-20 bg-red-100 dark:bg-red-900/20 text-red-600 rounded-3xl flex items-center justify-center mx-auto mb-6">
               <Trash2 size={32} />
             </div>
-            <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-4">Acesso Único Detectado</h3>
+            <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-4">
+              {secret?.max_views === 1 ? 'Acesso Único Detectado' : 'Link de Acesso Limitado'}
+            </h3>
             <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed mb-8">
-              ⚠️ Este dado foi marcado para <strong>Incineração Imediata</strong>. Ao clicar em visualizar, o conteúdo será apagado permanentemente do nosso servidor para garantir sua total privacidade.
+              {secret?.max_views === 1 
+                ? <>⚠️ Este dado foi marcado para <strong>Incineração Imediata</strong>. Ao clicar em visualizar, o conteúdo será apagado permanentemente do nosso servidor para garantir sua total privacidade.</>
+                : <>Este link possui um limite de visualizações. Ao clicar em visualizar, um acesso será contabilizado. {secret?.views === 0 && <strong>Esta é a primeira visualização.</strong>}</>
+              }
             </p>
             <div className="flex flex-col gap-3">
               <button

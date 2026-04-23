@@ -37,6 +37,14 @@ export default async function handler(req: any, res: any) {
       return res.status(404).json({ error: 'Segredo não encontrado.' });
     }
 
+    if (secret.status === 'completed') {
+      return res.status(200).json({ 
+        success: true, 
+        incinerated: true,
+        message: 'Acesso ignorado: O segredo já foi marcado como concluído/incinerado.' 
+      });
+    }
+
     const maxViews = secret.max_views !== null ? Number(secret.max_views) : null;
     const isOneTime = maxViews === 1;
     const nextViews = (secret.views || 0) + 1;
