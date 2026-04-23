@@ -552,7 +552,7 @@ export const ViewSecret = ({ id, onBack, setScreen }: ViewSecretProps) => {
                           value={otpCode}
                           onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
                           placeholder="000000"
-                          className="w-full px-4 py-4 text-center text-3xl tracking-[0.5em] font-mono bg-white dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-xl outline-none"
+                          className="w-full px-4 py-4 text-center text-3xl tracking-[0.5em] font-mono bg-white dark:bg-slate-900 border border-border-base rounded-xl outline-none focus:ring-2 focus:ring-green-600 dark:text-white"
                         />
                         <button 
                           onClick={handleVerifyOTP}
@@ -564,7 +564,22 @@ export const ViewSecret = ({ id, onBack, setScreen }: ViewSecretProps) => {
                         </button>
                       </div>
 
-                      <button onClick={() => { setOtpSent(false); setOtpCode(''); }} className="text-[10px] font-black uppercase text-accent hover:underline">Tentar outro e-mail</button>
+                      <div className="pt-2 flex flex-col gap-3">
+                        <button 
+                          onClick={handleSendToken} 
+                          disabled={isSendingOtp}
+                          className="text-[10px] font-black uppercase text-slate-500 hover:text-accent transition-colors flex items-center justify-center gap-1 mx-auto"
+                        >
+                          <RefreshCcw size={10} className={isSendingOtp ? 'animate-spin' : ''} />
+                          Reenviar código para {verificationEmail}
+                        </button>
+                        <button 
+                          onClick={() => { setOtpSent(false); setOtpCode(''); }} 
+                          className="text-[10px] font-black uppercase text-accent hover:underline"
+                        >
+                          Usar outro e-mail
+                        </button>
+                      </div>
                     </div>
                   )}
                   
