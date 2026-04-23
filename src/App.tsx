@@ -737,8 +737,10 @@ export default function App() {
   };
 
   const handleCreateSecret = async () => {
-    if (!password) {
-      showNotification('Defina uma senha de proteção.', 'info');
+    const hasEmailRestriction = requireEmail || allowedEmails.length > 0 || allowedDomain;
+    
+    if (!password && !hasEmailRestriction) {
+      showNotification('Defina uma senha ou ative a validação por e-mail.', 'info');
       return;
     }
 
@@ -755,8 +757,11 @@ export default function App() {
       else if (expiration.includes('24 horas')) expiresAt.setHours(expiresAt.getHours() + 24);
       else if (expiration.includes('7 dias')) expiresAt.setDate(expiresAt.getDate() + 7);
 
+      // Se não houver senha mas houver trava de e-mail, permitimos criar
+      // Nesse caso, o conteúdo é "criptografado" com uma string vazia (ou guardamos em plain se preferir, mas AES com '' é funcional)
       const encryptedContent = encryptData(secretText, password);
-      const passwordHashed = hashPassword(password);
+      // Se a senha for vazia, guardamos NULL no banco para o ViewSecret saber que não há 2FA
+      const passwordHashed = password ? hashPassword(password) : null;
       const isOneTime = expiration.includes('Acesso único');
 
       let fileUrl = '';

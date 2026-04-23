@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 // Version: 1.0.6 - Fixed Advanced Settings X button
 import { motion, AnimatePresence } from 'motion/react';
-import { Settings, FileText, Upload, Plus, X, Lock, Dices, Timer, Link as LinkIcon, Info, Check, Globe, Code } from 'lucide-react';
+import { Settings, FileText, Upload, Plus, X, Lock, Dices, Timer, Link as LinkIcon, Info, Check, Globe, Code, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Screen } from '../../types';
 
@@ -61,6 +61,7 @@ export const HomeScreen = ({
 }: HomeScreenProps) => {
   const [showAdvanced, setShowAdvanced] = useState(true);
   const [emailInput, setEmailInput] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const addEmail = () => {
     if (!emailInput || !emailInput.includes('@')) return;
@@ -192,14 +193,51 @@ export const HomeScreen = ({
             <div className="px-8 py-8 border-t border-border-base space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-text-secondary uppercase tracking-widest ml-1">Senha Obrigatória <span className="text-red-500">*</span></label>
+                  <div className="flex justify-between items-center ml-1">
+                    <label className="text-[10px] font-black text-text-secondary uppercase tracking-widest">{requireEmail ? 'Segunda Camada (Senha)' : 'Senha Obrigatória'} {!requireEmail && <span className="text-red-500">*</span>}</label>
+                    {requireEmail && (
+                      <span className="text-[9px] bg-accent/10 text-accent px-2 py-0.5 rounded-full font-bold">FAVORITO (2FA)</span>
+                    )}
+                  </div>
                   <div className="relative flex items-center">
                     <Lock size={20} className="absolute left-4 text-text-secondary" />
-                    <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Proteja seu link (obrigatório)" className="w-full pl-12 pr-14 py-4 bg-bg-base/40 border border-border-base rounded-[1.25rem] focus:ring-2 focus:ring-accent focus:border-transparent transition-all text-text-primary font-bold" />
-                    <button onClick={() => setPassword(Math.random().toString(36).slice(-8))} className="absolute right-3 p-2 bg-surface border border-border-base rounded-xl text-text-secondary hover:text-accent transition-all shadow-sm" title="Gerar Senha">
-                      <Dices size={20} />
-                    </button>
+                    <input 
+                      type={showPassword ? "text" : "password"} 
+                      value={password} 
+                      onChange={(e) => setPassword(e.target.value)} 
+                      placeholder={requireEmail ? "Opcional (Token já protege)" : "Crie uma senha forte"} 
+                      className={`w-full pl-12 pr-28 py-4 bg-bg-base/40 border transition-all text-text-primary font-bold rounded-[1.25rem] focus:ring-2 focus:ring-accent ${requireEmail && password ? 'border-accent/30' : 'border-border-base'}`} 
+                    />
+                    <div className="absolute right-3 flex items-center gap-1">
+                      {requireEmail && password && (
+                        <button 
+                          onClick={() => setPassword('')}
+                          className="p-2 text-red-400 hover:text-red-500 transition-colors"
+                          title="Remover senha e usar apenas e-mail"
+                        >
+                          <X size={16} />
+                        </button>
+                      )}
+                      <button 
+                        onClick={() => setShowPassword(!showPassword)} 
+                        className="p-2 bg-surface border border-border-base rounded-xl text-text-secondary hover:text-accent transition-all shadow-sm"
+                        title={showPassword ? "Ocultar senha" : "Ver senha"}
+                      >
+                        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                      </button>
+                      <button onClick={() => setPassword(Math.random().toString(36).slice(-8))} className="p-2 bg-surface border border-border-base rounded-xl text-text-secondary hover:text-accent transition-all shadow-sm" title="Gerar Senha">
+                        <Dices size={20} />
+                      </button>
+                    </div>
                   </div>
+                  {requireEmail && password && (
+                    <div className="mt-2 flex items-start gap-2 bg-accent/5 p-2 rounded-lg border border-accent/10 animate-in fade-in slide-in-from-top-1 duration-300">
+                      <ShieldCheck size={14} className="text-accent shrink-0 mt-0.5" />
+                      <p className="text-[11px] text-accent font-semibold leading-tight">
+                        Segurança Ativada: 2FA (E-mail + Senha). <span className="font-normal opacity-80">Remova a senha se quiser apenas validação de e-mail.</span>
+                      </p>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-text-secondary uppercase tracking-widest ml-1">Nome de Referência (Opcional)</label>

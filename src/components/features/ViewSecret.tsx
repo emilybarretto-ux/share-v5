@@ -190,6 +190,23 @@ export const ViewSecret = ({ id, onBack, setScreen }: ViewSecretProps) => {
       if (data.password) {
         console.log('🔑 [ViewSecret] Link protegido por senha. Aguardando entrada do usuário...');
       } else {
+        // Se não tem senha, descriptografamos com string vazia (padrão do App.tsx)
+        const decryptedContent = decryptData(data.content, '');
+        let decryptedKV = data.key_values;
+        if (data.key_values) {
+           const cipherText = (typeof data.key_values === 'object') 
+             ? (data.key_values.payload || data.key_values.encrypted || null)
+             : (typeof data.key_values === 'string' ? data.key_values : null);
+           if (cipherText) {
+             const kvText = decryptData(cipherText, '');
+             if (kvText) {
+               try { decryptedKV = JSON.parse(kvText); } catch(e) {}
+             }
+           }
+        }
+        
+        setSecret({ ...data, content: decryptedContent, key_values: decryptedKV });
+
         const maxViews = data.max_views !== null ? Number(data.max_views) : null;
         const currentViews = Number(data.views || 0);
         const isLimited = maxViews !== null && maxViews > 0;
@@ -511,11 +528,11 @@ export const ViewSecret = ({ id, onBack, setScreen }: ViewSecretProps) => {
                 : error}
             </p>
             
-            <div className="space-y-4">
+            <div className="space-y-4" key="auth-container">
               {(error === 'AUTH_REQUIRED' || error.startsWith('ACESSO_NEGADO_')) && (
-                <div className="space-y-4">
+                <div className="space-y-4" key="otp-flow">
                   {!otpSent ? (
-                    <div className="space-y-3">
+                    <div className="space-y-3" key="otp-input">
                       <div className="text-left px-1">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">E-mail para receber o token</label>
                       </div>
@@ -543,16 +560,16 @@ export const ViewSecret = ({ id, onBack, setScreen }: ViewSecretProps) => {
                       </button>
                       <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-900/10 rounded-xl text-[10px] text-blue-600 dark:text-blue-400 text-left">
                         <Info size={14} className="mt-0.5 shrink-0" />
-                        <span>Se o seu e-mail estiver na lista de permissão, um link ou código de 6 dígitos será enviado agora.</span>
+                        <span>Se o seu e-mail estiver na lista de permissão, um código de 8 dígitos será enviado agora.</span>
                       </div>
                     </div>
                   ) : (
-                    <div className="p-6 bg-slate-50 dark:bg-slate-950 border border-border-base rounded-2xl text-center space-y-4 shadow-sm">
+                    <div className="p-6 bg-slate-50 dark:bg-slate-950 border border-border-base rounded-2xl text-center space-y-4 shadow-sm" key="otp-verify">
                       <div className="size-12 bg-green-100 dark:bg-green-900/20 text-green-600 rounded-full flex items-center justify-center mx-auto">
                         <Check size={24} />
                       </div>
                       <p className="text-sm font-bold text-green-700 dark:text-green-400">Token Enviado!</p>
-                      <p className="text-xs text-green-600 dark:text-green-500">Verifique seu e-mail e digite o código de 6 dígitos enviado ou clique no link.</p>
+                      <p className="text-xs text-green-600 dark:text-green-500">Digite o código de 8 dígitos enviado para o seu e-mail para validar seu acesso.</p>
                       
                       <div className="space-y-3 py-2">
                         <input 
@@ -591,24 +608,10 @@ export const ViewSecret = ({ id, onBack, setScreen }: ViewSecretProps) => {
                       </div>
                     </div>
                   )}
-                  
-                  <div className="relative py-4">
-                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200 dark:border-slate-800"></div></div>
-                    <div className="relative flex justify-center text-[10px] uppercase font-black text-slate-400"><span className="bg-white dark:bg-slate-900 px-2">Ou</span></div>
-                  </div>
-
-                  <button 
-                    onClick={() => {
-                      localStorage.setItem('redirect_after_auth', window.location.search);
-                      setScreen('login');
-                    }}
-                    className="w-full py-3 bg-surface border border-border-base text-text-primary text-sm font-bold rounded-xl hover:bg-bg-base transition-all"
-                  >
-                    Entrar com Senha
-                  </button>
                 </div>
               )}
               <button 
+                key="back-button"
                 onClick={onBack} 
                 className="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-200 transition-colors"
                 disabled={isSendingOtp}
