@@ -15,7 +15,7 @@ export default async function handler(req: any, res: any) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { id, viewerEmail, viewerIp } = req.body;
+  const { id, viewerEmail, viewerIp, action = 'increment' } = req.body;
 
   if (!id) {
     return res.status(400).json({ error: 'ID do segredo é obrigatório.' });
@@ -26,7 +26,7 @@ export default async function handler(req: any, res: any) {
   const supabase = createClient(supabaseUrl, serviceKey);
 
   try {
-    // 1. Buscar o segredo para saber as restrições e o dono
+    // 1. Buscar o segredo
     const { data: secret, error: fetchError } = await supabase
       .from('secrets')
       .select('*')
@@ -37,34 +37,44 @@ export default async function handler(req: any, res: any) {
       return res.status(404).json({ error: 'Segredo não encontrado.' });
     }
 
-    // 2. Incrementar visualizações
-    const nextViews = (secret.views || 0) + 1;
     const maxViews = secret.max_views !== null ? Number(secret.max_views) : null;
     const isOneTime = maxViews === 1;
-    const reachedLimit = maxViews !== null && nextViews >= maxViews;
 
-    const updatePayload: any = { 
-      views: nextViews,
-      last_viewer_email: viewerEmail || null
-    };
+    let updatePayload: any = {};
 
-    if (isOneTime || reachedLimit) {
-      updatePayload.status = 'completed';
-      updatePayload.content = '';
-      updatePayload.key_values = null;
-      updatePayload.password = '';
-      updatePayload.file_url = null;
+    if (action === 'burn') {
+      // ESTÁGIO 2: LIMPEZA TOTAL
+      updatePayload = {
+        status: 'completed',
+        content: '',
+        password: '',
+        key_values: null,
+        file_url: null
+      };
+    } else {
+      // ESTÁGIO 1: REGISTRO E BLOQUEIO DE NOVOS ACESSOS
+      const nextViews = (secret.views || 0) + 1;
+      const reachedLimit = maxViews !== null && nextViews >= maxViews;
+
+      updatePayload = { 
+        views: nextViews,
+        last_viewer_email: viewerEmail || null
+      };
+
+      if (reachedLimit || isOneTime) {
+        updatePayload.status = 'completed';
+      }
     }
 
     const { error: updateError } = await supabase.from('secrets').update(updatePayload).eq('id', id);
     
     if (updateError) {
       console.error('[DATABASE ERROR] Falha ao atualizar segredo:', updateError);
-      return res.status(500).json({ error: 'Erro ao processar autodestruição no banco de dados.' });
+      return res.status(500).json({ error: 'Erro ao processar estado no banco de dados.' });
     }
 
-    // 3. Notificar se o dono pediu
-    if (secret.notify_access) {
+    // 3. Notificar apenas no estágio de incremento
+    if (action === 'increment' && secret.notify_access) {
       console.log(`[DEBUG] Notificação solicitada para o segredo: ${secret.name}`);
       
       if (!secret.creator_email) {

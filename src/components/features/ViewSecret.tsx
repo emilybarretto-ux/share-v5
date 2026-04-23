@@ -178,12 +178,41 @@ export const ViewSecret = ({ id, onBack }: ViewSecretProps) => {
     setLoading(false);
   };
 
+  const [hasBurned, setHasBurned] = useState(false);
+
+  useEffect(() => {
+    // Timer de incineração automática (5 minutos)
+    let burnTimer: any;
+    if (isUnlocked && secret?.max_views === 1 && !hasBurned) {
+      console.log('⏰ Timer de autodestruição iniciado: 5 minutos.');
+      burnTimer = setTimeout(() => {
+        handleFinalBurn();
+      }, 5 * 60 * 1000); // 5 minutos
+    }
+    return () => clearTimeout(burnTimer);
+  }, [isUnlocked, secret, hasBurned]);
+
+  const handleFinalBurn = async () => {
+    if (hasBurned) return;
+    try {
+      console.log('🔥 [ViewSecret] Executando incineração final...');
+      await fetch('/api/view-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, action: 'burn' })
+      });
+      setHasBurned(true);
+    } catch (e) {
+      console.error('Erro na incineração tardia:', e);
+    }
+  };
+
   const incrementViews = async () => {
     try {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       const viewerEmail = authUser?.email || null;
 
-      console.log('🔥 [ViewSecret] Solicitando incineração/registro ao servidor...');
+      console.log('🔥 [ViewSecret] Registrando acesso no servidor...');
       
       const resp = await fetch('/api/view-event', {
         method: 'POST',
@@ -191,7 +220,8 @@ export const ViewSecret = ({ id, onBack }: ViewSecretProps) => {
         body: JSON.stringify({
           id,
           viewerEmail,
-          viewerIp: userIp
+          viewerIp: userIp,
+          action: 'increment'
         })
       });
 
@@ -201,12 +231,12 @@ export const ViewSecret = ({ id, onBack }: ViewSecretProps) => {
         throw new Error(resData.error || `Erro do servidor: ${resp.status}`);
       }
       
-      console.log('✅ [ViewSecret] Incineração confirmada pelo servidor.');
+      console.log('✅ [ViewSecret] Acesso registrado e link bloqueado para novos usuários.');
       return resData;
 
     } catch (e: any) {
-      console.error('❌ [ViewSecret] FALHA CRÍTICA NA INCINERAÇÃO:', e.message);
-      throw e; // RE-THROW É ESSENCIAL PARA SEGURANÇA
+      console.error('❌ [ViewSecret] FALHA NO REGISTRO DE ACESSO:', e.message);
+      throw e; 
     }
   };
 
@@ -445,12 +475,12 @@ export const ViewSecret = ({ id, onBack }: ViewSecretProps) => {
       <div className="space-y-6">
         {secret.content && (
           <div className="relative group/secret">
-            <div className={`p-6 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800 transition-all duration-75 ${!showRawSecret ? 'blur-[60px] select-none opacity-0 grayscale pointer-events-none' : 'blur-0 opacity-100'}`}>
+            <div className={`p-6 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800 transition-all duration-75 ${(!showRawSecret && secret.max_views !== 1) ? 'blur-[60px] select-none opacity-0 grayscale pointer-events-none' : 'blur-0 opacity-100'}`}>
               <div className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed prose prose-slate dark:prose-invert max-w-none">
                 <Markdown>{secret.content}</Markdown>
               </div>
             </div>
-            {!showRawSecret && (
+            {(!showRawSecret && secret.max_views !== 1) && (
               <div className="absolute inset-0 flex items-center justify-center z-10">
                 <button 
                   onMouseDown={() => setShowRawSecret(true)}
@@ -471,7 +501,7 @@ export const ViewSecret = ({ id, onBack }: ViewSecretProps) => {
         {/* --- SEÇÃO DE ARQUIVO ANEXADO --- */}
         {secret.file_url && (
           <div className="relative group/file">
-             <div className={`p-4 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800 transition-all duration-75 ${!showRawSecret ? 'blur-[60px] select-none opacity-0 grayscale pointer-events-none' : 'blur-0 opacity-100'}`}>
+             <div className={`p-4 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800 transition-all duration-75 ${(!showRawSecret && secret.max_views !== 1) ? 'blur-[60px] select-none opacity-0 grayscale pointer-events-none' : 'blur-0 opacity-100'}`}>
                 <div className="flex flex-col gap-4">
                   {/* Preview se for imagem */}
                   {['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'svg'].some(ext => secret.file_url.toLowerCase().endsWith(ext)) ? (
@@ -507,7 +537,7 @@ export const ViewSecret = ({ id, onBack }: ViewSecretProps) => {
                   </a>
                 </div>
              </div>
-             {!showRawSecret && (
+             {(!showRawSecret && secret.max_views !== 1) && (
               <div className="absolute inset-0 flex items-center justify-center z-10">
                  <button 
                   onMouseDown={() => setShowRawSecret(true)}
@@ -529,7 +559,7 @@ export const ViewSecret = ({ id, onBack }: ViewSecretProps) => {
           <div className="space-y-3">
             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest ml-1">Dados Estruturados</h3>
             <div className="grid grid-cols-1 gap-3 relative group/data">
-              <div className={`transition-all duration-75 space-y-3 ${!showRawSecret ? 'blur-[60px] select-none opacity-0 grayscale pointer-events-none' : 'blur-0 opacity-100'}`}>
+              <div className={`transition-all duration-75 space-y-3 ${(!showRawSecret && secret.max_views !== 1) ? 'blur-[60px] select-none opacity-0 grayscale pointer-events-none' : 'blur-0 opacity-100'}`}>
                 {secret.key_values.map((kv: any, idx: number) => (
                   <div key={idx} className="flex items-center justify-between p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm">
                     <span className="text-sm font-bold text-slate-500 dark:text-slate-400">{kv.key}</span>
@@ -551,7 +581,7 @@ export const ViewSecret = ({ id, onBack }: ViewSecretProps) => {
                   </div>
                 ))}
               </div>
-              {!showRawSecret && (
+              {(!showRawSecret && secret.max_views !== 1) && (
                 <div className="absolute inset-0 flex items-center justify-center z-10">
                    <button 
                     onMouseDown={() => setShowRawSecret(true)}
@@ -578,8 +608,7 @@ export const ViewSecret = ({ id, onBack }: ViewSecretProps) => {
         <div>
           <h4 className="text-sm font-bold text-amber-900 dark:text-amber-300">Aviso de Segurança</h4>
           <p className="text-xs text-amber-700 dark:text-amber-400 mt-1 leading-relaxed">
-            Esta informação foi configurada para ser destruída após a visualização ou em {secret.expiration || '24 horas'}. 
-            Certifique-se de salvar o que for necessário agora.
+            Esta informação foi configurada para ser destruída após a visualização. Ela será incinerada do servidor ao fechar esta página ou em 5 minutos.
           </p>
         </div>
       </div>
@@ -589,18 +618,9 @@ export const ViewSecret = ({ id, onBack }: ViewSecretProps) => {
           onClick={async () => {
             const confirmBurn = window.confirm("Deseja incinerar este segredo agora? Ele será destruído permanentemente para todos.");
             if (confirmBurn) {
-              try {
-                await supabase.from('secrets').update({ 
-                  status: 'completed', 
-                  content: '', 
-                  password: '',
-                  key_values: null
-                }).eq('id', id);
-                showNotification('Segredo incinerado com sucesso.', 'success');
-                onBack();
-              } catch (err) {
-                showNotification('Erro ao incinerar.', 'error');
-              }
+              await handleFinalBurn();
+              showNotification('Segredo incinerado com sucesso.', 'success');
+              onBack();
             }
           }}
           className="flex-1 py-4 bg-red-50 text-red-600 font-bold rounded-xl hover:bg-red-600 hover:text-white transition-all flex items-center justify-center gap-2"
@@ -609,7 +629,10 @@ export const ViewSecret = ({ id, onBack }: ViewSecretProps) => {
           Incinerar Agora
         </button>
         <button 
-          onClick={onBack}
+          onClick={async () => {
+            await handleFinalBurn();
+            onBack();
+          }}
           className="flex-1 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold rounded-xl hover:opacity-90 transition-all"
         >
           Entendido, fechar
