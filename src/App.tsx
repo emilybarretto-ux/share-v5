@@ -421,7 +421,9 @@ export default function App() {
           setMfaFactorId(verifiedFactor.id);
           
           // Se o nível atual é aal1 OU se já passou 2 horas da última verificação
-          if (mfaData?.currentLevel === 'aal1' || needsVerification) {
+          // NÃO redirecionamos para 2FA se o usuário estiver visualizando um segredo ou preenchendo uma solicitação/formulário
+          const isViewingScreen = ['view-secret', 'fill-request', 'view-form'].includes(screenRef.current);
+          if ((mfaData?.currentLevel === 'aal1' || needsVerification) && !isViewingScreen) {
             setScreen('verify-2fa' as any);
             setLoading(false);
             return;
@@ -448,6 +450,13 @@ export default function App() {
         } 
         // 2. Se NÃO TEM nenhum fator verificado (Configuração Inicial ou Incompleta)
         else {
+          // NÃO forçamos o setup de 2FA se o usuário estiver apenas visualizando um segredo/formulário
+          // pois ele pode ser um convidado verificando identidade via e-mail e não quer criar conta completa
+          if (['view-secret', 'fill-request', 'view-form'].includes(screenRef.current)) {
+            setLoading(false);
+            return;
+          }
+
           // Tenta limpar e gerar novo QR
           try {
             // Limpar absolutamente TODOS os fatores existentes se nenhum estiver verificado
@@ -1094,6 +1103,7 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
             <motion.div key="view-form-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <ViewForm 
                 id={viewingFormId} 
+                user={user}
                 onBack={() => { window.history.pushState({}, '', '/'); setScreen('home'); }} 
               />
             </motion.div>
@@ -1223,6 +1233,7 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
             <motion.div key="view-secret-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <ViewSecret 
                 id={viewingSecretId} 
+                user={user}
                 onBack={() => { window.history.pushState({}, '', '/'); setScreen('home'); }} 
                 setScreen={setScreen as any}
               />
@@ -1233,6 +1244,7 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
             <motion.div key="fill-request-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <FillRequest 
                 id={fillingRequestId} 
+                user={user}
                 onSuccess={() => { window.history.pushState({}, '', '/'); setScreen('home'); }} 
               />
             </motion.div>

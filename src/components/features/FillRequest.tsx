@@ -9,10 +9,11 @@ import { useNotification } from '../shared/NotificationProvider';
 interface FillRequestProps {
   key?: string;
   id: string | null;
+  user: any;
   onSuccess: () => void;
 }
 
-export const FillRequest = ({ id, onSuccess }: FillRequestProps) => {
+export const FillRequest = ({ id, user, onSuccess }: FillRequestProps) => {
   const [loading, setLoading] = useState(true);
   const [request, setRequest] = useState<any>(null);
   const [response, setResponse] = useState('');
@@ -22,7 +23,7 @@ export const FillRequest = ({ id, onSuccess }: FillRequestProps) => {
 
   useEffect(() => {
     if (id) fetchRequest();
-  }, [id]);
+  }, [id, user]);
 
   const fetchRequest = async () => {
     setLoading(true);

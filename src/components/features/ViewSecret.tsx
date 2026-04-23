@@ -10,12 +10,13 @@ import { ScreenProtector } from '../shared/ScreenProtector';
 interface ViewSecretProps {
   key?: string;
   id: string;
+  user: any;
   onBack: () => void;
   setScreen: (s: any) => void;
 }
 
 
-export const ViewSecret = ({ id, onBack, setScreen }: ViewSecretProps) => {
+export const ViewSecret = ({ id, user, onBack, setScreen }: ViewSecretProps) => {
   const [loading, setLoading] = useState(true);
   const [secret, setSecret] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +53,7 @@ export const ViewSecret = ({ id, onBack, setScreen }: ViewSecretProps) => {
       fetchSecret(currentIp);
     };
     init();
-  }, [id]);
+  }, [id, user]); // Re-fetch when user changes (e.g. after login)
 
   const fetchSecret = async (currentIp: string) => {
     setLoading(true);

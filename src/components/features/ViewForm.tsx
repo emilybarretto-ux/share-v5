@@ -8,10 +8,11 @@ import { ScreenProtector } from '../shared/ScreenProtector';
 
 interface ViewFormProps {
   id: string;
+  user: any;
   onBack: () => void;
 }
 
-export const ViewForm = ({ id, onBack }: ViewFormProps) => {
+export const ViewForm = ({ id, user, onBack }: ViewFormProps) => {
   const [form, setForm] = useState<DynamicForm | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +38,7 @@ export const ViewForm = ({ id, onBack }: ViewFormProps) => {
     };
 
     fetchForm();
-  }, [id]);
+  }, [id, user]);
 
 const handleSubmit = async (formData: any) => {
   try {
