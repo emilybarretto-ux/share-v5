@@ -46,6 +46,8 @@ async function startServer() {
 
       const maxViews = secret.max_views !== null ? Number(secret.max_views) : null;
       const isOneTime = maxViews === 1;
+      const nextViews = (secret.views || 0) + 1;
+      const reachedLimit = maxViews !== null && nextViews >= maxViews;
 
       let updatePayload: any = {};
 
@@ -58,9 +60,6 @@ async function startServer() {
           file_url: null
         };
       } else {
-        const nextViews = (secret.views || 0) + 1;
-        const reachedLimit = maxViews !== null && nextViews >= maxViews;
-
         updatePayload = { views: nextViews };
         if (isOneTime || reachedLimit) {
           updatePayload.status = 'completed';

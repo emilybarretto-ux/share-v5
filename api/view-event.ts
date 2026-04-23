@@ -39,6 +39,8 @@ export default async function handler(req: any, res: any) {
 
     const maxViews = secret.max_views !== null ? Number(secret.max_views) : null;
     const isOneTime = maxViews === 1;
+    const nextViews = (secret.views || 0) + 1;
+    const reachedLimit = maxViews !== null && nextViews >= maxViews;
 
     let updatePayload: any = {};
 
@@ -53,9 +55,6 @@ export default async function handler(req: any, res: any) {
       };
     } else {
       // ESTÁGIO 1: REGISTRO E BLOQUEIO DE NOVOS ACESSOS
-      const nextViews = (secret.views || 0) + 1;
-      const reachedLimit = maxViews !== null && nextViews >= maxViews;
-
       updatePayload = { 
         views: nextViews
       };
