@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShieldCheck, Lock, Eye, EyeOff, Copy, X, Timer, Fingerprint, Trash2, ExternalLink } from 'lucide-react';
+import { ShieldCheck, Lock, Eye, EyeOff, Copy, X, Timer, Fingerprint, Trash2, ExternalLink, Download, FileIcon, ImageIcon } from 'lucide-react';
 import Markdown from 'react-markdown';
 import { supabase } from '../../lib/supabase';
 import { decryptData, hashPassword } from '../../lib/crypto';
@@ -462,6 +462,63 @@ const incrementViews = async () => {
                 >
                   <Fingerprint size={20} />
                   Segure para Revelar
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* --- SEÇÃO DE ARQUIVO ANEXADO --- */}
+        {secret.file_url && (
+          <div className="relative group/file">
+             <div className={`p-4 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800 transition-all duration-75 ${!showRawSecret ? 'blur-[60px] select-none opacity-0 grayscale pointer-events-none' : 'blur-0 opacity-100'}`}>
+                <div className="flex flex-col gap-4">
+                  {/* Preview se for imagem */}
+                  {['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'svg'].some(ext => secret.file_url.toLowerCase().endsWith(ext)) ? (
+                    <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 max-h-80 flex items-center justify-center bg-slate-200 dark:bg-slate-900">
+                      <img 
+                        src={secret.file_url} 
+                        alt="Anexo" 
+                        referrerPolicy="no-referrer"
+                        className="max-w-full max-h-80 object-contain shadow-lg"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-4 p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                      <div className="size-12 bg-blue-100 dark:bg-blue-900/20 text-blue-600 rounded-lg flex items-center justify-center">
+                        <FileIcon size={24} />
+                      </div>
+                      <div className="flex-1 overflow-hidden">
+                        <p className="text-sm font-bold text-slate-900 dark:text-white truncate">Arquivo Anexado</p>
+                        <p className="text-[10px] text-slate-500 uppercase font-black">Documento Protegido</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <a 
+                    href={secret.file_url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    download
+                    className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-600/20"
+                  >
+                    <Download size={20} />
+                    Download do Arquivo
+                  </a>
+                </div>
+             </div>
+             {!showRawSecret && (
+              <div className="absolute inset-0 flex items-center justify-center z-10">
+                 <button 
+                  onMouseDown={() => setShowRawSecret(true)}
+                  onMouseUp={() => setShowRawSecret(false)}
+                  onMouseLeave={() => setShowRawSecret(false)}
+                  onTouchStart={() => setShowRawSecret(true)}
+                  onTouchEnd={() => setShowRawSecret(false)}
+                  className="px-8 py-3 bg-blue-600 text-white rounded-full font-bold shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-2 select-none touch-none"
+                >
+                  <Fingerprint size={20} />
+                  Revelar Arquivo
                 </button>
               </div>
             )}

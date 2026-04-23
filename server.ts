@@ -51,14 +51,30 @@ async function startServer() {
         .select();
 
       if (error) {
-        console.error('[DATABASE ERROR]:', error);
+        console.error('[DATABASE ERROR DETAILS]:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        });
+        
         if (error.message.includes('row-level security policy')) {
+          const isActuallyAnon = serviceKey && anonKey && serviceKey.trim() === anonKey.trim();
+          
           return res.status(403).json({ 
-            error: `O banco de dados recusou a gravação (RLS).`,
+            error: `Erro de Segurança RLS no Supabase.`,
             details: error.message,
-            diagnosis: !serviceKey 
-              ? 'A chave SUPABASE_SERVICE_ROLE_KEY não foi detectada pelo servidor. Verifique se o nome do Secret está correto (sem espaços).' 
-              : 'A chave foi detectada, mas o Supabase não a reconheceu como uma chave de administração (service_role). Verifique se você copiou a chave certa do painel API do Supabase.'
+            diagnosis: isActuallyAnon 
+              ? 'A chave SUPABASE_SERVICE_ROLE_KEY configurada é IGUAL à chave anon pública. Você deve usar a chave "service_role" secreta encontrada no painel API do Supabase.'
+              : 'O banco de dados negou a gravação. Isso acontece quando as políticas de RLS estão ativas mas não há permissão para inserir.',
+            solution: 'Copie e cole o comando SQL abaixo no SQL Editor do seu Supabase para liberar o acesso:',
+            sql: `
+-- COMANDO PARA CORRIGIR PERMISSÕES RLS --
+ALTER TABLE public.secrets DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.requests DISABLE ROW LEVEL SECURITY;
+-- Ou, se preferir manter o RLS ativo, rode:
+-- CREATE POLICY "Permitir inserção pública" ON public.secrets FOR INSERT WITH CHECK (true);
+            `
           });
         }
         throw error;

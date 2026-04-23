@@ -103,7 +103,74 @@ export default function App() {
     );
   };
 
-  // --- ESTADOS DO SISTEMA ---
+  // --- COMPONENTE DE REPARO DE RLS ---
+  const RLSRepairModal = () => {
+    if (!errorSql) return null;
+    
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-300">
+        <motion.div 
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="bg-white dark:bg-slate-900 border border-red-500/30 rounded-2xl p-6 max-w-xl w-full shadow-2xl relative overflow-hidden"
+        >
+          <div className="absolute top-0 left-0 w-full h-1 bg-red-500" />
+          
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded-full text-red-600">
+              <ShieldAlert size={24} />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white leading-tight">
+                Reparo Necessário no Supabase
+              </h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                O erro de RLS persistiu mesmo com a chave configurada.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-4 mb-8">
+            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 border border-slate-200 dark:border-slate-800 text-sm">
+              <p className="mb-2 text-slate-700 dark:text-slate-300">
+                Execute este comando no <strong>SQL Editor</strong> do seu Supabase para resolver definitivamente:
+              </p>
+              
+              <div className="relative group">
+                <pre className="bg-slate-900 text-green-400 p-4 rounded-lg font-mono text-[13px] overflow-x-auto border border-slate-700">
+                  {errorSql}
+                </pre>
+                <div className="flex justify-end mt-2">
+                  <button 
+                    onClick={() => {
+                      navigator.clipboard.writeText(errorSql);
+                      toast.success('Comando SQL copiado!');
+                    }}
+                    className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-md transition-colors flex items-center gap-2 text-xs font-medium"
+                  >
+                    <Copy size={14} /> Copiar Código
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <ol className="text-xs text-slate-500 space-y-2 list-decimal pl-4">
+              <li>Acesse o <a href="https://supabase.com/dashboard" target="_blank" className="text-indigo-500 hover:underline">Dashboard do Supabase</a>.</li>
+              <li>Vá em <strong>SQL Editor</strong> e clique em <strong>"New query"</strong>.</li>
+              <li>Cole o comando acima e clique em <strong>"Run"</strong>.</li>
+            </ol>
+          </div>
+
+          <button 
+            onClick={() => setErrorSql(null)}
+            className="w-full px-4 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl font-bold transition-transform active:scale-95"
+          >
+            Entendi, vou corrigir
+          </button>
+        </motion.div>
+      </div>
+    );
+  };
   const [screen, setScreenState] = useState<Screen>(() => {
     // 1. Tenta recuperar a tela da URL primeiro (Fator determinante)
     if (typeof window !== 'undefined') {
@@ -154,6 +221,7 @@ export default function App() {
   const [password, setPassword] = useState('');
   const [referenceName, setReferenceName] = useState('');
   const [isCreatingSecret, setIsCreatingSecret] = useState(false);
+  const [errorSql, setErrorSql] = useState<string | null>(null);
   const [restrictIp, setRestrictIp] = useState(false);
   const [requireEmail, setRequireEmail] = useState(false);
   const [notifyAccess, setNotifyAccess] = useState(false);
@@ -691,6 +759,14 @@ export default function App() {
           if (uploadError.message.includes('Bucket not found')) {
             throw new Error('O bucket "secrets-files" não foi encontrado no seu Supabase. Por favor, crie um bucket público com este nome no painel do Supabase > Storage.');
           }
+          if (uploadError.message.includes('row-level security policy')) {
+            setErrorSql(`
+-- LIBERAR O STORAGE (Para os arquivos funcionarem) --
+CREATE POLICY "Permitir Upload Público" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'secrets-files');
+CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT USING (bucket_id = 'secrets-files');
+            `);
+            throw new Error('Permissão Negada no Storage (RLS). Execute o código SQL de reparo.');
+          }
           throw uploadError;
         }
         
@@ -737,6 +813,7 @@ export default function App() {
         const errorData = await resp.json();
         // Erro amigável se o backend ainda estiver barrado pelo RLS (provavelmente falta de chave mestra)
         if (resp.status === 403 || errorData.error?.includes('security policy')) {
+          if (errorData.sql) setErrorSql(errorData.sql);
           throw new Error(errorData.error || 'Permissão Negada (RLS). Verifique se a SUPABASE_SERVICE_ROLE_KEY está correta nos Secrets.');
         }
         throw new Error(errorData.error || 'Falha ao criar segredo via servidor');
@@ -909,6 +986,7 @@ export default function App() {
 
       {/* Alerta de Storage se necessário */}
       <StorageWarning />
+      <RLSRepairModal />
 
       <main className="relative">
         <AnimatePresence mode="wait">
