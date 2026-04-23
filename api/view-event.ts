@@ -57,8 +57,7 @@ export default async function handler(req: any, res: any) {
       const reachedLimit = maxViews !== null && nextViews >= maxViews;
 
       updatePayload = { 
-        views: nextViews,
-        last_viewer_email: viewerEmail || null
+        views: nextViews
       };
 
       if (reachedLimit || isOneTime) {
@@ -69,8 +68,11 @@ export default async function handler(req: any, res: any) {
     const { error: updateError } = await supabase.from('secrets').update(updatePayload).eq('id', id);
     
     if (updateError) {
-      console.error('[DATABASE ERROR] Falha ao atualizar segredo:', updateError);
-      return res.status(500).json({ error: 'Erro ao processar estado no banco de dados.' });
+      console.error('[DATABASE ERROR] Update failed:', updateError);
+      return res.status(500).json({ 
+        error: `Erro ao processar estado no banco: ${updateError.message}`,
+        details: updateError.hint || 'Verifique se você adicionou o SUPABASE_SERVICE_ROLE_KEY nas configurações.'
+      });
     }
 
     // 3. Notificar apenas no estágio de incremento
