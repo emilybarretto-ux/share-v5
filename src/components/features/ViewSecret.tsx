@@ -526,12 +526,12 @@ export const ViewSecret = ({ id, user, onBack, setScreen }: ViewSecretProps) => 
     <div className="min-h-screen py-12 px-4 flex items-center justify-center">
       <ScreenProtector active={isUnlocked && !loading && !hasBurned && !error}>
         {loading ? (
-          <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+          <div key="loading-state" className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
             <div className="size-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
             <p className="text-slate-500 font-medium">Buscando dados seguros...</p>
           </div>
         ) : error ? (
-          <div className="max-w-md mx-auto p-8 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl" key="error-container">
+          <div key="error-state-container" className="max-w-md mx-auto p-8 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl">
             <div 
               key={error === 'AUTH_REQUIRED' ? 'icon-auth' : 'icon-error'}
               className={`size-16 rounded-2xl flex items-center justify-center mx-auto mb-6 ${error === 'AUTH_REQUIRED' ? 'bg-amber-100 dark:bg-amber-900/20 text-amber-600' : 'bg-red-100 dark:bg-red-900/20 text-red-600'}`}>
