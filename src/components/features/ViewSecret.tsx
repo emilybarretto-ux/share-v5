@@ -432,20 +432,19 @@ export const ViewSecret = ({ id, onBack, setScreen }: ViewSecretProps) => {
 
     setIsSendingOtp(true);
     try {
-      // Usar a URL atual como redirect para voltar exatamente para este segredo
-      const redirectUrl = window.location.href;
-      
       const { error: otpError } = await supabase.auth.signInWithOtp({
-        email: verificationEmail,
+        email: verificationEmail.trim().toLowerCase(),
         options: {
-          emailRedirectTo: redirectUrl,
+          emailRedirectTo: window.location.href,
+          shouldCreateUser: true,
         }
       });
 
       if (otpError) throw otpError;
       
       setOtpSent(true);
-      showNotification('Token (Link de Acesso) enviado para seu e-mail!', 'success');
+      setOtpCode(''); // Limpa código anterior
+      showNotification('Token enviado! Verifique seu e-mail.', 'success');
     } catch (err: any) {
       console.error('Erro ao enviar OTP:', err);
       showNotification('Erro ao enviar e-mail: ' + err.message, 'error');
@@ -495,27 +494,30 @@ export const ViewSecret = ({ id, onBack, setScreen }: ViewSecretProps) => {
             </h2>
             <p className="text-slate-500 dark:text-slate-400 mb-8">
               {error === 'AUTH_REQUIRED' 
-                ? 'O criador deste link exige que você verifique sua identidade por e-mail para acessar os dados.' 
+                ? 'Este segredo requer validação de identidade. Insira seu e-mail abaixo para receber um token de acesso.' 
                 : error.startsWith('ACESSO_NEGADO_EMAIL')
-                ? `Acesso negado: Este segredo só pode ser lido pelo e-mail: ${error.split(':')[1]}`
+                ? `Acesso Negado: Este segredo é exclusivo para os e-mails autorizados. Verifique se digitou o e-mail correto.`
                 : error.startsWith('ACESSO_NEGADO_DOMINIO')
-                ? `Acesso negado: Este segredo só pode ser lido por usuários do domínio: @${error.split(':')[1]}`
+                ? `Acesso Negado: Apenas usuários @${error.split(':')[1]} podem ler este segredo.`
                 : error}
             </p>
             
             <div className="space-y-4">
-              {error === 'AUTH_REQUIRED' && (
+              {(error === 'AUTH_REQUIRED' || error.startsWith('ACESSO_NEGADO_')) && (
                 <div className="space-y-4">
                   {!otpSent ? (
                     <div className="space-y-3">
+                      <div className="text-left px-1">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">E-mail para receber o token</label>
+                      </div>
                       <div className="relative">
                         <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                         <input 
                           type="email"
                           value={verificationEmail}
                           onChange={(e) => setVerificationEmail(e.target.value)}
-                          placeholder="seu-email@dominio.com"
-                          className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none dark:text-white"
+                          placeholder="seu-email@exemplo.com"
+                          className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none dark:text-white font-medium"
                         />
                       </div>
                       <button 
@@ -526,17 +528,17 @@ export const ViewSecret = ({ id, onBack, setScreen }: ViewSecretProps) => {
                         {isSendingOtp ? (
                           <RefreshCcw className="animate-spin" size={20} />
                         ) : (
-                          <Fingerprint size={20} />
+                          <Mail size={20} />
                         )}
-                        {isSendingOtp ? 'Enviando...' : 'Obter Token via E-mail'}
+                        {isSendingOtp ? 'Enviando...' : 'Receber Token no E-mail'}
                       </button>
-                      <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/10 rounded-xl text-[10px] text-blue-600 dark:text-blue-400 text-left">
-                        <Info size={14} />
-                        <span>Você receberá um link de acesso único. Após clicar nele, volte para esta aba.</span>
+                      <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-900/10 rounded-xl text-[10px] text-blue-600 dark:text-blue-400 text-left">
+                        <Info size={14} className="mt-0.5 shrink-0" />
+                        <span>Se o seu e-mail estiver na lista de permissão, um link ou código de 6 dígitos será enviado agora.</span>
                       </div>
                     </div>
                   ) : (
-                    <div className="p-6 bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-900/30 rounded-2xl text-center space-y-3">
+                    <div className="p-6 bg-slate-50 dark:bg-slate-950 border border-border-base rounded-2xl text-center space-y-4 shadow-sm">
                       <div className="size-12 bg-green-100 dark:bg-green-900/20 text-green-600 rounded-full flex items-center justify-center mx-auto">
                         <Check size={24} />
                       </div>
