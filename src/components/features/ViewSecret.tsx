@@ -548,11 +548,11 @@ export const ViewSecret = ({ id, onBack, setScreen }: ViewSecretProps) => {
                       <div className="space-y-3 py-2">
                         <input 
                           type="text"
-                          maxLength={6}
+                          maxLength={8}
                           value={otpCode}
                           onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
                           placeholder="000000"
-                          className="w-full px-4 py-4 text-center text-3xl tracking-[0.5em] font-mono bg-white dark:bg-slate-900 border border-border-base rounded-xl outline-none focus:ring-2 focus:ring-green-600 dark:text-white"
+                          className="w-full px-4 py-4 text-center text-2xl tracking-[0.3em] font-mono bg-white dark:bg-slate-900 border border-border-base rounded-xl outline-none focus:ring-2 focus:ring-green-600 dark:text-white"
                         />
                         <button 
                           onClick={handleVerifyOTP}
