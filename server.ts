@@ -81,7 +81,11 @@ ALTER TABLE public.requests DISABLE ROW LEVEL SECURITY;
       };
       
       console.log('[API] Segredo criado com sucesso!');
-      res.json(data[0]);
+      if (data && data.length > 0) {
+        res.json(data[0]);
+      } else {
+        res.status(500).json({ error: 'Erro inesperado: O banco de dados não retornou o registro criado.' });
+      }
     } catch (error: any) {
       console.error('[SERVER ERROR]:', error);
       res.status(500).json({ error: error.message });

@@ -809,17 +809,23 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
         body: JSON.stringify(secretData)
       });
 
-      if (!resp.ok) {
-        const errorData = await resp.json();
-        // Erro amigável se o backend ainda estiver barrado pelo RLS (provavelmente falta de chave mestra)
-        if (resp.status === 403 || errorData.error?.includes('security policy')) {
-          if (errorData.sql) setErrorSql(errorData.sql);
-          throw new Error(errorData.error || 'Permissão Negada (RLS). Verifique se a SUPABASE_SERVICE_ROLE_KEY está correta nos Secrets.');
-        }
-        throw new Error(errorData.error || 'Falha ao criar segredo via servidor');
+      const responseText = await resp.text();
+      let data: any;
+      try {
+        data = responseText ? JSON.parse(responseText) : null;
+      } catch (e) {
+        console.error('Falha ao parsear JSON:', responseText);
+        throw new Error('Servidor retornou uma resposta inválida. Verifique os logs.');
       }
 
-      const data = await resp.json();
+      if (!resp.ok) {
+        // Erro amigável se o backend ainda estiver barrado pelo RLS (provavelmente falta de chave mestra)
+        if (resp.status === 403 || data?.error?.includes('security policy')) {
+          if (data?.sql) setErrorSql(data.sql);
+          throw new Error(data?.error || 'Permissão Negada (RLS). Verifique se a SUPABASE_SERVICE_ROLE_KEY está correta.');
+        }
+        throw new Error(data?.error || `Erro ${resp.status}: Falha ao criar segredo via servidor`);
+      }
 
       if (data) {
         setLastCreatedId(data.id);
