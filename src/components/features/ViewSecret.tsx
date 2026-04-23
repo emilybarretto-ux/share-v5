@@ -11,10 +11,11 @@ interface ViewSecretProps {
   key?: string;
   id: string;
   onBack: () => void;
+  setScreen: (s: any) => void;
 }
 
 
-export const ViewSecret = ({ id, onBack }: ViewSecretProps) => {
+export const ViewSecret = ({ id, onBack, setScreen }: ViewSecretProps) => {
   const [loading, setLoading] = useState(true);
   const [secret, setSecret] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -150,7 +151,7 @@ export const ViewSecret = ({ id, onBack }: ViewSecretProps) => {
           
           if (authError || !authUser) {
               console.warn('🚫 [ViewSecret] Bloqueio por E-mail: Usuário NÃO autenticado.');
-              setError('Verificação Obrigatória: O criador deste link exige que você esteja logado para acessar. Por favor, faça login e tente acessar o link novamente.');
+              setError('AUTH_REQUIRED');
               setLoading(false);
               return;
           }
@@ -366,18 +367,43 @@ export const ViewSecret = ({ id, onBack }: ViewSecretProps) => {
     </div>
   );
 
-  if (error) return (
-    <div className="max-w-md mx-auto mt-20 p-8 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl">
-      <div className="size-16 bg-red-100 dark:bg-red-900/20 text-red-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-        <X size={32} />
+  if (error) {
+    const isAuthError = error === 'AUTH_REQUIRED';
+    
+    return (
+      <div className="max-w-md mx-auto mt-20 p-8 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl">
+        <div className={`size-16 rounded-2xl flex items-center justify-center mx-auto mb-6 ${isAuthError ? 'bg-amber-100 dark:bg-amber-900/20 text-amber-600' : 'bg-red-100 dark:bg-red-900/20 text-red-600'}`}>
+          {isAuthError ? <ShieldCheck size={32} /> : <X size={32} />}
+        </div>
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
+          {isAuthError ? 'Acesso Restrito' : 'Link Indisponível'}
+        </h2>
+        <p className="text-slate-500 dark:text-slate-400 mb-8">
+          {isAuthError 
+            ? 'O criador deste link exige que você esteja logado para acessar os dados com segurança.' 
+            : error}
+        </p>
+        
+        <div className="space-y-3">
+          {isAuthError && (
+            <button 
+              onClick={() => {
+                localStorage.setItem('redirect_after_auth', window.location.search);
+                setScreen('login');
+              }}
+              className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:opacity-90 transition-all flex items-center justify-center gap-2"
+            >
+              <Fingerprint size={20} />
+              Fazer Login agora
+            </button>
+          )}
+          <button onClick={onBack} className="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-200 transition-colors">
+            Voltar ao Início
+          </button>
+        </div>
       </div>
-      <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Link Indisponível</h2>
-      <p className="text-slate-500 dark:text-slate-400 mb-8">{error}</p>
-      <button onClick={onBack} className="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-200 transition-colors">
-        Voltar ao Início
-      </button>
-    </div>
-  );
+    );
+  }
 
   if (!isUnlocked && !showConfirmBurn) return (
     <div className="max-w-md mx-auto mt-20 p-8 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl">

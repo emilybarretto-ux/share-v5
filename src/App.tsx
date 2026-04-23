@@ -427,8 +427,21 @@ export default function App() {
           
           // Se está tudo certo (aal2 e dentro do tempo), vai pro dashboard se estiver em telas de entrada
           const authEntryScreens = ['home', 'login', 'register'];
-          if (mfaData?.currentLevel === 'aal2' && !needsVerification && authEntryScreens.includes(screenRef.current)) {
-            setScreen('dashboard');
+          if (mfaData?.currentLevel === 'aal2' && !needsVerification) {
+            const redirectParams = localStorage.getItem('redirect_after_auth');
+            if (redirectParams) {
+              localStorage.removeItem('redirect_after_auth');
+              window.history.pushState({}, '', redirectParams);
+              const params = new URLSearchParams(redirectParams);
+              if (params.get('id')) setScreen('view-secret');
+              else if (params.get('request')) setScreen('fill-request');
+              else if (params.get('form')) setScreen('view-form');
+              return;
+            }
+
+            if (authEntryScreens.includes(screenRef.current)) {
+              setScreen('dashboard');
+            }
           }
         } 
         // 2. Se NÃO TEM nenhum fator verificado (Configuração Inicial ou Incompleta)
@@ -681,7 +694,18 @@ export default function App() {
         localStorage.setItem(`mfa_verified_at_${user.id}`, Date.now().toString());
       }
 
-      setScreen('dashboard');
+      const redirectParams = localStorage.getItem('redirect_after_auth');
+      if (redirectParams) {
+        localStorage.removeItem('redirect_after_auth');
+        window.history.pushState({}, '', redirectParams);
+        const params = new URLSearchParams(redirectParams);
+        if (params.get('id')) setScreen('view-secret');
+        else if (params.get('request')) setScreen('fill-request');
+        else if (params.get('form')) setScreen('view-form');
+      } else {
+        setScreen('dashboard');
+      }
+      
       setMfaCode('');
       showNotification('Autenticado com sucesso!', 'success');
     } catch (err: any) {
@@ -1165,6 +1189,7 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
               <ViewSecret 
                 id={new URLSearchParams(window.location.search).get('id') || ''} 
                 onBack={() => { window.history.pushState({}, '', '/'); setScreen('home'); }} 
+                setScreen={setScreen as any}
               />
             </motion.div>
           )}

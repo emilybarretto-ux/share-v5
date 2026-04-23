@@ -56,7 +56,8 @@ export default async function handler(req: any, res: any) {
     } else {
       // ESTÁGIO 1: REGISTRO E BLOQUEIO DE NOVOS ACESSOS
       updatePayload = { 
-        views: nextViews
+        views: nextViews,
+        last_viewer_email: viewerEmail || null
       };
 
       if (reachedLimit || isOneTime) {
