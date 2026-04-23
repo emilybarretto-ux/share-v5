@@ -66,19 +66,35 @@ export const ViewSecret = ({ id, onBack }: ViewSecretProps) => {
       const maxViews = data.max_views !== null ? Number(data.max_views) : null;
       const currentViews = Number(data.views || 0);
       
-      // Se não tem conteúdo ou o limite foi atingido/status é completed
+      // Se não tem conteúdo nem dados estruturados ou o limite foi atingido/status é completed
       const isActuallyCompleted = 
         data.status === 'completed' || 
         (maxViews !== null && currentViews >= maxViews) ||
-        (!data.content); // Se o conteúdo sumiu (pelo fallback de incineração), o link está morto
+        (!data.content && !data.key_values && !data.file_url); // Se TUDO sumiu, o link está morto
+
+      console.log('🔍 [ViewSecret] Estado do Segredo:', {
+        status: data.status,
+        views: currentViews,
+        max: maxViews,
+        hasContent: !!data.content,
+        hasKV: !!data.key_values,
+        hasFile: !!data.file_url,
+        isActuallyCompleted
+      });
 
       if (isActuallyCompleted) {
           console.warn('🚫 [ViewSecret] Link já incinerado detectado.');
           setError('Este segredo já foi incinerado permanentemente por limite de acessos ou ação do criador.');
           
-          // Limpeza redundante se ainda houver conteúdo (segurança extra)
-          if (data.content) {
-            supabase.from('secrets').update({ status: 'completed', content: '', password: '', key_values: null }).eq('id', id).then(() => {});
+          // Limpeza redundante se ainda houver algo (segurança extra)
+          if (data.content || data.key_values || data.file_url) {
+            supabase.from('secrets').update({ 
+              status: 'completed', 
+              content: '', 
+              password: '', 
+              key_values: null,
+              file_url: null 
+            }).eq('id', id).then(() => {});
           }
           setLoading(false);
           return;
