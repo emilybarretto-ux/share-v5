@@ -530,33 +530,18 @@ export const ViewSecret = ({ id, onBack, setScreen }: ViewSecretProps) => {
       <div className="space-y-6">
         {secret.content && (
           <div className="relative group/secret">
-            <div className={`p-6 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800 transition-all duration-75 ${(!showRawSecret && secret.max_views !== 1) ? 'blur-[60px] select-none opacity-0 grayscale pointer-events-none' : 'blur-0 opacity-100'}`}>
+            <div className="p-6 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800 transition-all duration-75">
               <div className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed prose prose-slate dark:prose-invert max-w-none">
                 <Markdown>{secret.content}</Markdown>
               </div>
             </div>
-            {(!showRawSecret && secret.max_views !== 1) && (
-              <div className="absolute inset-0 flex items-center justify-center z-10">
-                <button 
-                  onMouseDown={() => setShowRawSecret(true)}
-                  onMouseUp={() => setShowRawSecret(false)}
-                  onMouseLeave={() => setShowRawSecret(false)}
-                  onTouchStart={() => setShowRawSecret(true)}
-                  onTouchEnd={() => setShowRawSecret(false)}
-                  className="px-8 py-3 bg-blue-600 text-white rounded-full font-bold shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-2 select-none touch-none"
-                >
-                  <Fingerprint size={20} />
-                  Segure para Revelar
-                </button>
-              </div>
-            )}
           </div>
         )}
 
         {/* --- SEÇÃO DE ARQUIVO ANEXADO --- */}
         {secret.file_url && (
           <div className="relative group/file">
-             <div className={`p-4 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800 transition-all duration-75 ${(!showRawSecret && secret.max_views !== 1) ? 'blur-[60px] select-none opacity-0 grayscale pointer-events-none' : 'blur-0 opacity-100'}`}>
+             <div className="p-4 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800 transition-all duration-75">
                 <div className="flex flex-col gap-4">
                   {/* Preview se for imagem */}
                   {['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'svg'].some(ext => secret.file_url.toLowerCase().endsWith(ext)) ? (
@@ -592,21 +577,6 @@ export const ViewSecret = ({ id, onBack, setScreen }: ViewSecretProps) => {
                   </a>
                 </div>
              </div>
-             {(!showRawSecret && secret.max_views !== 1) && (
-              <div className="absolute inset-0 flex items-center justify-center z-10">
-                 <button 
-                  onMouseDown={() => setShowRawSecret(true)}
-                  onMouseUp={() => setShowRawSecret(false)}
-                  onMouseLeave={() => setShowRawSecret(false)}
-                  onTouchStart={() => setShowRawSecret(true)}
-                  onTouchEnd={() => setShowRawSecret(false)}
-                  className="px-8 py-3 bg-blue-600 text-white rounded-full font-bold shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-2 select-none touch-none"
-                >
-                  <Fingerprint size={20} />
-                  Revelar Arquivo
-                </button>
-              </div>
-            )}
           </div>
         )}
 
@@ -614,7 +584,7 @@ export const ViewSecret = ({ id, onBack, setScreen }: ViewSecretProps) => {
           <div className="space-y-3">
             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest ml-1">Dados Estruturados</h3>
             <div className="grid grid-cols-1 gap-3 relative group/data">
-              <div className={`transition-all duration-75 space-y-3 ${(!showRawSecret && secret.max_views !== 1) ? 'blur-[60px] select-none opacity-0 grayscale pointer-events-none' : 'blur-0 opacity-100'}`}>
+              <div className="transition-all duration-75 space-y-3">
                 {secret.key_values.map((kv: any, idx: number) => (
                   <div key={idx} className="flex items-center justify-between p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm">
                     <span className="text-sm font-bold text-slate-500 dark:text-slate-400">{kv.key}</span>
@@ -636,21 +606,6 @@ export const ViewSecret = ({ id, onBack, setScreen }: ViewSecretProps) => {
                   </div>
                 ))}
               </div>
-              {(!showRawSecret && secret.max_views !== 1) && (
-                <div className="absolute inset-0 flex items-center justify-center z-10">
-                   <button 
-                    onMouseDown={() => setShowRawSecret(true)}
-                    onMouseUp={() => setShowRawSecret(false)}
-                    onMouseLeave={() => setShowRawSecret(false)}
-                    onTouchStart={() => setShowRawSecret(true)}
-                    onTouchEnd={() => setShowRawSecret(false)}
-                    className="px-8 py-3 bg-blue-600 text-white rounded-full font-bold shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-2 select-none touch-none"
-                  >
-                    <Fingerprint size={20} />
-                    Segure para Ver
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         )}
@@ -671,24 +626,10 @@ export const ViewSecret = ({ id, onBack, setScreen }: ViewSecretProps) => {
       <div className="flex flex-col sm:flex-row gap-4 mt-8">
         <button 
           onClick={async () => {
-            const confirmBurn = window.confirm("Deseja incinerar este segredo agora? Ele será destruído permanentemente para todos.");
-            if (confirmBurn) {
-              await handleFinalBurn();
-              showNotification('Segredo incinerado com sucesso.', 'success');
-              onBack();
-            }
-          }}
-          className="flex-1 py-4 bg-red-50 text-red-600 font-bold rounded-xl hover:bg-red-600 hover:text-white transition-all flex items-center justify-center gap-2"
-        >
-          <X size={20} />
-          Incinerar Agora
-        </button>
-        <button 
-          onClick={async () => {
             await handleFinalBurn();
             onBack();
           }}
-          className="flex-1 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold rounded-xl hover:opacity-90 transition-all"
+          className="w-full py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold rounded-xl hover:opacity-90 transition-all shadow-xl"
         >
           Entendido, fechar
         </button>

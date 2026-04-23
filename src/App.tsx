@@ -869,6 +869,13 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
           setReferenceName('');
           setKeyValuePairs([{ id: Date.now(), key: '', value: '' }]);
           setSelectedFile(null);
+          setExpiration('Expiração em 24 horas'); 
+          setLimitViews(false);
+          setMaxViews(1);
+          setRestrictIp(false);
+          setRequireEmail(false);
+          setNotifyAccess(false);
+          setRedirectUrl('');
           setScreen('success');
         }
       } catch (fetchErr: any) {

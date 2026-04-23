@@ -333,7 +333,12 @@ export const DashboardScreen = ({
                   <tbody className="divide-y divide-border-base">
                     {links.map((link) => {
                       const expired = isExpired(link.expires_at);
-                      const isIncinerated = link.status === 'completed' || (!link.content && !link.key_values && !link.file_url);
+                      const reachedLimit = link.max_views !== null && link.views >= link.max_views;
+                      const isIncinerated = link.status === 'completed' || reachedLimit || (!link.content && !link.key_values && !link.file_url);
+
+                      let statusLabel = 'Ativo';
+                      if (isIncinerated) statusLabel = reachedLimit ? 'Limite Atingido' : 'Incinerado';
+                      else if (expired) statusLabel = 'Expirado';
                       return (
                         <tr key={link.id} className={`hover:bg-bg-base/30 transition-colors ${expired || isIncinerated ? 'opacity-60' : ''}`}>
                           <td className="px-6 py-4">
@@ -355,8 +360,13 @@ export const DashboardScreen = ({
                                     ? 'text-red-600 bg-red-50' 
                                     : 'text-success-base bg-success-base/10'
                               }`}>
-                                {isIncinerated ? 'Incinerado' : expired ? 'Expirado' : 'Ativo'}
+                                {isIncinerated ? statusLabel : expired ? 'Expirado' : 'Ativo'}
                               </span>
+                              {link.max_views && !isIncinerated && (
+                                <span className="text-[9px] text-text-secondary font-bold uppercase tracking-tighter bg-bg-base px-1.5 py-0.5 rounded border border-border-base w-fit">
+                                  {link.views} / {link.max_views} visualizações
+                                </span>
+                              )}
                               {link.expires_at && !expired && !isIncinerated && (
                                 <span className="text-[10px] text-text-secondary flex items-center gap-1">
                                   <Clock size={10} />

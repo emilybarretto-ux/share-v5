@@ -196,7 +196,18 @@ export const HomeScreen = ({
                 <div className="flex flex-col gap-4 w-full md:w-auto">
                   <div className="flex items-center bg-bg-base/60 border border-border-base rounded-2xl px-4 py-3 shadow-sm">
                     <Timer size={24} className="text-text-secondary mr-3" />
-                    <select value={expiration} onChange={(e) => setExpiration(e.target.value)} className="bg-transparent border-none focus:ring-0 text-sm font-black p-0 pr-10 text-text-primary cursor-pointer appearance-none">
+                    <select 
+                      value={expiration} 
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setExpiration(val);
+                        if (val.includes('Acesso único')) {
+                          setLimitViews(true);
+                          setMaxViews(1);
+                        }
+                      }} 
+                      className="bg-transparent border-none focus:ring-0 text-sm font-black p-0 pr-10 text-text-primary cursor-pointer appearance-none"
+                    >
                       <option>Expiração em 1 hora</option>
                       <option>Expiração em 24 horas</option>
                       <option>Expiração em 7 dias</option>
