@@ -59,39 +59,52 @@ export default async function handler(req: any, res: any) {
     await supabase.from('secrets').update(updatePayload).eq('id', id);
 
     // 3. Notificar se o dono pediu
-    if (secret.notify_access && secret.creator_email && process.env.RESEND_API_KEY) {
-      const resend = new Resend(process.env.RESEND_API_KEY);
+    if (secret.notify_access) {
+      console.log(`[DEBUG] Notificação solicitada para o segredo: ${secret.name}`);
       
-      const emailBody = `
-        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-          <h2 style="color: #2563eb;">🔓 Seu link foi acessado!</h2>
-          <p>O segredo <strong>"${secret.name}"</strong> acabou de ser visualizado.</p>
-          <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
-          <ul style="list-style: none; padding: 0;">
-            <li><strong>👤 Quem acessou:</strong> ${viewerEmail || 'Usuário Anônimo'}</li>
-            <li><strong>🌐 IP do Visitante:</strong> ${viewerIp || 'Desconhecido'}</li>
-            <li><strong>⏰ Horário:</strong> ${new Date().toLocaleString('pt-BR')}</li>
-          </ul>
-          <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-top: 20px; font-size: 12px; color: #64748b;">
-            Este link possui ${nextViews} de ${maxViews || 'ilimitadas'} visualizações permitidas.
-            ${reachedLimit ? '<br/><strong>⚠️ Este link foi incinerado automaticamente após este acesso.</strong>' : ''}
+      if (!secret.creator_email) {
+        console.warn('[WARN] E-mail do criador não encontrado no registro do segredo.');
+      } else if (!process.env.RESEND_API_KEY) {
+        console.error('[ERROR] RESEND_API_KEY não configurada no ambiente.');
+      } else {
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        
+        const emailBody = `
+          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+            <h2 style="color: #2563eb;">🔓 Seu link foi acessado!</h2>
+            <p>O segredo <strong>"${secret.name}"</strong> acabou de ser visualizado.</p>
+            <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
+            <ul style="list-style: none; padding: 0;">
+              <li><strong>👤 Quem acessou:</strong> ${viewerEmail || 'Usuário Anônimo'}</li>
+              <li><strong>🌐 IP do Visitante:</strong> ${viewerIp || 'Desconhecido'}</li>
+              <li><strong>⏰ Horário:</strong> ${new Date().toLocaleString('pt-BR')}</li>
+            </ul>
+            <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-top: 20px; font-size: 12px; color: #64748b;">
+              Este link possui ${nextViews} de ${maxViews || 'ilimitadas'} visualizações permitidas.
+              ${reachedLimit ? '<br/><strong>⚠️ Este link foi incinerado automaticamente após este acesso.</strong>' : ''}
+            </div>
+            <p style="margin-top: 20px; font-size: 12px; color: #94a3b8; text-align: center;">
+              © 2024 Bold Share - Excelência em Privacidade
+            </p>
           </div>
-          <p style="margin-top: 20px; font-size: 12px; color: #94a3b8; text-align: center;">
-            © 2024 Bold Share - Excelência em Privacidade
-          </p>
-        </div>
-      `;
+        `;
 
-      try {
-        await resend.emails.send({
-          from: 'Bold Share <onboarding@resend.dev>',
-          to: secret.creator_email,
-          subject: `Notificação de Acesso: ${secret.name}`,
-          html: emailBody,
-        });
-        console.log('[LOG] E-mail de notificação enviado para:', secret.creator_email);
-      } catch (mailErr) {
-        console.error('[ERROR] Falha ao enviar e-mail:', mailErr);
+        try {
+          const { data: mailData, error: mailError } = await resend.emails.send({
+            from: 'Bold Share <onboarding@resend.dev>',
+            to: secret.creator_email,
+            subject: `Notificação de Acesso: ${secret.name}`,
+            html: emailBody,
+          });
+
+          if (mailError) {
+            console.error('[RESEND ERROR]', mailError);
+          } else {
+            console.log('[SUCCESS] E-mail enviado com ID:', mailData?.id);
+          }
+        } catch (mailErr) {
+          console.error('[CRITICAL MAIL ERROR]', mailErr);
+        }
       }
     }
 
