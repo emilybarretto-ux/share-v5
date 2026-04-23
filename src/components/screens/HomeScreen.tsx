@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 // Version: 1.0.6 - Fixed Advanced Settings X button
 import { motion, AnimatePresence } from 'motion/react';
-import { Settings, FileText, Upload, Plus, X, Lock, Dices, Timer, Link as LinkIcon, Info, Check, Globe } from 'lucide-react';
+import { Settings, FileText, Upload, Plus, X, Lock, Dices, Timer, Link as LinkIcon, Info, Check, Globe, Code } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Screen } from '../../types';
 
@@ -101,15 +101,15 @@ export const HomeScreen = ({
               <div className="flex items-center justify-between px-8 py-3 bg-bg-base/20 border-b border-border-base">
                 <span className="text-[10px] font-black text-text-secondary uppercase tracking-widest">Conteúdo da Comunicação</span>
                 <div className="flex items-center gap-1">
-                  <button onClick={() => handleFormat('bold')} className="p-2 hover:bg-surface rounded-lg transition-colors text-text-secondary" title="Negrito">
+                  <button type="button" onClick={() => handleFormat('bold')} className="p-2 hover:bg-accent/10 hover:text-accent rounded-lg transition-colors text-text-secondary" title="Negrito">
                     <span className="font-bold">B</span>
                   </button>
-                  <button onClick={() => handleFormat('italic')} className="p-2 hover:bg-surface rounded-lg transition-colors text-text-secondary" title="Itálico">
-                    <span className="italic font-serif">I</span>
+                  <button type="button" onClick={() => handleFormat('italic')} className="p-2 hover:bg-accent/10 hover:text-accent rounded-lg transition-colors text-text-secondary" title="Itálico">
+                    <span className="italic font-serif text-lg">I</span>
                   </button>
                   <div className="w-px h-4 bg-border-base mx-1"></div>
-                  <button onClick={() => handleFormat('code')} className="p-2 hover:bg-surface rounded-lg transition-colors text-text-secondary" title="Código">
-                    <FileText size={16} />
+                  <button type="button" onClick={() => handleFormat('code')} className="p-2 hover:bg-accent/10 hover:text-accent rounded-lg transition-colors text-text-secondary" title="Código">
+                    <Code size={16} />
                   </button>
                 </div>
               </div>

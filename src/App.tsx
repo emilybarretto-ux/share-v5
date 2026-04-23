@@ -78,6 +78,31 @@ export default function App() {
     );
   }
 
+  const [storageConfigured, setStorageConfigured] = useState(true);
+  const [showStorageWarning, setShowStorageWarning] = useState(true);
+
+  // --- COMPONENTE DE AVISO DE STORAGE ---
+  const StorageWarning = () => {
+    if (storageConfigured || !isSupabaseConfigured || !showStorageWarning) return null;
+    
+    return (
+      <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-3 flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top duration-500">
+        <div className="flex items-center gap-3 justify-center flex-1">
+          <div className="size-2 bg-amber-500 rounded-full animate-ping" />
+          <p className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+            Configuração Pendente: Crie o bucket "secrets-files" (público) no Storage do seu Supabase para ativar o envio de arquivos.
+          </p>
+        </div>
+        <button 
+          onClick={() => setShowStorageWarning(false)}
+          className="p-1 hover:bg-amber-500/20 rounded-full text-amber-600 transition-colors"
+        >
+          <X size={16} />
+        </button>
+      </div>
+    );
+  };
+
   // --- ESTADOS DO SISTEMA ---
   const [screen, setScreenState] = useState<Screen>(() => {
     // 1. Tenta recuperar a tela da URL primeiro (Fator determinante)
@@ -197,10 +222,20 @@ export default function App() {
     const selectedText = text.substring(start, end);
     
     let formattedText = '';
+    let offset = 0;
     switch (type) {
-      case 'bold': formattedText = `**${selectedText}**`; break;
-      case 'italic': formattedText = `_${selectedText}_`; break;
-      case 'code': formattedText = `\`${selectedText}\``; break;
+      case 'bold': 
+        formattedText = `**${selectedText}**`; 
+        offset = 2;
+        break;
+      case 'italic': 
+        formattedText = `_${selectedText}_`; 
+        offset = 1;
+        break;
+      case 'code': 
+        formattedText = `\`${selectedText}\``; 
+        offset = 1;
+        break;
     }
 
     const newText = text.substring(0, start) + formattedText + text.substring(end);
@@ -209,11 +244,37 @@ export default function App() {
     // Devolver o foco
     setTimeout(() => {
       textarea.focus();
-      textarea.setSelectionRange(start + 2, end + 2); // Ajuste simples para caber os símbolos
+      textarea.setSelectionRange(start + offset, end + offset);
     }, 0);
   };
 
   // --- EFEITOS ---
+  
+  // Verificação de Storage
+  useEffect(() => {
+    const checkStorage = async () => {
+      if (!isSupabaseConfigured) return;
+      try {
+        // Tentamos apenas listar os objetos de forma limitada para ver se o bucket responde
+        const { data, error } = await supabase.storage.from('secrets-files').list('', { limit: 1 });
+        
+        // Se não houver erro, ou se o erro não for 'Bucket not found', consideramos configurado
+        if (error && error.message.includes('not found')) {
+          setStorageConfigured(false);
+        } else {
+          // Mesmo com erro de permissão, se o erro não for 'not found', o bucket existe
+          setStorageConfigured(true);
+        }
+      } catch (e) {
+        // Silenciosamente falha
+      }
+    };
+    checkStorage();
+    
+    // Tenta novamente em 10 segundos caso o usuário tenha acabado de criar
+    const timer = setTimeout(checkStorage, 10000);
+    return () => clearTimeout(timer);
+  }, [isSupabaseConfigured]);
 
   // Dark Mode
   useEffect(() => {
@@ -626,7 +687,12 @@ export default function App() {
           .from('secrets-files')
           .upload(filePath, selectedFile);
 
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+          if (uploadError.message.includes('Bucket not found')) {
+            throw new Error('O bucket "secrets-files" não foi encontrado no seu Supabase. Por favor, crie um bucket público com este nome no painel do Supabase > Storage.');
+          }
+          throw uploadError;
+        }
         
         const { data: { publicUrl } } = supabase.storage
           .from('secrets-files')
@@ -642,14 +708,9 @@ export default function App() {
         encryptedKeyValues = encryptData(kvPayload, password);
       }
 
-      console.log('🚀 Criando segredo com as seguintes configurações:', {
-        restrictIp,
-        requireEmail,
-        notifyAccess,
-        creatorIp
-      });
+      console.log('🚀 Criando segredo via API Backend para contornar RLS...');
 
-      const { data, error } = await supabase.from('secrets').insert([{
+      const secretData = {
         name: referenceName || 'Segredo sem nome',
         content: encryptedContent,
         password: passwordHashed,
@@ -664,12 +725,27 @@ export default function App() {
         file_url: fileUrl || null,
         creator_ip: creatorIp || null,
         redirect_url: redirectUrl || null
-      }]).select();
+      };
 
-      if (error) throw error;
+      const resp = await fetch('/api/secrets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(secretData)
+      });
+
+      if (!resp.ok) {
+        const errorData = await resp.json();
+        // Erro amigável se o backend ainda estiver barrado pelo RLS (provavelmente falta de chave mestra)
+        if (resp.status === 403 || errorData.error?.includes('security policy')) {
+          throw new Error(errorData.error || 'Permissão Negada (RLS). Verifique se a SUPABASE_SERVICE_ROLE_KEY está correta nos Secrets.');
+        }
+        throw new Error(errorData.error || 'Falha ao criar segredo via servidor');
+      }
+
+      const data = await resp.json();
 
       if (data) {
-        setLastCreatedId(data[0].id);
+        setLastCreatedId(data.id);
         setScreen('success');
         setSecretText('');
         setPassword('');
@@ -830,6 +906,9 @@ export default function App() {
           </div>
         </div>
       </nav>
+
+      {/* Alerta de Storage se necessário */}
+      <StorageWarning />
 
       <main className="relative">
         <AnimatePresence mode="wait">
