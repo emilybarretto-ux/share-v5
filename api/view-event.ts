@@ -56,7 +56,12 @@ export default async function handler(req: any, res: any) {
       updatePayload.file_url = null;
     }
 
-    await supabase.from('secrets').update(updatePayload).eq('id', id);
+    const { error: updateError } = await supabase.from('secrets').update(updatePayload).eq('id', id);
+    
+    if (updateError) {
+      console.error('[DATABASE ERROR] Falha ao atualizar segredo:', updateError);
+      return res.status(500).json({ error: 'Erro ao processar autodestruição no banco de dados.' });
+    }
 
     // 3. Notificar se o dono pediu
     if (secret.notify_access) {

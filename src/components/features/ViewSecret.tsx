@@ -183,7 +183,7 @@ export const ViewSecret = ({ id, onBack }: ViewSecretProps) => {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       const viewerEmail = authUser?.email || null;
 
-      console.log('🔥 [ViewSecret] Notificando servidor sobre visualização...');
+      console.log('🔥 [ViewSecret] Solicitando incineração/registro ao servidor...');
       
       const resp = await fetch('/api/view-event', {
         method: 'POST',
@@ -195,15 +195,18 @@ export const ViewSecret = ({ id, onBack }: ViewSecretProps) => {
         })
       });
 
+      const resData = await resp.json();
+
       if (!resp.ok) {
-        throw new Error(`Falha ao registrar visualização: ${resp.status}`);
+        throw new Error(resData.error || `Erro do servidor: ${resp.status}`);
       }
       
-      const resData = await resp.json();
-      console.log('✅ [ViewSecret] Resposta do servidor:', resData);
+      console.log('✅ [ViewSecret] Incineração confirmada pelo servidor.');
+      return resData;
 
     } catch (e: any) {
-      console.error('❌ [ViewSecret] Erro no registro de visualização:', e.message);
+      console.error('❌ [ViewSecret] FALHA CRÍTICA NA INCINERAÇÃO:', e.message);
+      throw e; // RE-THROW É ESSENCIAL PARA SEGURANÇA
     }
   };
 
