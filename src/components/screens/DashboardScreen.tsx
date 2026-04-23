@@ -332,9 +332,9 @@ export const DashboardScreen = ({
                   </thead>
                   <tbody className="divide-y divide-border-base">
                     {links.map((link) => {
-                      const expired = isExpired(link.expires_at);
+                      const isIncinerated = link.status === 'completed' || (!link.content && !link.key_values && !link.file_url);
                       return (
-                        <tr key={link.id} className={`hover:bg-bg-base/30 transition-colors ${expired ? 'opacity-60' : ''}`}>
+                        <tr key={link.id} className={`hover:bg-bg-base/30 transition-colors ${expired || isIncinerated ? 'opacity-60' : ''}`}>
                           <td className="px-6 py-4">
                             <div className="flex flex-col">
                               <div className="flex items-center gap-2">
@@ -348,15 +348,15 @@ export const DashboardScreen = ({
                           <td className="px-6 py-4">
                             <div className="flex flex-col gap-1">
                               <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider w-fit ${
-                                (link.status === 'completed' && !link.content)
+                                isIncinerated
                                   ? 'text-amber-600 bg-amber-50'
                                   : expired 
                                     ? 'text-red-600 bg-red-50' 
                                     : 'text-success-base bg-success-base/10'
                               }`}>
-                                {(link.status === 'completed' && !link.content) ? 'Incinerado' : expired ? 'Expirado' : 'Ativo'}
+                                {isIncinerated ? 'Incinerado' : expired ? 'Expirado' : 'Ativo'}
                               </span>
-                              {link.expires_at && !expired && !(link.status === 'completed' && !link.content) && (
+                              {link.expires_at && !expired && !isIncinerated && (
                                 <span className="text-[10px] text-text-secondary flex items-center gap-1">
                                   <Clock size={10} />
                                   Expira em {new Date(link.expires_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })} (Local)
@@ -382,7 +382,7 @@ export const DashboardScreen = ({
                           </td>
                           <td className="px-6 py-4 text-right">
                             <div className="flex items-center justify-end gap-3">
-                              {!expired && (
+                              {!expired && !isIncinerated && (
                                 <button 
                                   onClick={() => handleCopy(`${window.location.origin}/?id=${link.id}`)}
                                   className="p-2 text-text-secondary hover:text-accent transition-colors" 
@@ -413,32 +413,34 @@ export const DashboardScreen = ({
               <div className="divide-y divide-border-base">
                 {requests.map((req) => {
                   const expired = isExpired(req.expires_at);
+                  const isIncinerated = req.status === 'completed' || (req.response === '' && req.title !== ''); // Se a resposta sumiu mas o registro existe
+                  
                   return (
-                    <div key={req.id} className={`p-6 hover:bg-bg-base/30 transition-colors ${expired ? 'opacity-60' : ''}`}>
+                    <div key={req.id} className={`p-6 hover:bg-bg-base/30 transition-colors ${expired || isIncinerated ? 'opacity-60' : ''}`}>
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div className="flex items-center gap-4">
-                          <div className={`size-12 rounded-xl flex items-center justify-center ${expired ? 'bg-bg-base text-text-secondary' : req.status === 'completed' ? 'bg-success-base/10 text-success-base' : 'bg-accent/10 text-accent'}`}>
-                            {expired ? <Clock size={24} /> : req.status === 'completed' ? <Check size={24} /> : <Timer size={24} />}
+                          <div className={`size-12 rounded-xl flex items-center justify-center ${expired ? 'bg-bg-base text-text-secondary' : isIncinerated ? 'bg-amber-600/10 text-amber-600' : req.status === 'completed' ? 'bg-success-base/10 text-success-base' : 'bg-accent/10 text-accent'}`}>
+                            {expired ? <Clock size={24} /> : isIncinerated ? <Trash2 size={24} /> : req.status === 'completed' ? <Check size={24} /> : <Timer size={24} />}
                           </div>
                           <div>
-                            <h5 className={`font-bold ${expired ? 'text-text-secondary line-through' : 'text-text-primary'}`}>{req.title}</h5>
+                            <h5 className={`font-bold ${expired || isIncinerated ? 'text-text-secondary line-through' : 'text-text-primary'}`}>{req.title}</h5>
                             <div className="flex flex-col gap-1">
                               <p className="text-xs text-text-secondary">Criado em {new Date(req.created_at).toLocaleDateString()}</p>
-                              {req.response?.startsWith('[ONE_TIME]') && (
+                              {req.response?.startsWith('[ONE_TIME]') && !isIncinerated && (
                                 <span className="w-fit px-1.5 py-0.5 bg-red-600 text-[8px] text-white font-black uppercase rounded tracking-tighter">Acesso Único</span>
                               )}
-                              {req.expires_at && !expired && (
+                              {req.expires_at && !expired && !isIncinerated && (
                                 <p className="text-[10px] text-accent font-medium">Expira em {new Date(req.expires_at).toLocaleString('pt-BR')} (Local)</p>
                               )}
                             </div>
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${expired ? 'bg-bg-base text-text-secondary' : (req.status === 'completed' && !req.response) ? 'bg-red-600 text-white shadow-lg shadow-red-500/20' : req.status === 'completed' ? 'bg-success-base text-white' : 'bg-blue-600 text-white'}`}>
-                        {expired ? 'Expirado' : (req.status === 'completed' && !req.response) ? 'Incinerado' : req.status === 'completed' ? 'Concluído' : 'Aguardando'}
+                      <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${expired ? 'bg-bg-base text-text-secondary' : isIncinerated ? 'bg-amber-600 text-white shadow-lg shadow-amber-500/20' : req.status === 'completed' ? 'bg-success-base text-white' : 'bg-blue-600 text-white'}`}>
+                        {expired ? 'Expirado' : isIncinerated ? 'Incinerado' : req.status === 'completed' ? 'Concluído' : 'Aguardando'}
                       </span>
                           <div className="flex items-center gap-2">
-                            {req.status === 'active' && !expired && (
+                            {req.status === 'active' && !expired && !isIncinerated && (
                               <button 
                                 onClick={() => handleCopy(`${window.location.origin}/?request=${req.id}`)}
                                 className="p-2 bg-bg-base rounded-lg text-text-secondary hover:text-accent transition-colors"
