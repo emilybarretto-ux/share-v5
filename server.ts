@@ -21,8 +21,8 @@ async function startServer() {
     next();
   });
 
-  app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', message: 'Bold Share API is alive' });
+  app.get('/vault/health', (req, res) => {
+    res.json({ status: 'ok', message: 'Vault API is alive' });
   });
 
   // Supabase Client (Prefered with Service Role Key to bypass RLS)
@@ -32,8 +32,8 @@ async function startServer() {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   // ROTA PRINCIPAL DE CRIAÇÃO
-  app.post('/api/create-secret', async (req, res) => {
-    console.log('[API] Recebido POST em /api/create-secret');
+  app.post('/vault/create-secret', async (req, res) => {
+    console.log('[DEBUG] Recebido POST no Vault');
     
     let serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     

@@ -784,8 +784,6 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
         encryptedKeyValues = encryptData(kvPayload, password);
       }
 
-      console.log('🚀 Criando segredo via API Backend para contornar RLS...');
-
       const secretData = {
         name: referenceName || 'Segredo sem nome',
         content: encryptedContent,
@@ -803,38 +801,56 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
         redirect_url: redirectUrl || null
       };
 
-      const resp = await fetch('/api/create-secret', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(secretData)
-      });
+      console.log('🚀 Enviando para o Vault...');
 
-      const responseText = await resp.text();
-      let data: any;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 segundos de timeout
+
       try {
-        data = responseText ? JSON.parse(responseText) : null;
-      } catch (e) {
-        console.error('Falha ao parsear JSON:', responseText);
-        throw new Error('Servidor retornou uma resposta inválida. Verifique os logs.');
-      }
+        const resp = await fetch('/vault/create-secret', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(secretData),
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
 
-      if (!resp.ok) {
-        // Erro amigável se o backend ainda estiver barrado pelo RLS (provavelmente falta de chave mestra)
-        if (resp.status === 403 || data?.error?.includes('security policy')) {
-          if (data?.sql) setErrorSql(data.sql);
-          throw new Error(data?.error || 'Permissão Negada (RLS). Verifique se a SUPABASE_SERVICE_ROLE_KEY está correta.');
+        const responseText = await resp.text();
+        let data: any;
+        try {
+          data = responseText ? JSON.parse(responseText) : null;
+        } catch (e) {
+          console.error('Falha ao parsear JSON:', responseText);
+          throw new Error('Servidor retornou uma resposta inválida. Verifique os logs.');
         }
-        throw new Error(data?.error || `Erro ${resp.status}: Falha ao criar segredo via servidor`);
-      }
 
-      if (data) {
-        setLastCreatedId(data.id);
-        setScreen('success');
-        setSecretText('');
-        setPassword('');
-        setKeyValuePairs([]);
-        setReferenceName('');
-        showNotification('Comunicação gerada com sucesso!', 'success');
+        if (!resp.ok) {
+          // Erro amigável se o backend ainda estiver barrado pelo RLS (provavelmente falta de chave mestra)
+          if (resp.status === 403 || data?.error?.includes('security policy')) {
+            if (data?.sql) setErrorSql(data.sql);
+            throw new Error(data?.error || 'Permissão Negada (RLS). Verifique se a SUPABASE_SERVICE_ROLE_KEY está correta.');
+          }
+          throw new Error(data?.error || `Erro ${resp.status}: Falha ao criar segredo via servidor`);
+        }
+
+        if (data) {
+          setLastCreatedId(data.id);
+          showNotification('Segredo criado com sucesso!', 'success');
+          
+          // Limpar campos e ir para sucesso
+          setSecretText('');
+          setPassword('');
+          setReferenceName('');
+          setKeyValuePairs([{ key: '', value: '' }]);
+          setSelectedFile(null);
+          setScreen('success');
+        }
+      } catch (fetchErr: any) {
+        if (fetchErr.name === 'AbortError') {
+          throw new Error('A conexão demorou muito e foi cancelada (Timeout). O servidor pode estar sobrecarregado ou bloqueado.');
+        }
+        throw fetchErr;
       }
     } catch (err: any) {
       console.error('Erro ao criar segredo:', err);
