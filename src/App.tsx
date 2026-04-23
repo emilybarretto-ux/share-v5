@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 // Force redeploy sync v1.0.5
 import { AnimatePresence, motion } from 'motion/react';
-import { Sun, Moon, ShieldCheck, Mail, Lock, Eye, EyeOff, Copy, X, Timer, Fingerprint, RefreshCcw } from 'lucide-react';
+import { Sun, Moon, ShieldCheck, Mail, Lock, Eye, EyeOff, Copy, X, Timer, Fingerprint, RefreshCcw, ShieldAlert } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { supabase } from './lib/supabase';
 import { encryptData, hashPassword } from './lib/crypto';
@@ -144,7 +144,7 @@ export default function App() {
                   <button 
                     onClick={() => {
                       navigator.clipboard.writeText(errorSql);
-                      toast.success('Comando SQL copiado!');
+                      showNotification('Comando SQL copiado!', 'success');
                     }}
                     className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-md transition-colors flex items-center gap-2 text-xs font-medium"
                   >
@@ -843,7 +843,7 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
           setSecretText('');
           setPassword('');
           setReferenceName('');
-          setKeyValuePairs([{ key: '', value: '' }]);
+          setKeyValuePairs([{ id: Date.now(), key: '', value: '' }]);
           setSelectedFile(null);
           setScreen('success');
         }

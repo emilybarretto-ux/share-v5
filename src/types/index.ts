@@ -16,6 +16,7 @@ export interface SharedLink {
   notify_access?: boolean;
   last_viewer_email?: string | null;
   creator_ip?: string | null;
+  file_url?: string | null;
 }
 
 export interface DataRequest {

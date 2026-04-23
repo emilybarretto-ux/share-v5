@@ -332,6 +332,7 @@ export const DashboardScreen = ({
                   </thead>
                   <tbody className="divide-y divide-border-base">
                     {links.map((link) => {
+                      const expired = isExpired(link.expires_at);
                       const isIncinerated = link.status === 'completed' || (!link.content && !link.key_values && !link.file_url);
                       return (
                         <tr key={link.id} className={`hover:bg-bg-base/30 transition-colors ${expired || isIncinerated ? 'opacity-60' : ''}`}>
