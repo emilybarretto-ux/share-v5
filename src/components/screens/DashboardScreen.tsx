@@ -337,7 +337,9 @@ export const DashboardScreen = ({
                       const isIncinerated = link.status === 'completed' || reachedLimit || (!link.content && !link.key_values && !link.file_url);
 
                       let statusLabel = 'Ativo';
-                      if (isIncinerated) statusLabel = reachedLimit ? 'Limite Atingido' : 'Incinerado';
+                      if (isIncinerated) {
+                        statusLabel = (reachedLimit && link.max_views !== 1) ? 'Limite Atingido' : 'Incinerado';
+                      }
                       else if (expired) statusLabel = 'Expirado';
                       else if (link.max_views === 1) statusLabel = 'Acesso Único';
                       
@@ -425,7 +427,7 @@ export const DashboardScreen = ({
               <div className="divide-y divide-border-base">
                 {requests.map((req) => {
                   const expired = isExpired(req.expires_at);
-                  const isIncinerated = req.status === 'completed' || (req.response === '' && req.title !== ''); // Se a resposta sumiu mas o registro existe
+                  const isIncinerated = (req.status === 'completed' && req.response === '') || (req.response === '' && req.title !== '' && req.status !== 'active');
                   
                   return (
                     <div key={req.id} className={`p-6 hover:bg-bg-base/30 transition-colors ${expired || isIncinerated ? 'opacity-60' : ''}`}>
