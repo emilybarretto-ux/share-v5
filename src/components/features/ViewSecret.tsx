@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShieldCheck, Lock, Eye, EyeOff, Copy, X, Timer, Fingerprint, Trash2, ExternalLink, Download, FileIcon, ImageIcon, Key, Mail, RefreshCcw, Info, Check } from 'lucide-react';
+import { ShieldCheck, Lock, Eye, EyeOff, Copy, X, Timer, Fingerprint, Trash2, ExternalLink, Download, FileIcon, ImageIcon, Key, Mail, RefreshCcw, Info, Check, ShieldAlert } from 'lucide-react';
 import Markdown from 'react-markdown';
 import { supabase } from '../../lib/supabase';
 import { decryptData, hashPassword } from '../../lib/crypto';
@@ -523,28 +523,18 @@ export const ViewSecret = ({ id, user, onBack, setScreen }: ViewSecretProps) => 
   };
 
   return (
-    <div className="min-h-screen py-12 px-4 flex items-center justify-center">
+    <div className="min-h-screen py-12 px-4 flex items-center justify-center bg-slate-50 dark:bg-slate-950">
       <ScreenProtector active={isUnlocked && !loading && !hasBurned && !error}>
-        <AnimatePresence mode="wait">
-          {loading ? (
-            <motion.div 
-              key="loading-screen"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex flex-col items-center justify-center min-h-[60vh] gap-4"
-            >
+        <div className="w-full h-full flex items-center justify-center">
+          {loading && (
+            <div key="loading-state" className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
               <div className="size-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-              <p className="text-slate-500 font-medium">Buscando dados seguros...</p>
-            </motion.div>
-          ) : error ? (
-            <motion.div 
-              key="error-screen"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="max-w-md w-full mx-auto p-8 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl"
-            >
+              <p className="text-slate-500 font-medium font-sans">Buscando dados seguros...</p>
+            </div>
+          )}
+
+          {!loading && error && (
+            <div key="error-state-container" className="max-w-md w-full mx-auto p-8 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl">
               <div className={`size-16 rounded-2xl flex items-center justify-center mx-auto mb-6 ${error === 'AUTH_REQUIRED' ? 'bg-amber-100 dark:bg-amber-900/20 text-amber-600' : 'bg-red-100 dark:bg-red-900/20 text-red-600'}`}>
                 {error === 'AUTH_REQUIRED' ? <ShieldCheck size={32} /> : <X size={32} />}
               </div>
@@ -561,9 +551,9 @@ export const ViewSecret = ({ id, user, onBack, setScreen }: ViewSecretProps) => 
               
               <div className="space-y-4">
                 {(error === 'AUTH_REQUIRED' || error.startsWith('ACESSO_NEGADO_')) && (
-                  <div className="space-y-4 text-left">
+                  <div key="otp-flow" className="space-y-4 text-left">
                     {!otpSent ? (
-                      <div className="space-y-3">
+                      <div key="otp-request" className="space-y-3">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">E-mail para receber o token</label>
                         <div className="relative">
                           <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
@@ -572,20 +562,20 @@ export const ViewSecret = ({ id, user, onBack, setScreen }: ViewSecretProps) => 
                             value={verificationEmail}
                             onChange={(e) => setVerificationEmail(e.target.value)}
                             placeholder="seu-email@exemplo.com"
-                            className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none"
+                            className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-blue-600"
                           />
                         </div>
                         <button 
                           onClick={handleSendToken}
                           disabled={isSendingOtp}
-                          className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl flex items-center justify-center gap-2"
+                          className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors"
                         >
                           {isSendingOtp ? <RefreshCcw className="animate-spin" size={20} /> : <Mail size={20} />}
                           {isSendingOtp ? 'Enviando...' : 'Receber Token'}
                         </button>
                       </div>
                     ) : (
-                      <div className="p-6 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-center space-y-4">
+                      <div key="otp-verify" className="p-6 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-center space-y-4">
                         <div className="size-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto">
                           <Check size={24} />
                         </div>
@@ -596,7 +586,7 @@ export const ViewSecret = ({ id, user, onBack, setScreen }: ViewSecretProps) => 
                           value={otpCode}
                           onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
                           placeholder="00000000"
-                          className="w-full p-4 text-center text-2xl tracking-widest font-mono border rounded-xl"
+                          className="w-full p-4 text-center text-2xl tracking-widest font-mono border rounded-xl bg-white dark:bg-slate-900"
                         />
                         <button 
                           onClick={handleVerifyOTP}
@@ -611,21 +601,17 @@ export const ViewSecret = ({ id, user, onBack, setScreen }: ViewSecretProps) => 
                 )}
                 <button 
                   onClick={onBack} 
-                  className="w-full py-3 bg-slate-100 text-slate-700 font-bold rounded-xl"
+                  className="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700"
                 >
                   Voltar
                 </button>
               </div>
-            </motion.div>
-          ) : !isUnlocked ? (
-            <motion.div 
-              key="auth-gate"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="max-w-md w-full mx-auto p-8 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl"
-            >
-              <div className="size-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            </div>
+          )}
+
+          {!loading && !error && !isUnlocked && (
+            <div key="password-gate" className="max-w-md w-full mx-auto p-8 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl">
+              <div className="size-16 bg-blue-100 dark:bg-blue-900/20 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
                 <Lock size={32} />
               </div>
               <h2 className="text-2xl font-bold text-slate-900 dark:text-white text-center mb-2">Protegido por Senha</h2>
@@ -638,7 +624,7 @@ export const ViewSecret = ({ id, user, onBack, setScreen }: ViewSecretProps) => 
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Chave de acesso"
-                    className="w-full px-4 py-4 bg-slate-50 dark:bg-slate-950 border rounded-xl text-center text-lg"
+                    className="w-full px-4 py-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-center text-lg outline-none focus:ring-2 focus:ring-blue-600"
                     onKeyDown={(e) => e.key === 'Enter' && handleUnlock()}
                   />
                   <button 
@@ -652,40 +638,38 @@ export const ViewSecret = ({ id, user, onBack, setScreen }: ViewSecretProps) => 
                 <button 
                   onClick={handleUnlock}
                   disabled={isUnlocking}
-                  className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl"
+                  className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 active:scale-95 transition-all"
                 >
                   {isUnlocking ? 'Verificando...' : 'Desbloquear'}
                 </button>
                 <button onClick={onBack} className="w-full py-2 text-slate-400 text-sm font-bold uppercase">Voltar</button>
               </div>
-            </motion.div>
-          ) : (
-            <motion.div 
-              key="revealed"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden mx-auto"
-            >
+            </div>
+          )}
+
+          {!loading && !error && isUnlocked && (
+            <div key="revealed-content" className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden mx-auto">
               <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="size-12 rounded-2xl bg-green-600 text-white flex items-center justify-center">
                     <ShieldCheck size={24} />
                   </div>
-                  <h2 className="text-xl font-bold">Conteúdo Revelado</h2>
+                  <h2 className="text-xl font-bold text-slate-900 dark:text-white">Conteúdo Revelado</h2>
                 </div>
-                <button onClick={onBack} className="p-2 hover:bg-slate-100 rounded-lg"><X size={20} /></button>
+                <button onClick={onBack} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400"><X size={20} /></button>
               </div>
 
               <div className="p-8 space-y-6">
                  {(secret as any).content && (
-                   <div className="p-6 bg-slate-50 dark:bg-slate-950 rounded-2xl border">
-                     <pre className="whitespace-pre-wrap font-sans text-lg">{(secret as any).content}</pre>
+                   <div className="p-6 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800">
+                     <div className="text-slate-800 dark:text-slate-200 leading-relaxed prose dark:prose-invert max-w-none">
+                        <Markdown>{(secret as any).content}</Markdown>
+                     </div>
                    </div>
                  )}
                  
                  {(secret as any).file_url && (
-                   <div className="p-4 bg-blue-50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 flex flex-col gap-4">
+                   <div className="p-4 bg-blue-50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-900/30 flex flex-col gap-4">
                       <div className="flex items-center gap-3">
                         <FileIcon className="text-blue-600" />
                         <span className="font-bold truncate text-sm">Arquivo em Anexo</span>
@@ -707,7 +691,7 @@ export const ViewSecret = ({ id, user, onBack, setScreen }: ViewSecretProps) => 
                         if (willBeIncinerated) await handleFinalBurn();
                         onBack();
                       }}
-                      className="w-full py-4 bg-slate-900 text-white font-bold rounded-xl"
+                      className="w-full py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold rounded-xl"
                     >
                       {willBeIncinerated ? 'Confirmar leitura e Apagar' : 'Fechar'}
                     </button>
@@ -716,21 +700,21 @@ export const ViewSecret = ({ id, user, onBack, setScreen }: ViewSecretProps) => 
                         href={(secret as any).redirect_url.startsWith('http') ? (secret as any).redirect_url : `https://${(secret as any).redirect_url}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="py-4 bg-accent text-white text-center rounded-xl font-bold shadow-lg"
+                        className="py-4 bg-blue-600 text-white text-center rounded-xl font-bold shadow-lg"
                       >
                         Ir para URL Destino
                       </a>
                     )}
                  </div>
               </div>
-            </motion.div>
+            </div>
           )}
-        </AnimatePresence>
+        </div>
       </ScreenProtector>
 
       <AnimatePresence>
         {showConfirmBurn && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+          <div key="confirm-burn-overlay" className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}

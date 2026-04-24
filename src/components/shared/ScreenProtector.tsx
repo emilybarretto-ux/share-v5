@@ -105,7 +105,11 @@ export const ScreenProtector: React.FC<ScreenProtectorProps> = ({ children, acti
             initial={{ opacity: 1 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[99999] bg-slate-950 flex flex-col items-center justify-center text-white p-6 text-center"
+            onClick={() => {
+              setIsProtected(false);
+              document.body.classList.remove('privacy-active');
+            }}
+            className="fixed inset-0 z-[99999] bg-slate-950 flex flex-col items-center justify-center text-white p-6 text-center cursor-pointer"
           >
             <div className="relative mb-8">
               <div className="absolute inset-0 bg-accent/20 blur-3xl rounded-full scale-150 animate-pulse" />
