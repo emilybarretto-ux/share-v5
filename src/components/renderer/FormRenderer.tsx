@@ -380,7 +380,7 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
                     const val = applyMask(e.target.value, field.mask);
                     updateData(field.id, val);
                   }}
-                  className={`w-full py-10 bg-transparent border-b outline-none transition-all text-5xl font-semibold text-text-primary focus:border-b-4 placeholder:text-text-secondary/10 placeholder:font-normal ${ (field.type === 'date' || field.type === 'time') ? 'pl-12' : '' } ${hasError ? 'border-red-500' : 'border-border-base'}`}
+                  className={`w-full py-4 bg-transparent border-b outline-none transition-all text-xl font-medium text-text-primary focus:border-b-2 placeholder:text-text-secondary/30 placeholder:font-normal ${ (field.type === 'date' || field.type === 'time') ? 'pl-10' : '' } ${hasError ? 'border-red-500' : 'border-border-base'}`}
                   style={{ borderBottomColor: formData[field.id] ? fieldColor : undefined } as any}
                 />
             </div>
@@ -400,7 +400,7 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
                 target.style.height = target.scrollHeight + 'px';
               }}
               onChange={(e) => updateData(field.id, e.target.value)}
-              className={`w-full py-10 bg-transparent border-b outline-none transition-all text-5xl font-semibold text-text-primary focus:border-b-4 placeholder:text-text-secondary/10 placeholder:font-normal resize-none overflow-hidden ${hasError ? 'border-red-500' : 'border-border-base'}`}
+              className={`w-full py-4 bg-transparent border-b outline-none transition-all text-xl font-medium text-text-primary focus:border-b-2 placeholder:text-text-secondary/30 placeholder:font-normal resize-none overflow-hidden ${hasError ? 'border-red-500' : 'border-border-base'}`}
               style={{ borderBottomColor: formData[field.id] ? fieldColor : undefined } as any}
             />
             {hasError && <p className="text-[10px] text-red-500 font-bold uppercase mt-1 tracking-tight">{hasError}</p>}
@@ -413,7 +413,7 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
               <select 
                 value={formData[field.id] || ''}
                 onChange={(e) => updateData(field.id, e.target.value)}
-                className={`w-full p-8 bg-bg-base border-2 rounded-3xl focus:ring-4 outline-none transition-all text-3xl font-bold text-text-primary appearance-none ${hasError ? 'border-red-500 bg-red-50/30' : 'border-border-base'}`}
+                className={`w-full p-3 bg-bg-base border rounded-xl focus:ring-2 outline-none transition-all text-lg font-medium text-text-primary appearance-none ${hasError ? 'border-red-500 bg-red-50/30' : 'border-border-base'}`}
                 style={{ '--tw-ring-color': fieldColor } as any}
               >
                 <option value="">Selecione uma opção</option>
@@ -542,20 +542,20 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
                     </div>
                   )}
                   <div className="flex items-center gap-3">
-                <div 
-                  className={`size-10 rounded-${field.type === 'radio' ? 'full' : 'md'} border-2 flex items-center justify-center transition-all shrink-0`}
-                  style={{ 
-                    borderColor: isSelected ? fieldColor : (hasError ? '#f87171' : 'var(--color-border-base)'),
-                    backgroundColor: isSelected ? fieldColor : 'transparent'
-                  }}
-                >
-                  {isSelected && (
-                    <div className={field.type === 'radio' ? "size-4 bg-white rounded-full" : "text-white"} >
-                      {field.type === 'checkbox' && <CheckCircle2 size={24} />}
+                    <div 
+                      className={`size-6 rounded-${field.type === 'radio' ? 'full' : 'md'} border-2 flex items-center justify-center transition-all shrink-0`}
+                      style={{ 
+                        borderColor: isSelected ? fieldColor : (hasError ? '#f87171' : 'var(--color-border-base)'),
+                        backgroundColor: isSelected ? fieldColor : 'transparent'
+                      }}
+                    >
+                      {isSelected && (
+                        <div className={field.type === 'radio' ? "size-2 bg-white rounded-full" : "text-white"} >
+                          {field.type === 'checkbox' && <CheckCircle2 size={12} />}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-                <span className="font-bold text-2xl text-text-primary">{renderText(opt)}</span>
+                    <span className="font-bold text-lg text-text-primary">{renderText(opt)}</span>
                   </div>
                 </button>
               );
@@ -575,10 +575,10 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
                 <button 
                   key={val}
                   onClick={() => updateData(field.id, val)}
-                  className={`size-20 rounded-2xl flex items-center justify-center transition-all ${formData[field.id] >= val ? 'text-white' : 'text-text-secondary bg-bg-base'}`}
+                  className={`size-12 rounded-xl flex items-center justify-center transition-all ${formData[field.id] >= val ? 'text-white' : 'text-text-secondary bg-bg-base'}`}
                   style={{ backgroundColor: formData[field.id] >= val ? fieldColor : undefined }}
                 >
-                  <Star size={40} fill={formData[field.id] >= val ? 'currentColor' : 'none'} />
+                  <Star size={24} fill={formData[field.id] >= val ? 'currentColor' : 'none'} />
                 </button>
               ))}
             </div>
@@ -647,7 +647,7 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
         return (
           <div className="py-2 space-y-3">
              <div className="h-1.5 w-12 rounded-full" style={{ backgroundColor: fieldColor }} />
-             <h3 className="text-2xl md:text-4xl font-black text-text-primary tracking-tight leading-none">{renderText(field.label)}</h3>
+             <h3 className="text-xl md:text-2xl font-bold text-text-primary tracking-tight leading-none">{renderText(field.label)}</h3>
              {field.description && <p className="text-sm md:text-base text-text-secondary opacity-70 italic">{renderText(field.description)}</p>}
           </div>
         );
@@ -682,9 +682,9 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
         </div>
       )}
       
-      <div className="max-w-[1600px] mx-auto space-y-8">
+      <div className="max-w-3xl mx-auto space-y-6">
         {settings.headerImage && (
-          <div className="w-full h-56 md:h-72 overflow-hidden rounded-[2rem] shadow-sm">
+          <div className="w-full h-40 md:h-48 overflow-hidden rounded-2xl shadow-sm">
             <img 
               src={settings.headerImage} 
               alt="Header" 
@@ -708,12 +708,12 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
               </div>
             )}
             
-            <div className="space-y-6 text-left">
-              <h1 className={`${(isStepMode && currentStep >= 0) ? 'text-5xl md:text-6xl' : 'text-8xl md:text-9xl'} font-black tracking-tighter transition-all`} style={{ color: settings.titleColor || undefined }}>
+            <div className="space-y-4 text-left">
+              <h1 className={`${(isStepMode && currentStep >= 0) ? 'text-2xl' : 'text-4xl md:text-5xl'} font-bold tracking-tight transition-all`} style={{ color: settings.titleColor || undefined }}>
                 {renderText(form.title)}
               </h1>
               {form.description && (!isStepMode || currentStep === -1) && (
-                <p className="text-2xl font-medium opacity-80" style={{ color: settings.subtitleColor || undefined }}>
+                <p className="text-lg font-medium opacity-80" style={{ color: settings.subtitleColor || undefined }}>
                   {renderText(form.description)}
                 </p>
               )}
@@ -749,21 +749,21 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
               >
                 <div className="space-y-6">
                   <div className="flex items-center justify-between pb-3">
-                     <span className="text-xs font-bold uppercase tracking-widest opacity-40">
+                     <span className="text-[10px] font-bold uppercase tracking-widest opacity-40">
                        {visibleFields[currentStep].type === 'section' ? 'Seção' : `Questão ${currentStep + 1} de ${visibleFields.length}`}
                      </span>
                      {visibleFields[currentStep].required && (
-                       <span className="text-xs font-bold text-red-500 uppercase tracking-widest">Obrigatório</span>
+                       <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest">Obrigatório</span>
                      )}
                   </div>
                   
                   {visibleFields[currentStep].type !== 'section' && visibleFields[currentStep].type !== 'heading' && (
-                    <div className="space-y-8">
+                    <div className="space-y-4">
                       <div className="flex items-start gap-1">
-                        <h2 className="text-5xl font-bold text-[#202124] dark:text-white leading-tight">{renderText(visibleFields[currentStep].label)}</h2>
-                        {visibleFields[currentStep].required && <span className="text-red-500 font-normal text-5xl">*</span>}
+                        <h2 className="text-2xl font-semibold text-[#202124] dark:text-white leading-tight">{renderText(visibleFields[currentStep].label)}</h2>
+                        {visibleFields[currentStep].required && <span className="text-red-500 font-normal text-2xl">*</span>}
                       </div>
-                      {visibleFields[currentStep].description && <p className="text-2xl opacity-60 italic">{renderText(visibleFields[currentStep].description)}</p>}
+                      {visibleFields[currentStep].description && <p className="text-base opacity-60 italic">{renderText(visibleFields[currentStep].description)}</p>}
                     </div>
                   )}
 
@@ -783,7 +783,7 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
                   )}
                   <button 
                     onClick={handleNext} 
-                    className="px-16 py-6 text-white font-bold rounded-2xl shadow-lg hover:shadow-2xl active:scale-[0.98] transition-all text-2xl"
+                    className="px-8 py-2.5 text-white font-bold rounded shadow-md hover:shadow-lg active:scale-[0.98] transition-all text-base"
                     style={{ backgroundColor: visibleFields[currentStep].customColor || settings.primaryColor }}
                   >
                     {currentStep === visibleFields.length - 1 ? 'Enviar' : 'Próxima'}
