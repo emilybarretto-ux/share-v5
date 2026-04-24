@@ -667,7 +667,7 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
         </div>
       )}
       
-      <div className="w-full max-w-3xl space-y-8">
+      <div className="w-full max-w-5xl space-y-8">
         {settings.headerImage && (
           <div 
             className="w-full h-48 overflow-hidden shadow-md mb-4 relative bg-black/5"
@@ -686,30 +686,30 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
           className={`shadow-2xl border overflow-hidden relative z-10 transition-all ${themeStyles.card}`} 
           style={{ borderRadius: settings.borderRadius === 'none' ? '0' : '1.5rem' }}
         >
-          <div className="p-10 md:p-16 space-y-8 flex flex-col items-center text-center">
+          <div className="p-10 md:p-16 space-y-8">
             {settings.logo && (
               <div className="mb-2">
                 <img src={settings.logo} alt="Logo" className="h-16 w-auto object-contain" referrerPolicy="no-referrer" />
               </div>
             )}
             <div className="space-y-4">
-              <h1 className="text-4xl md:text-6xl font-black leading-tight tracking-tight px-4" style={{ color: settings.titleColor || undefined }}>
+              <h1 className="text-4xl md:text-6xl font-black leading-tight tracking-tight" style={{ color: settings.titleColor || undefined }}>
                 {renderText(form.title)}
               </h1>
-              <div className={`h-1.5 w-24 mx-auto rounded-full opacity-30 ${settings.themePreset === 'glass' || settings.themePreset === 'dark' ? 'bg-white' : 'bg-current'}`} />
+              <div className={`h-1.5 w-24 rounded-full opacity-30 ${settings.themePreset === 'glass' || settings.themePreset === 'dark' ? 'bg-white' : 'bg-current'}`} />
             </div>
             
             {form.description && (
-              <p className="text-lg md:text-xl opacity-80 whitespace-pre-wrap max-w-lg font-medium" style={{ color: settings.subtitleColor || undefined }}>
+              <p className="text-lg md:text-xl opacity-80 whitespace-pre-wrap font-medium" style={{ color: settings.subtitleColor || undefined }}>
                 {renderText(form.description)}
               </p>
             )}
             
             {isStepMode && currentStep === -1 && (
-              <div className="w-full max-w-sm pt-4 space-y-6">
+              <div className="w-full pt-4 space-y-6">
                  <button 
                   onClick={() => setCurrentStep(0)}
-                  className="w-full py-6 text-white font-black rounded-[2rem] shadow-2xl flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98] transition-all text-2xl mt-4"
+                  className="w-full sm:w-auto px-12 py-6 text-white font-black rounded-[2rem] shadow-2xl flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98] transition-all text-2xl mt-4"
                   style={{ 
                     backgroundColor: settings.primaryColor,
                     boxShadow: `0 20px 40px -12px ${settings.primaryColor}50`
@@ -719,7 +719,7 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
                   <ChevronRight size={28} strokeWidth={2.5} />
                 </button>
                 {settings.estimatedTime && (
-                  <div className="flex items-center justify-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] opacity-50">
+                  <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] opacity-50 px-2">
                     <Clock size={14} />
                     <span>Tempo estimado: {settings.estimatedTime} min</span>
                   </div>
@@ -738,7 +738,7 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 exit={{ y: -20, opacity: 0 }}
-                className={`w-full max-w-xl p-10 md:p-16 border shadow-2xl space-y-10 transition-all ${themeStyles.card}`}
+                className={`w-full p-10 md:p-16 border shadow-2xl space-y-10 transition-all ${themeStyles.card}`}
                 style={{ borderRadius: borderRadiusValue }}
               >
                 <div className="space-y-6">

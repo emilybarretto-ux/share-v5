@@ -78,7 +78,7 @@ const handleSubmit = async (formData: any) => {
       </div>
 
       <ScreenProtector active={!loading && !error && !isSubmitted}>
-        <div className="min-h-screen flex items-center justify-center p-4 md:p-12 relative z-10">
+        <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 md:p-8 relative z-10">
           {loading ? (
             <div className="size-12 border-4 border-accent/30 border-t-accent rounded-full animate-spin" />
           ) : error || !form ? (
@@ -114,7 +114,7 @@ const handleSubmit = async (formData: any) => {
               </button>
             </motion.div>
           ) : (
-            <div className="w-full max-w-4xl">
+            <div className="w-full max-w-6xl">
               <FormRenderer 
                 form={form} 
                 onBack={onBack} 
