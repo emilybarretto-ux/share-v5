@@ -70,18 +70,15 @@ const handleSubmit = async (formData: any) => {
 };
 
   return (
-    <div className="min-h-screen bg-[#020617] relative select-none overflow-x-hidden" onContextMenu={(e) => e.preventDefault()}>
-      {/* Background Decorative Elements */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] rounded-full bg-accent/10 blur-[120px] animate-pulse" />
-        <div className="absolute -bottom-[10%] -right-[10%] w-[40%] h-[40%] rounded-full bg-accent/5 blur-[120px] animate-pulse" style={{ animationDelay: '2s' }} />
-      </div>
-
+    <div className="min-h-screen bg-slate-50 dark:bg-[#020617] font-sans relative select-none overflow-x-hidden" onContextMenu={(e) => e.preventDefault()}>
       <ScreenProtector active={!loading && !error && !isSubmitted}>
-        <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 md:p-8 relative z-10">
-          {loading ? (
-            <div className="size-12 border-4 border-accent/30 border-t-accent rounded-full animate-spin" />
-          ) : error || !form ? (
+        <div className="min-h-screen relative z-10 py-12 px-4 md:px-6">
+          <div className="max-w-[1400px] mx-auto">
+            {loading ? (
+              <div className="flex items-center justify-center min-h-[40vh]">
+                <div className="size-12 border-4 border-accent/30 border-t-accent rounded-full animate-spin" />
+              </div>
+            ) : error || !form ? (
             <div className="max-w-md w-full bg-surface p-8 rounded-[2rem] border border-border-base text-center space-y-6 shadow-xl">
               <div className="size-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto">
                 <ShieldCheck size={32} />
@@ -114,7 +111,7 @@ const handleSubmit = async (formData: any) => {
               </button>
             </motion.div>
           ) : (
-            <div className="w-full max-w-6xl">
+            <div className="w-full">
               <FormRenderer 
                 form={form} 
                 onBack={onBack} 
@@ -122,16 +119,15 @@ const handleSubmit = async (formData: any) => {
               />
             </div>
           )}
+          </div>
         </div>
       </ScreenProtector>
       
       {/* Footer Branding - Apenas se não estiver carregando e não deu erro */}
       {!loading && !error && (
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-2.5 px-5 py-2.5 bg-slate-900/40 backdrop-blur-xl border border-white/10 rounded-full shadow-2xl z-10 pointer-events-none select-none">
-          <div className="size-5 bg-accent/20 text-accent rounded-md flex items-center justify-center">
-            <ShieldCheck size={12} strokeWidth={3} />
-          </div>
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Powered by Bold Share</span>
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 opacity-30 hover:opacity-100 transition-opacity z-10 pointer-events-none select-none">
+          <ShieldCheck size={10} className="text-slate-400" />
+          <span className="text-[8px] font-bold text-slate-500 uppercase tracking-[0.3em]">Bold Share</span>
         </div>
       )}
     </div>

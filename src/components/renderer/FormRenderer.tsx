@@ -147,14 +147,22 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
     const conditionValue = field.logic.conditionValue;
     const operator = field.logic.conditionOperator || 'equals';
     
+    // Convert both to string for basic comparison
     const valStr = value?.toString() || '';
-    const condStr = conditionValue.toString();
+    const condStr = conditionValue?.toString() || '';
+
+    // Try numeric conversion for math operators
+    const valNum = parseFloat(valStr);
+    const condNum = parseFloat(condStr);
+    const isNumeric = !isNaN(valNum) && !isNaN(condNum);
 
     switch (operator) {
-      case 'equals': return valStr === condStr;
-      case 'not_equals': return valStr !== condStr && valStr !== '';
-      case 'greater': return parseFloat(valStr) > parseFloat(condStr);
-      case 'less': return parseFloat(valStr) < parseFloat(condStr);
+      case 'equals': return valStr.toLowerCase() === condStr.toLowerCase();
+      case 'not_equals': return valStr.toLowerCase() !== condStr.toLowerCase();
+      case 'greater': return isNumeric ? valNum > condNum : valStr > condStr;
+      case 'less': return isNumeric ? valNum < condNum : valStr < condStr;
+      case 'greater_equal': return isNumeric ? valNum >= condNum : valStr >= condStr;
+      case 'less_equal': return isNumeric ? valNum <= condNum : valStr <= condStr;
       case 'contains': return valStr.toLowerCase().includes(condStr.toLowerCase());
       default: return false;
     }
@@ -166,6 +174,7 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
     const hiddenIds = new Set<string>();
     let skipUntil: string | null = null;
     let isTerminated = false;
+    let cascadingHideSection = false;
 
     // Primeiro passamos coletando quem deve ser escondido por outros
     for (const field of fields) {
@@ -180,8 +189,22 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
     for (const field of fields) {
       if (isTerminated) break;
 
-      // Se este campo foi marcado para ser escondido por outro
-      if (hiddenIds.has(field.id)) continue;
+      // Handle cascading hide from a previously hidden section
+      if (cascadingHideSection) {
+        if (field.type === 'section') {
+          cascadingHideSection = false;
+        } else {
+          continue;
+        }
+      }
+
+      // Se este campo foi marcado para ser escondido por outro (via hide action)
+      if (hiddenIds.has(field.id)) {
+        if (field.type === 'section') {
+          cascadingHideSection = true;
+        }
+        continue;
+      }
 
       if (skipUntil) {
         if (field.id === skipUntil) {
@@ -193,19 +216,15 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
 
       visible.push(field);
 
-      // No modo lista, interrompemos a exibição se houver lógica e o campo estiver vazio
-      if (settings.layout === 'list' && field.logic) {
-        const value = formData[field.id];
-        const isEmpty = !value || (Array.isArray(value) && value.length === 0) || (typeof value === 'object' && Object.keys(value).length === 0);
-        if (isEmpty) break;
-      }
-
       // Verifica lógica de salto (Forward Jump)
       if (field.logic?.action === 'jump' && checkCondition(field)) {
         if (field.logic.targetId === 'end') {
           isTerminated = true;
         } else if (field.logic.targetId) {
           skipUntil = field.logic.targetId;
+          
+          // Se estamos pulando PARA uma seção, a gente para o skip nela (já tratado pelo skipUntil)
+          // Mas se estamos pulando UMA seção (targetId é depois da seção), o skipUntil cuida disso.
         }
       }
     }
@@ -260,28 +279,14 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
   };
 
   const handleNext = () => {
-    const field = fields[currentStep];
+    const field = visibleFields[currentStep];
     if (!validateField(field)) {
       const errorMsg = errors[field.id] || 'Verifique o preenchimento deste campo.';
       showNotification(errorMsg, 'error');
       return;
     }
 
-    // Logic Jump Handle
-    if (field.logic?.action === 'jump' && checkCondition(field)) {
-      if (field.logic.targetId === 'end') {
-        handleSubmit();
-        return;
-      }
-      
-      const targetIdx = fields.findIndex(f => f.id === field.logic?.targetId);
-      if (targetIdx !== -1) {
-        setCurrentStep(targetIdx);
-        return;
-      }
-    }
-
-    if (currentStep < fields.length - 1) {
+    if (currentStep < visibleFields.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
       handleSubmit();
@@ -289,13 +294,13 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
   };
 
   const handleSubmit = async () => {
-    // Final validation check for all fields
-    const invalidFields = fields.filter(f => !validateField(f));
+    // Final validation check for all visible fields
+    const invalidFields = visibleFields.filter(f => !validateField(f));
     if (invalidFields.length > 0) {
       showNotification(`Existem ${invalidFields.length} campos obrigatórios não preenchidos.`, 'error');
       if (isStepMode) {
-        // Jump to first invalid step
-        const firstInvalidIdx = fields.findIndex(f => !validateField(f));
+        // Jump to first invalid step in visibleFields
+        const firstInvalidIdx = visibleFields.findIndex(f => !validateField(f));
         setCurrentStep(firstInvalidIdx);
       }
       return;
@@ -359,36 +364,42 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
       case 'date':
       case 'time':
         return (
-          <div className="relative space-y-2">
+          <div className="relative space-y-1">
             <div className="relative">
-              {field.type === 'date' && <Calendar size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary" />}
-              {field.type === 'time' && <Clock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary" />}
-              <input 
-                type={field.type === 'date' ? 'date' : field.type === 'time' ? 'time' : 'text'}
-                placeholder={field.placeholder}
-                value={formData[field.id] || ''}
-                onChange={(e) => {
-                  const val = applyMask(e.target.value, field.mask);
-                  updateData(field.id, val);
-                }}
-                className={`w-full p-4 bg-bg-base border rounded-2xl focus:ring-2 outline-none transition-all text-text-primary ${ (field.type === 'date' || field.type === 'time') ? 'pl-12' : '' } ${hasError ? 'border-red-500 bg-red-500/5' : 'border-border-base'}`}
-                style={{ '--tw-ring-color': fieldColor } as any}
-              />
+              {field.type === 'date' && <Calendar size={18} className="absolute left-0 top-1/2 -translate-y-1/2 text-text-secondary opacity-40" />}
+              {field.type === 'time' && <Clock size={18} className="absolute left-0 top-1/2 -translate-y-1/2 text-text-secondary opacity-40" />}
+                <input 
+                  type={field.type === 'date' ? 'date' : field.type === 'time' ? 'time' : 'text'}
+                  placeholder="Sua resposta"
+                  value={formData[field.id] || ''}
+                  onChange={(e) => {
+                    const val = applyMask(e.target.value, field.mask);
+                    updateData(field.id, val);
+                  }}
+                  className={`w-full py-4 bg-transparent border-b outline-none transition-all text-2xl font-medium text-text-primary focus:border-b-2 placeholder:text-text-secondary/30 placeholder:font-normal ${ (field.type === 'date' || field.type === 'time') ? 'pl-10' : '' } ${hasError ? 'border-red-500' : 'border-border-base'}`}
+                  style={{ borderBottomColor: formData[field.id] ? fieldColor : undefined } as any}
+                />
             </div>
-            {hasError && <p className="text-[10px] text-red-500 font-bold ml-2 uppercase tracking-tight">{hasError}</p>}
+            {hasError && <p className="text-[10px] text-red-500 font-bold uppercase mt-1 tracking-tight">{hasError}</p>}
           </div>
         );
       case 'textarea':
         return (
-          <div className="space-y-2">
+          <div className="space-y-1">
             <textarea 
-              placeholder={field.placeholder}
+              placeholder="Sua resposta"
+              rows={1}
               value={formData[field.id] || ''}
+              onInput={(e) => {
+                const target = e.target as HTMLTextAreaElement;
+                target.style.height = 'auto';
+                target.style.height = target.scrollHeight + 'px';
+              }}
               onChange={(e) => updateData(field.id, e.target.value)}
-              className={`w-full p-4 bg-bg-base border rounded-2xl focus:ring-2 outline-none transition-all text-text-primary min-h-[120px] resize-none ${hasError ? 'border-red-500 bg-red-500/5' : 'border-border-base'}`}
-              style={{ '--tw-ring-color': fieldColor } as any}
+              className={`w-full py-4 bg-transparent border-b outline-none transition-all text-2xl font-medium text-text-primary focus:border-b-2 placeholder:text-text-secondary/30 placeholder:font-normal resize-none overflow-hidden ${hasError ? 'border-red-500' : 'border-border-base'}`}
+              style={{ borderBottomColor: formData[field.id] ? fieldColor : undefined } as any}
             />
-            {hasError && <p className="text-[10px] text-red-500 font-bold ml-2 uppercase tracking-tight">{hasError}</p>}
+            {hasError && <p className="text-[10px] text-red-500 font-bold uppercase mt-1 tracking-tight">{hasError}</p>}
           </div>
         );
       case 'dropdown':
@@ -527,20 +538,20 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
                     </div>
                   )}
                   <div className="flex items-center gap-3">
-                    <div 
-                      className={`size-6 rounded-${field.type === 'radio' ? 'full' : 'md'} border-2 flex items-center justify-center transition-all shrink-0`}
-                      style={{ 
-                        borderColor: isSelected ? fieldColor : (hasError ? '#f87171' : 'var(--color-border-base)'),
-                        backgroundColor: isSelected ? fieldColor : 'transparent'
-                      }}
-                    >
-                      {isSelected && (
-                        <div className={field.type === 'radio' ? "size-2 bg-white rounded-full" : "text-white"} >
-                          {field.type === 'checkbox' && <CheckCircle2 size={12} />}
-                        </div>
-                      )}
+                <div 
+                  className={`size-8 rounded-${field.type === 'radio' ? 'full' : 'md'} border-2 flex items-center justify-center transition-all shrink-0`}
+                  style={{ 
+                    borderColor: isSelected ? fieldColor : (hasError ? '#f87171' : 'var(--color-border-base)'),
+                    backgroundColor: isSelected ? fieldColor : 'transparent'
+                  }}
+                >
+                  {isSelected && (
+                    <div className={field.type === 'radio' ? "size-3 bg-white rounded-full" : "text-white"} >
+                      {field.type === 'checkbox' && <CheckCircle2 size={16} />}
                     </div>
-                    <span className="font-bold text-text-primary">{renderText(opt)}</span>
+                  )}
+                </div>
+                <span className="font-bold text-xl text-text-primary">{renderText(opt)}</span>
                   </div>
                 </button>
               );
@@ -652,12 +663,12 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
     glass: { bg: 'bg-gradient-to-br from-indigo-600 to-purple-700', text: 'text-white', card: 'bg-white/10 backdrop-blur-xl border-white/20 text-white' }
   }[settings.themePreset || 'default'];
 
-  const progress = isStepMode ? Math.round(((currentStep + 1) / fields.length) * 100) : 0;
+  const progress = isStepMode ? Math.round(((currentStep + 1) / visibleFields.length) * 100) : 0;
 
   return (
-    <div className={`min-h-full py-12 px-6 flex flex-col items-center transition-all duration-500 ${themeStyles.bg} ${themeStyles.text} ${settings.themePreset === 'dark' ? 'dark' : ''}`}>
+    <div className={`min-h-screen py-8 md:py-12 px-4 transition-all duration-500 ${themeStyles.text} ${settings.themePreset === 'dark' ? 'dark' : ''}`}>
       {settings.showProgressBar && isStepMode && currentStep >= 0 && (
-        <div className="fixed top-0 left-0 w-full h-1.5 bg-black/10 z-50">
+        <div className="fixed top-0 left-0 w-full h-[3px] bg-black/5 z-50">
           <motion.div 
              initial={{ width: 0 }}
              animate={{ width: `${progress}%` }}
@@ -667,12 +678,9 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
         </div>
       )}
       
-      <div className="w-full max-w-5xl space-y-8">
+      <div className="max-w-[1400px] mx-auto space-y-6">
         {settings.headerImage && (
-          <div 
-            className="w-full h-48 overflow-hidden shadow-md mb-4 relative bg-black/5"
-            style={{ borderRadius: settings.borderRadius === 'none' ? '0' : '0.75rem' }}
-          >
+          <div className="w-full h-48 md:h-64 overflow-hidden rounded-2xl shadow-sm">
             <img 
               src={settings.headerImage} 
               alt="Header" 
@@ -683,143 +691,139 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
         )}
 
         <header 
-          className={`shadow-2xl border overflow-hidden relative z-10 transition-all ${themeStyles.card}`} 
-          style={{ borderRadius: settings.borderRadius === 'none' ? '0' : '1.5rem' }}
+          className={`border-t-[10px] overflow-hidden transition-all shadow-sm ${themeStyles.card}`} 
+          style={{ 
+            borderRadius: settings.borderRadius === 'none' ? '0' : '0.5rem',
+            borderTopColor: settings.primaryColor
+          }}
         >
-          <div className="p-10 md:p-16 space-y-8">
+          <div className="p-6 md:p-8 space-y-6">
             {settings.logo && (
               <div className="mb-2">
-                <img src={settings.logo} alt="Logo" className="h-16 w-auto object-contain" referrerPolicy="no-referrer" />
+                <img src={settings.logo} alt="Logo" className="h-10 w-auto object-contain" referrerPolicy="no-referrer" />
               </div>
             )}
-            <div className="space-y-4">
-              <h1 className="text-4xl md:text-6xl font-black leading-tight tracking-tight" style={{ color: settings.titleColor || undefined }}>
+            
+            <div className="space-y-4 text-left">
+              <h1 className={`${(isStepMode && currentStep >= 0) ? 'text-2xl' : 'text-4xl md:text-5xl'} font-bold tracking-tight transition-all`} style={{ color: settings.titleColor || undefined }}>
                 {renderText(form.title)}
               </h1>
-              <div className={`h-1.5 w-24 rounded-full opacity-30 ${settings.themePreset === 'glass' || settings.themePreset === 'dark' ? 'bg-white' : 'bg-current'}`} />
+              {form.description && (!isStepMode || currentStep === -1) && (
+                <p className="text-lg font-medium opacity-80" style={{ color: settings.subtitleColor || undefined }}>
+                  {renderText(form.description)}
+                </p>
+              )}
             </div>
-            
-            {form.description && (
-              <p className="text-lg md:text-xl opacity-80 whitespace-pre-wrap font-medium" style={{ color: settings.subtitleColor || undefined }}>
-                {renderText(form.description)}
-              </p>
-            )}
-            
+
             {isStepMode && currentStep === -1 && (
-              <div className="w-full pt-4 space-y-6">
-                 <button 
+              <div className="pt-4">
+                <button 
                   onClick={() => setCurrentStep(0)}
-                  className="w-full sm:w-auto px-12 py-6 text-white font-black rounded-[2rem] shadow-2xl flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98] transition-all text-2xl mt-4"
-                  style={{ 
-                    backgroundColor: settings.primaryColor,
-                    boxShadow: `0 20px 40px -12px ${settings.primaryColor}50`
-                  }}
+                  className="px-8 py-3 text-white font-bold rounded shadow-md hover:shadow-lg active:scale-95 transition-all text-base"
+                  style={{ backgroundColor: settings.primaryColor }}
                 >
                   Começar agora
-                  <ChevronRight size={28} strokeWidth={2.5} />
                 </button>
-                {settings.estimatedTime && (
-                  <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] opacity-50 px-2">
-                    <Clock size={14} />
-                    <span>Tempo estimado: {settings.estimatedTime} min</span>
-                  </div>
-                )}
               </div>
+            )}
+
+            {(!isStepMode || currentStep === -1) && (
+              <div className="text-[10px] font-bold text-red-500 uppercase tracking-wider pt-2">* Indica uma pergunta obrigatória</div>
             )}
           </div>
         </header>
 
-        <div className="space-y-6 pb-20">
+        <div className="space-y-4 pb-24">
           {isStepMode ? (
-            currentStep >= 0 && (
-              <div className="flex flex-col items-center justify-center min-h-[60vh]">
+            currentStep >= 0 && currentStep < visibleFields.length && (
               <motion.div
-                key={currentStep}
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{ y: -20, opacity: 0 }}
-                className={`w-full p-10 md:p-16 border shadow-2xl space-y-10 transition-all ${themeStyles.card}`}
-                style={{ borderRadius: borderRadiusValue }}
+                key={visibleFields[currentStep].id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`p-6 md:p-8 border shadow-sm space-y-6 transition-all ${themeStyles.card}`}
+                style={{ borderRadius: settings.borderRadius === 'none' ? '0' : '0.5rem' }}
               >
                 <div className="space-y-6">
-                  <div className="flex items-center justify-between">
-                     <span className="text-[10px] font-black uppercase tracking-widest opacity-60">
-                       {fields[currentStep].type === 'section' ? 'Nova Seção' : `Pergunta ${currentStep + 1} de ${fields.length}`}
+                  <div className="flex items-center justify-between pb-3">
+                     <span className="text-xs font-bold uppercase tracking-widest opacity-40">
+                       {visibleFields[currentStep].type === 'section' ? 'Seção' : `Questão ${currentStep + 1} de ${visibleFields.length}`}
                      </span>
-                     {fields[currentStep].required && (
-                       <span className="text-[10px] font-bold text-red-500 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">Obrigatório</span>
+                     {visibleFields[currentStep].required && (
+                       <span className="text-xs font-bold text-red-500 uppercase tracking-widest">Obrigatório</span>
                      )}
                   </div>
-                  {fields[currentStep].type !== 'section' && (
-                    <>
-                      <h2 className="text-2xl md:text-3xl font-black leading-tight">{renderText(fields[currentStep].label)}</h2>
-                      {fields[currentStep].description && <p className="text-base opacity-70 leading-relaxed">{renderText(fields[currentStep].description)}</p>}
-                    </>
-                  )}
                   
-                  <div className={fields[currentStep].type === 'section' ? '' : 'pt-6'}>
-                    {renderField(fields[currentStep])}
+                  {visibleFields[currentStep].type !== 'section' && visibleFields[currentStep].type !== 'heading' && (
+                    <div className="space-y-4">
+                      <div className="flex items-start gap-1">
+                        <h2 className="text-2xl font-normal text-[#202124] dark:text-white leading-tight">{renderText(visibleFields[currentStep].label)}</h2>
+                        {visibleFields[currentStep].required && <span className="text-red-500 font-normal text-xl">*</span>}
+                      </div>
+                      {visibleFields[currentStep].description && <p className="text-base opacity-60 italic">{renderText(visibleFields[currentStep].description)}</p>}
+                    </div>
+                  )}
+
+                  <div className="mt-4">
+                    {renderField(visibleFields[currentStep])}
                   </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-4 pt-4">
+                <div className="flex items-center gap-3 pt-6 border-t border-slate-100 dark:border-white/5 mt-6">
                   {currentStep > 0 && (
                     <button 
                       onClick={() => setCurrentStep(currentStep - 1)} 
-                      className="flex-1 py-4 bg-black/5 hover:bg-black/10 font-bold rounded-2xl transition-all flex items-center justify-center gap-2"
+                      className="px-6 py-2 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 font-bold rounded transition-all text-sm text-slate-600 dark:text-slate-300"
                     >
                       Voltar
                     </button>
                   )}
                   <button 
                     onClick={handleNext} 
-                    className="flex-[2] py-4 text-white font-black rounded-2xl shadow-xl flex items-center justify-center gap-2 hover:brightness-110 active:scale-[0.98] transition-all text-lg"
-                    style={{ backgroundColor: fields[currentStep].customColor || settings.primaryColor }}
+                    className="px-8 py-2 text-white font-bold rounded shadow-md hover:shadow-lg active:scale-[0.98] transition-all text-sm"
+                    style={{ backgroundColor: visibleFields[currentStep].customColor || settings.primaryColor }}
                   >
-                    {currentStep === fields.length - 1 ? 'Enviar Resposta' : 'Próxima Pergunta'}
-                    <ChevronRight size={22} />
+                    {currentStep === visibleFields.length - 1 ? 'Enviar' : 'Próxima'}
                   </button>
                 </div>
               </motion.div>
-            </div>
-          )) : (
+            )
+          ) : (
             visibleFields.map((field, idx) => (
               <motion.div 
                 key={field.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.1 }}
-                className={`p-8 border shadow-xl space-y-6 transition-all ${themeStyles.card}`}
-                style={{ borderRadius: borderRadiusValue }}
+                transition={{ delay: idx * 0.05 }}
+                className={`p-6 md:p-8 border shadow-sm space-y-6 transition-all ${themeStyles.card}`}
+                style={{ borderRadius: settings.borderRadius === 'none' ? '0' : '0.5rem' }}
               >
                 {field.type !== 'section' && field.type !== 'heading' && (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-xl font-bold">{renderText(field.label)}</h2>
-                      {field.required && <span className="text-red-500 font-black">*</span>}
+                  <div className="space-y-4">
+                    <div className="flex items-start gap-1">
+                      <h2 className="text-xl font-normal text-[#202124] dark:text-white leading-tight">{renderText(field.label)}</h2>
+                      {field.required && <span className="text-red-500 font-normal text-xl">*</span>}
                     </div>
-                    {field.description && <p className="text-sm opacity-70">{renderText(field.description)}</p>}
+                    {field.description && <p className="text-sm opacity-60 italic">{renderText(field.description)}</p>}
                   </div>
                 )}
-                {renderField(field)}
+                <div className="mt-2">
+                  {renderField(field)}
+                </div>
               </motion.div>
             ))
           )}
 
           {!isStepMode && fields.length > 0 && (
-          <button 
-            onClick={handleSubmit}
-            disabled={uploadingField === 'submitting'}
-            className="w-full py-5 text-white font-black rounded-[2rem] shadow-2xl text-lg flex items-center justify-center gap-3 active:scale-[0.98] transition-all disabled:opacity-70 hover:brightness-110"
-            style={{ backgroundColor: settings.primaryColor }}
-          >
-            {uploadingField === 'submitting' ? (
-              <div className="size-6 border-4 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <ShieldCheck size={24} />
-            )}
-            {uploadingField === 'submitting' ? 'Enviando...' : 'Finalizar e Enviar'}
-          </button>
+            <div className="pt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <button 
+                onClick={handleSubmit}
+                disabled={uploadingField === 'submitting'}
+                className="w-full sm:w-auto px-10 py-3 text-white font-bold rounded shadow-md hover:shadow-lg active:scale-95 transition-all disabled:opacity-50 text-base"
+                style={{ backgroundColor: settings.primaryColor }}
+              >
+                {uploadingField === 'submitting' ? 'Enviando...' : 'Enviar'}
+              </button>
+            </div>
           )}
         </div>
       </div>
