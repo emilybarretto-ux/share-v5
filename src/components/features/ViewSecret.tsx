@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+// import { motion, AnimatePresence } from 'motion/react';
 import { ShieldCheck, Lock, Eye, EyeOff, Copy, X, Timer, Fingerprint, Trash2, ExternalLink, Download, FileIcon, ImageIcon, Key, Mail, RefreshCcw, Info, Check, ShieldAlert } from 'lucide-react';
 import Markdown from 'react-markdown';
 import { supabase } from '../../lib/supabase';

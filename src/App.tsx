@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 // Force redeploy sync v1.0.5
-import { AnimatePresence, motion } from 'motion/react';
+// import { AnimatePresence, motion } from 'motion/react';
 import { Sun, Moon, ShieldCheck, Mail, Lock, Eye, EyeOff, Copy, X, Timer, Fingerprint, RefreshCcw, ShieldAlert } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { supabase } from './lib/supabase';
@@ -108,10 +108,8 @@ export default function App() {
     if (!errorSql) return null;
     
     return (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-300">
-        <motion.div 
-          initial={{ scale: 0.95, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+        <div 
           className="bg-white dark:bg-slate-900 border border-red-500/30 rounded-2xl p-6 max-w-xl w-full shadow-2xl relative overflow-hidden"
         >
           <div className="absolute top-0 left-0 w-full h-1 bg-red-500" />
@@ -167,7 +165,7 @@ export default function App() {
           >
             Entendi, vou corrigir
           </button>
-        </motion.div>
+        </div>
       </div>
     );
   };
@@ -1081,9 +1079,9 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
       <RLSRepairModal />
 
       <main className="relative">
-        <AnimatePresence mode="wait">
+        <div key="main-content-flow">
           {screen === 'home' && (
-            <motion.div key="home-screen-container" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <div key="home-screen-container">
               <HomeScreen 
                 secretText={secretText} setSecretText={setSecretText}
                 keyValuePairs={keyValuePairs} addPair={addPair} removePair={removePair} updatePair={updatePair}
@@ -1101,37 +1099,37 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
                 redirectUrl={redirectUrl} setRedirectUrl={setRedirectUrl}
                 user={user}
               />
-            </motion.div>
+            </div>
           )}
 
           {screen === 'login' && (
-            <motion.div key="login" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <div key="login">
               <LoginScreen 
                 loginEmail={loginEmail} setLoginEmail={setLoginEmail}
                 loginPassword={loginPassword} setLoginPassword={setLoginPassword}
                 handleLogin={handleLogin} isLoggingIn={isLoggingIn} setScreen={setScreen as any}
               />
-            </motion.div>
+            </div>
           )}
 
           {screen === 'view-form' && (
-            <motion.div key="view-form-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <div key="view-form-screen">
               <ViewForm 
                 id={viewingFormId} 
                 user={user}
                 onBack={() => { window.history.pushState({}, '', '/'); setScreen('home'); }} 
               />
-            </motion.div>
+            </div>
           )}
 
           {screen === 'form-builder' && (
-            <motion.div key="builder" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <div key="builder">
               <FormBuilderScreen onBack={() => setScreen('home')} onPreview={() => {}} />
-            </motion.div>
+            </div>
           )}
 
           {screen === 'setup-2fa' as any && (
-            <motion.div key="setup-2fa" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <div key="setup-2fa">
               <div className="max-w-md mx-auto mt-20 p-8 bg-surface border border-border-base rounded-3xl shadow-xl text-center">
                 <div className="size-16 bg-accent/10 text-accent rounded-2xl flex items-center justify-center mx-auto mb-6">
                   <ShieldCheck size={32} />
@@ -1173,11 +1171,11 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
                   </div>
                 </div>
               </div>
-            </motion.div>
+            </div>
           )}
 
           {screen === 'verify-2fa' as any && (
-            <motion.div key="verify-2fa" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <div key="verify-2fa">
               <div className="max-w-md mx-auto mt-20 p-8 bg-surface border border-border-base rounded-3xl shadow-xl text-center">
                 <div className="size-16 bg-accent/10 text-accent rounded-2xl flex items-center justify-center mx-auto mb-6">
                   <Lock size={32} />
@@ -1197,22 +1195,22 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
                   <button onClick={handleLogout} className="text-sm text-text-secondary hover:text-red-500 font-bold">Voltar</button>
                 </div>
               </div>
-            </motion.div>
+            </div>
           )}
 
           {screen === 'register' && (
-            <motion.div key="register" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <div key="register">
               <RegisterScreen 
                 registerName={registerName} setRegisterName={setRegisterName}
                 registerEmail={registerEmail} setRegisterEmail={setRegisterEmail}
                 registerPassword={registerPassword} setRegisterPassword={setRegisterPassword}
                 handleRegister={handleRegister} isRegistering={isRegistering} setScreen={setScreen as any}
               />
-            </motion.div>
+            </div>
           )}
 
           {screen === 'dashboard' && user && (
-            <motion.div key={`dashboard-${user.id}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <div key={`dashboard-${user.id}`}>
               <DashboardScreen 
                 userEmail={user.email || ''}
                 links={links} requests={requests} forms={forms}
@@ -1220,28 +1218,28 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
                 fetchLinks={fetchLinks} fetchRequests={fetchRequests} fetchForms={fetchForms}
                 copied={copied} setCopied={setCopied} setScreen={setScreen as any} handleCopy={handleCopy}
               />
-            </motion.div>
+            </div>
           )}
 
           {screen === 'success' && (
-            <motion.div key="success" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <div key="success">
               <SuccessScreen 
                 generatedLinkId={lastCreatedId} qrVisible={qrVisible} setQrVisible={setQrVisible}
                 copied={copied} handleCopy={() => handleCopy()} setScreen={setScreen as any}
                 restrictIp={restrictIp} requireEmail={requireEmail}
               />
-            </motion.div>
+            </div>
           )}
 
           {screen === 'request-success' && (
-            <motion.div key="request-success" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <div key="request-success">
               <RequestSuccessScreen 
                 generatedLinkId={lastCreatedId}
                 copied={copied}
                 handleCopy={(text) => handleCopy(text)}
                 setScreen={setScreen as any}
               />
-            </motion.div>
+            </div>
           )}
 
           {screen === 'view-secret' && (
@@ -1266,7 +1264,7 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
           )}
 
           {screen === 'create-request' && (
-            <motion.div key="create-request" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <div key="create-request">
               <CreateRequestScreen 
                 title={requestTitle} setTitle={setRequestTitle}
                 description={requestDescription} setDescription={setRequestDescription}
@@ -1274,22 +1272,22 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
                 isOneTime={requestIsOneTime} setIsOneTime={setRequestIsOneTime}
                 isCreating={isCreatingRequest} handleCreateRequest={handleCreateRequest} setScreen={setScreen as any}
               />
-            </motion.div>
+            </div>
           )}
 
           {screen === 'how-it-works' && (
-            <motion.div key="how-it-works" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <div key="how-it-works">
               <HowItWorksScreen setScreen={setScreen as any} />
-            </motion.div>
+            </div>
           )}
 
           {screen === 'security' && (
-            <motion.div key="security" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <div key="security">
               <SecurityScreen setScreen={setScreen as any} />
-            </motion.div>
+            </div>
           )}
 
-        </AnimatePresence>
+        </div>
       </main>
       </>
       )}
