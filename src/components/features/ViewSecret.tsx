@@ -683,10 +683,25 @@ export const ViewSecret = ({ id, user, onBack, setScreen }: ViewSecretProps) => 
                   <div className="grid gap-3">
                     {(() => {
                       const kv = (secret as any).key_values;
-                      const pairs = Array.isArray(kv) ? kv : (typeof kv === 'object' ? Object.entries(kv).map(([k, v]) => ({ key: k, value: String(v) })) : []);
+                      let pairs: any[] = [];
+                      
+                      if (Array.isArray(kv)) {
+                        // Se já for um array, garantimos que cada item é um par chave-valor
+                        pairs = kv.map(item => {
+                          if (typeof item === 'object' && item !== null) {
+                            if ('key' in item && 'value' in item) return item;
+                            // Se for um array de entradas [k, v]
+                            const entries = Object.entries(item);
+                            if (entries.length > 0) return { key: entries[0][0], value: entries[0][1] };
+                          }
+                          return { key: 'Campo', value: String(item) };
+                        });
+                      } else if (typeof kv === 'object' && kv !== null) {
+                        // Se for um objeto puro
+                        pairs = Object.entries(kv).map(([k, v]) => ({ key: k, value: v }));
+                      }
                       
                       return pairs.map((pair: any, idx: number) => {
-                        // Se por algum motivo o par ainda for um objeto mas não tiver key/value amigável
                         const displayKey = pair.key || `Campo ${idx + 1}`;
                         const displayValue = typeof pair.value === 'object' ? JSON.stringify(pair.value) : String(pair.value);
 
@@ -763,12 +778,10 @@ export const ViewSecret = ({ id, user, onBack, setScreen }: ViewSecretProps) => 
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans overflow-x-hidden">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans overflow-x-hidden flex items-center justify-center">
       <ScreenProtector active={isUnlocked && !loading && !hasBurned && !error}>
-        <div className="min-h-screen py-12 px-4 flex items-center justify-center">
-          <div className="w-full max-w-4xl mx-auto flex flex-col items-center">
-            {renderContent()}
-          </div>
+        <div className="w-full max-w-4xl px-4 py-12">
+          {renderContent()}
         </div>
       </ScreenProtector>
 
