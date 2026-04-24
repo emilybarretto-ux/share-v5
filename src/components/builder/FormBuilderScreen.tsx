@@ -797,7 +797,9 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
                               <option value="equals">Igual a</option>
                               <option value="not_equals">Diferente de</option>
                               <option value="greater">Maior que</option>
+                              <option value="greater_equal">Maior ou igual a</option>
                               <option value="less">Menor que</option>
+                              <option value="less_equal">Menor ou igual a</option>
                               <option value="contains">Contém</option>
                             </select>
                             <input 
@@ -819,21 +821,25 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
                             >
                               <option value="jump">Pular Para...</option>
                               <option value="hide">Ocultar Pergunta...</option>
+                              <option value="show">Mostrar Pergunta...</option>
+                              <option value="terminate">Finalizar Formulário</option>
                             </select>
 
-                            <select 
-                              value={selectedField.logic?.targetId || ''}
-                              onChange={(e) => updateField(selectedField.id, { logic: { ...selectedField.logic, targetId: e.target.value } })}
-                              className="w-full px-3 py-2 text-[10px] border border-border-base rounded-xl focus:ring-1 focus:ring-accent outline-none bg-surface text-text-primary font-black"
-                            >
-                              <option value="">Selecione o destino</option>
-                              {selectedField.logic?.action === 'jump' && <option value="end">Terminar Formulário</option>}
-                              <optgroup label={selectedField.logic?.action === 'jump' ? "Pular para:" : "Ocultar:"}>
-                                {fields.filter(f => f.id !== selectedField.id).map(f => (
-                                  <option key={f.id} value={f.id}>{f.label.substring(0, 30)}</option>
-                                ))}
-                              </optgroup>
-                            </select>
+                            {selectedField.logic?.action !== 'terminate' && (
+                              <select 
+                                value={selectedField.logic?.targetId || ''}
+                                onChange={(e) => updateField(selectedField.id, { logic: { ...selectedField.logic, targetId: e.target.value } })}
+                                className="w-full px-3 py-2 text-[10px] border border-border-base rounded-xl focus:ring-1 focus:ring-accent outline-none bg-surface text-text-primary font-black"
+                              >
+                                <option value="">Selecione o destino</option>
+                                {selectedField.logic?.action === 'jump' && <option value="end">Terminar Formulário</option>}
+                                <optgroup label={selectedField.logic?.action === 'jump' ? "Pular para:" : "Ocultar / Mostrar:"}>
+                                  {fields.filter(f => f.id !== selectedField.id).map(f => (
+                                    <option key={f.id} value={f.id}>{f.label.substring(0, 30)}</option>
+                                  ))}
+                                </optgroup>
+                              </select>
+                            )}
                           </div>
                         </div>
                       </div>
