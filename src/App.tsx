@@ -1033,6 +1033,7 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
         </div>
       ) : (
         <>
+      {screen !== 'view-secret' && screen !== 'view-form' && screen !== 'fill-request' && (
       <nav className="border-b border-border-base bg-surface sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4 flex-1">
@@ -1073,6 +1074,7 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
           </div>
         </div>
       </nav>
+      )}
 
       {/* Alerta de Storage se necessário */}
       <StorageWarning />

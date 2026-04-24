@@ -723,7 +723,7 @@ export const ViewSecret = ({ id, user, onBack, setScreen }: ViewSecretProps) => 
   return (
     <div className="min-h-screen py-12 px-4 flex items-center justify-center bg-slate-50 dark:bg-slate-950 font-sans">
       <ScreenProtector active={isUnlocked && !loading && !hasBurned && !error}>
-        <div className="w-full max-w-4xl flex items-center justify-center">
+        <div className="w-full max-w-4xl mx-auto flex items-center justify-center">
           {renderContent()}
         </div>
       </ScreenProtector>
