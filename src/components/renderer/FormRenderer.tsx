@@ -176,41 +176,40 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
     let isTerminated = false;
     let cascadingHideSection = false;
 
-    // Primeiro passamos coletando quem deve ser escondido por outros
+    // First pass: Global visibility rules (hide/show)
     for (const field of fields) {
       if (field.logic) {
         const isMet = checkCondition(field);
-        
         if (field.logic.action === 'hide' && isMet) {
           if (field.logic.targetId) hiddenIds.add(field.logic.targetId);
         } else if (field.logic.action === 'show' && !isMet) {
-          // Se for uma lógica de "Mostrar se...", e a condição NÃO foi atendida, então ocultamos o alvo
           if (field.logic.targetId) hiddenIds.add(field.logic.targetId);
         }
       }
     }
 
-    // Segundo passamos montando a lista final
+    // Second pass: Progression flow (jumps/terminate)
     for (const field of fields) {
       if (isTerminated) break;
 
-      // Handle cascading hide from a previously hidden section
+      // Handle cascading hide for sections
       if (cascadingHideSection) {
         if (field.type === 'section') {
-          cascadingHideSection = false;
+          // If we hit another section, stop cascading UNLESS this section is also hidden
+          cascadingHideSection = hiddenIds.has(field.id);
+          if (cascadingHideSection) continue;
         } else {
           continue;
         }
       }
 
-      // Se este campo foi marcado para ser escondido por outro (via hide action)
+      // Skip if explicitly hidden
       if (hiddenIds.has(field.id)) {
-        if (field.type === 'section') {
-          cascadingHideSection = true;
-        }
+        if (field.type === 'section') cascadingHideSection = true;
         continue;
       }
 
+      // Skip if currently in a jump
       if (skipUntil) {
         if (field.id === skipUntil) {
           skipUntil = null;
@@ -221,15 +220,15 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
 
       visible.push(field);
 
-      // Verifica lógica de salto (Forward Jump)
-      if (field.logic?.action === 'jump' && checkCondition(field)) {
-        if (field.logic.targetId === 'end') {
-          isTerminated = true;
-        } else if (field.logic.targetId) {
-          skipUntil = field.logic.targetId;
-          
-          // Se estamos pulando PARA uma seção, a gente para o skip nela (já tratado pelo skipUntil)
-          // Mas se estamos pulando UMA seção (targetId é depois da seção), o skipUntil cuida disso.
+      // Check for outgoing flow logic
+      if (field.logic) {
+        const isMet = checkCondition(field);
+        if (isMet) {
+          if (field.logic.action === 'terminate' || field.logic.targetId === 'end') {
+            isTerminated = true;
+          } else if (field.logic.action === 'jump' && field.logic.targetId) {
+            skipUntil = field.logic.targetId;
+          }
         }
       }
     }
@@ -381,7 +380,7 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
                     const val = applyMask(e.target.value, field.mask);
                     updateData(field.id, val);
                   }}
-                  className={`w-full py-6 bg-transparent border-b outline-none transition-all text-3xl font-medium text-text-primary focus:border-b-2 placeholder:text-text-secondary/30 placeholder:font-normal ${ (field.type === 'date' || field.type === 'time') ? 'pl-10' : '' } ${hasError ? 'border-red-500' : 'border-border-base'}`}
+                  className={`w-full py-10 bg-transparent border-b outline-none transition-all text-5xl font-semibold text-text-primary focus:border-b-4 placeholder:text-text-secondary/10 placeholder:font-normal ${ (field.type === 'date' || field.type === 'time') ? 'pl-12' : '' } ${hasError ? 'border-red-500' : 'border-border-base'}`}
                   style={{ borderBottomColor: formData[field.id] ? fieldColor : undefined } as any}
                 />
             </div>
@@ -401,7 +400,7 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
                 target.style.height = target.scrollHeight + 'px';
               }}
               onChange={(e) => updateData(field.id, e.target.value)}
-              className={`w-full py-6 bg-transparent border-b outline-none transition-all text-3xl font-medium text-text-primary focus:border-b-2 placeholder:text-text-secondary/30 placeholder:font-normal resize-none overflow-hidden ${hasError ? 'border-red-500' : 'border-border-base'}`}
+              className={`w-full py-10 bg-transparent border-b outline-none transition-all text-5xl font-semibold text-text-primary focus:border-b-4 placeholder:text-text-secondary/10 placeholder:font-normal resize-none overflow-hidden ${hasError ? 'border-red-500' : 'border-border-base'}`}
               style={{ borderBottomColor: formData[field.id] ? fieldColor : undefined } as any}
             />
             {hasError && <p className="text-[10px] text-red-500 font-bold uppercase mt-1 tracking-tight">{hasError}</p>}
@@ -414,7 +413,7 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
               <select 
                 value={formData[field.id] || ''}
                 onChange={(e) => updateData(field.id, e.target.value)}
-                className={`w-full p-4 bg-bg-base border rounded-2xl focus:ring-2 outline-none transition-all text-text-primary appearance-none ${hasError ? 'border-red-500 bg-red-50/30' : 'border-border-base'}`}
+                className={`w-full p-8 bg-bg-base border-2 rounded-3xl focus:ring-4 outline-none transition-all text-3xl font-bold text-text-primary appearance-none ${hasError ? 'border-red-500 bg-red-50/30' : 'border-border-base'}`}
                 style={{ '--tw-ring-color': fieldColor } as any}
               >
                 <option value="">Selecione uma opção</option>
@@ -544,19 +543,19 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
                   )}
                   <div className="flex items-center gap-3">
                 <div 
-                  className={`size-8 rounded-${field.type === 'radio' ? 'full' : 'md'} border-2 flex items-center justify-center transition-all shrink-0`}
+                  className={`size-10 rounded-${field.type === 'radio' ? 'full' : 'md'} border-2 flex items-center justify-center transition-all shrink-0`}
                   style={{ 
                     borderColor: isSelected ? fieldColor : (hasError ? '#f87171' : 'var(--color-border-base)'),
                     backgroundColor: isSelected ? fieldColor : 'transparent'
                   }}
                 >
                   {isSelected && (
-                    <div className={field.type === 'radio' ? "size-3 bg-white rounded-full" : "text-white"} >
-                      {field.type === 'checkbox' && <CheckCircle2 size={16} />}
+                    <div className={field.type === 'radio' ? "size-4 bg-white rounded-full" : "text-white"} >
+                      {field.type === 'checkbox' && <CheckCircle2 size={24} />}
                     </div>
                   )}
                 </div>
-                <span className="font-bold text-xl text-text-primary">{renderText(opt)}</span>
+                <span className="font-bold text-2xl text-text-primary">{renderText(opt)}</span>
                   </div>
                 </button>
               );
@@ -576,10 +575,10 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
                 <button 
                   key={val}
                   onClick={() => updateData(field.id, val)}
-                  className={`size-12 rounded-xl flex items-center justify-center transition-all ${formData[field.id] >= val ? 'text-white' : 'text-text-secondary bg-bg-base'}`}
+                  className={`size-20 rounded-2xl flex items-center justify-center transition-all ${formData[field.id] >= val ? 'text-white' : 'text-text-secondary bg-bg-base'}`}
                   style={{ backgroundColor: formData[field.id] >= val ? fieldColor : undefined }}
                 >
-                  <Star size={24} fill={formData[field.id] >= val ? 'currentColor' : 'none'} />
+                  <Star size={40} fill={formData[field.id] >= val ? 'currentColor' : 'none'} />
                 </button>
               ))}
             </div>
@@ -683,7 +682,7 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
         </div>
       )}
       
-      <div className="max-w-7xl mx-auto space-y-8">
+      <div className="max-w-[1600px] mx-auto space-y-8">
         {settings.headerImage && (
           <div className="w-full h-56 md:h-72 overflow-hidden rounded-[2rem] shadow-sm">
             <img 
@@ -710,11 +709,11 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
             )}
             
             <div className="space-y-6 text-left">
-              <h1 className={`${(isStepMode && currentStep >= 0) ? 'text-3xl' : 'text-5xl md:text-6xl'} font-bold tracking-tight transition-all`} style={{ color: settings.titleColor || undefined }}>
+              <h1 className={`${(isStepMode && currentStep >= 0) ? 'text-5xl md:text-6xl' : 'text-8xl md:text-9xl'} font-black tracking-tighter transition-all`} style={{ color: settings.titleColor || undefined }}>
                 {renderText(form.title)}
               </h1>
               {form.description && (!isStepMode || currentStep === -1) && (
-                <p className="text-xl font-medium opacity-80" style={{ color: settings.subtitleColor || undefined }}>
+                <p className="text-2xl font-medium opacity-80" style={{ color: settings.subtitleColor || undefined }}>
                   {renderText(form.description)}
                 </p>
               )}
@@ -759,12 +758,12 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
                   </div>
                   
                   {visibleFields[currentStep].type !== 'section' && visibleFields[currentStep].type !== 'heading' && (
-                    <div className="space-y-6">
+                    <div className="space-y-8">
                       <div className="flex items-start gap-1">
-                        <h2 className="text-3xl font-medium text-[#202124] dark:text-white leading-tight">{renderText(visibleFields[currentStep].label)}</h2>
-                        {visibleFields[currentStep].required && <span className="text-red-500 font-normal text-3xl">*</span>}
+                        <h2 className="text-5xl font-bold text-[#202124] dark:text-white leading-tight">{renderText(visibleFields[currentStep].label)}</h2>
+                        {visibleFields[currentStep].required && <span className="text-red-500 font-normal text-5xl">*</span>}
                       </div>
-                      {visibleFields[currentStep].description && <p className="text-lg opacity-60 italic">{renderText(visibleFields[currentStep].description)}</p>}
+                      {visibleFields[currentStep].description && <p className="text-2xl opacity-60 italic">{renderText(visibleFields[currentStep].description)}</p>}
                     </div>
                   )}
 
@@ -784,7 +783,7 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
                   )}
                   <button 
                     onClick={handleNext} 
-                    className="px-12 py-3 text-white font-bold rounded-xl shadow-md hover:shadow-xl active:scale-[0.98] transition-all text-lg"
+                    className="px-16 py-6 text-white font-bold rounded-2xl shadow-lg hover:shadow-2xl active:scale-[0.98] transition-all text-2xl"
                     style={{ backgroundColor: visibleFields[currentStep].customColor || settings.primaryColor }}
                   >
                     {currentStep === visibleFields.length - 1 ? 'Enviar' : 'Próxima'}

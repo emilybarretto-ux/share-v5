@@ -59,9 +59,9 @@ export interface FormField {
   customColor?: string;
   mask?: 'none' | 'cpf' | 'cnpj' | 'tel' | 'cep' | 'email';
   logic?: {
-    action: 'jump' | 'hide';
+    action: 'jump' | 'hide' | 'show' | 'terminate';
     targetId: string;
-    conditionOperator?: 'equals' | 'not_equals' | 'greater' | 'less' | 'contains';
+    conditionOperator?: 'equals' | 'not_equals' | 'greater' | 'less' | 'greater_equal' | 'less_equal' | 'contains';
     conditionValue: string;
   };
 }

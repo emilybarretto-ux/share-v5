@@ -70,10 +70,10 @@ const handleSubmit = async (formData: any) => {
 };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#020617] font-sans relative select-none overflow-x-hidden" onContextMenu={(e) => e.preventDefault()}>
+    <div className="min-h-screen bg-white dark:bg-slate-950 font-sans relative select-none overflow-x-hidden" onContextMenu={(e) => e.preventDefault()}>
       <ScreenProtector active={!loading && !error && !isSubmitted}>
         <div className="min-h-screen relative z-10 py-12 px-4 md:px-6">
-          <div className="max-w-7xl mx-auto">
+          <div className="max-w-[1600px] mx-auto">
             {loading ? (
               <div className="flex items-center justify-center min-h-[40vh]">
                 <div className="size-12 border-4 border-accent/30 border-t-accent rounded-full animate-spin" />
