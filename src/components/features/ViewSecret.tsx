@@ -455,16 +455,35 @@ export const ViewSecret = ({ id, user, onBack, setScreen }: ViewSecretProps) => 
   };
 
   const handleSendToken = async () => {
-    if (!verificationEmail || !verificationEmail.includes('@')) {
+    const email = verificationEmail.trim().toLowerCase();
+    if (!email || !email.includes('@')) {
       showNotification('Por favor, insira um e-mail válido.', 'info');
       return;
+    }
+
+    // --- NOVA VALIDAÇÃO PRECOCE DE DOMÍNIO/E-MAIL ---
+    if (secret) {
+      if (secret.allowed_email) {
+        const allowedList = secret.allowed_email.split(',').map((e: string) => e.trim().toLowerCase());
+        if (!allowedList.includes(email)) {
+          setError(`ACESSO_NEGADO_EMAIL:${secret.allowed_email}`);
+          showNotification('Acesso negado: Seu e-mail não está na lista de permissões.', 'error');
+          return;
+        }
+      }
+
+      if (secret.allowed_domain && !email.endsWith(`@${secret.allowed_domain.toLowerCase()}`)) {
+        setError(`ACESSO_NEGADO_DOMINIO:${secret.allowed_domain}`);
+        showNotification(`Acesso negado: Apenas o domínio @${secret.allowed_domain} é permitido.`, 'error');
+        return;
+      }
     }
 
     setIsSendingOtp(true);
     setResendCooldown(15); // 15 segundos de cooldown
     try {
       const { error: otpError } = await supabase.auth.signInWithOtp({
-        email: verificationEmail.trim().toLowerCase(),
+        email: email,
         options: {
           emailRedirectTo: window.location.href,
           shouldCreateUser: true,
@@ -475,6 +494,7 @@ export const ViewSecret = ({ id, user, onBack, setScreen }: ViewSecretProps) => 
       
       setOtpSent(true);
       setOtpCode(''); // Limpa código anterior
+      setError('AUTH_REQUIRED'); // Limpa qualquer erro de negação prévio se o envio deu certo
       showNotification('Token enviado! Verifique seu e-mail.', 'success');
     } catch (err: any) {
       console.error('Erro ao enviar OTP:', err);
@@ -534,83 +554,99 @@ export const ViewSecret = ({ id, user, onBack, setScreen }: ViewSecretProps) => 
 
     if (error) {
       return (
-        <div key="error-state-container" className="max-w-md w-full mx-auto p-8 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl">
-          <div className={`size-16 rounded-2xl flex items-center justify-center mx-auto mb-6 ${error === 'AUTH_REQUIRED' ? 'bg-amber-100 dark:bg-amber-900/20 text-amber-600' : 'bg-red-100 dark:bg-red-900/20 text-red-600'}`}>
-            {error === 'AUTH_REQUIRED' ? <ShieldCheck size={32} /> : <X size={32} />}
-          </div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
-            {error === 'AUTH_REQUIRED' ? 'Acesso Restrito' : 'Link Indisponível'}
-          </h2>
-          <p className="text-slate-500 dark:text-slate-400 mb-8">
-            {error === 'AUTH_REQUIRED' 
-              ? 'Este segredo requer validação de identidade. Insira seu e-mail abaixo para receber um token de acesso.' 
-              : error.startsWith('ACESSO_NEGADO_')
-              ? 'Você não tem permissão para visualizar este segredo. Verifique se o e-mail informado está na lista de acesso.'
-              : error}
-          </p>
-          
-          <div className="space-y-4">
-            {(error === 'AUTH_REQUIRED' || error.startsWith('ACESSO_NEGADO_')) && (
-              <div key="otp-flow" className="space-y-4 text-left">
-                {!otpSent ? (
-                  <div key="otp-request" className="space-y-3">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">E-mail para receber o token</label>
-                    <div className="relative">
-                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                      <input 
-                        type="email"
-                        value={verificationEmail}
-                        onChange={(e) => setVerificationEmail(e.target.value)}
-                        placeholder="seu-email@exemplo.com"
-                        className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-blue-600 dark:text-white"
-                      />
-                    </div>
-                    <button 
-                      onClick={handleSendToken}
-                      disabled={isSendingOtp}
-                      className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors"
-                    >
-                      {isSendingOtp ? <RefreshCcw className="animate-spin" size={20} /> : <Mail size={20} />}
-                      {isSendingOtp ? 'Enviando...' : 'Receber Token'}
-                    </button>
-                  </div>
-                ) : (
-                  <div key="otp-verify" className="p-6 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-center space-y-4">
-                    <div className="size-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto">
-                      <Check size={24} />
-                    </div>
-                    <p className="text-sm font-bold text-slate-900 dark:text-white">Token Enviado!</p>
-                    <input 
-                      type="text"
-                      maxLength={8}
-                      value={otpCode}
-                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                      placeholder="00000000"
-                      className="w-full p-4 text-center text-2xl tracking-widest font-mono border rounded-xl bg-white dark:bg-slate-900 dark:text-white"
-                    />
-                    <button 
-                      onClick={handleVerifyOTP}
-                      disabled={isVerifyingOtp}
-                      className="w-full py-4 bg-green-600 text-white font-bold rounded-xl"
-                    >
-                      Confirmar Token
-                    </button>
-                    <button 
-                      onClick={() => setOtpSent(false)} 
-                      className="text-xs text-blue-600 font-bold uppercase tracking-widest"
-                    >
-                      Alterar E-mail
-                    </button>
+        <div key="error-state-container" className="max-w-xl w-full mx-auto animate-in fade-in zoom-in duration-300">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[2.5rem] shadow-2xl overflow-hidden">
+            <div className="p-8 text-center">
+              <div className={`size-20 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl ${error === 'AUTH_REQUIRED' ? 'bg-amber-500/10 text-amber-500' : 'bg-rose-500/10 text-rose-500'}`}>
+                {error === 'AUTH_REQUIRED' ? <ShieldCheck size={40} strokeWidth={1.5} /> : <X size={40} strokeWidth={1.5} />}
+              </div>
+              
+              <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-3 tracking-tight">
+                {error === 'AUTH_REQUIRED' ? 'Acesso Restrito' : 'Link Indisponível'}
+              </h2>
+              
+              <p className="text-slate-500 dark:text-slate-400 text-lg leading-relaxed mb-8 max-w-sm mx-auto">
+                {error === 'AUTH_REQUIRED' 
+                  ? 'Este segredo requer validação de identidade para ser visualizado.' 
+                  : error.startsWith('ACESSO_NEGADO_')
+                  ? 'Permissão negada. Seu e-mail não atende aos requisitos de segurança deste link.'
+                  : error}
+              </p>
+
+              <div className="space-y-6">
+                {(error === 'AUTH_REQUIRED' || error.startsWith('ACESSO_NEGADO_')) && (
+                  <div key="otp-flow" className="p-1 bg-slate-50 dark:bg-slate-950/50 rounded-[2rem] border border-slate-100 dark:border-slate-800/50">
+                    {!otpSent ? (
+                      <div key="otp-request" className="p-6 space-y-4">
+                        <div className="relative group">
+                          <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={20} />
+                          <input 
+                            type="email"
+                            value={verificationEmail}
+                            onChange={(e) => setVerificationEmail(e.target.value)}
+                            placeholder="seu-email@dominio.com"
+                            className="w-full pl-14 pr-6 py-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 text-lg dark:text-white transition-all"
+                          />
+                        </div>
+                        <button 
+                          onClick={handleSendToken}
+                          disabled={isSendingOtp}
+                          className="w-full py-5 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl shadow-xl shadow-blue-600/20 active:scale-[0.98] transition-all flex items-center justify-center gap-3 text-lg h-16"
+                        >
+                          {isSendingOtp ? <RefreshCcw className="animate-spin" size={24} /> : <Mail size={24} />}
+                          {isSendingOtp ? 'Solicitando...' : 'Receber Acesso'}
+                        </button>
+                      </div>
+                    ) : (
+                      <div key="otp-verify" className="p-8 text-center space-y-6">
+                        <div className="size-16 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-2 animate-bounce">
+                          <Check size={32} strokeWidth={2.5} />
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-xl font-bold text-slate-900 dark:text-white">Token Enviado!</p>
+                          <p className="text-sm text-slate-500">Insira o código recebido no seu e-mail.</p>
+                        </div>
+                        
+                        <input 
+                          type="text"
+                          maxLength={8}
+                          autoFocus
+                          value={otpCode}
+                          onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                          placeholder="••••••••"
+                          className="w-full p-6 text-center text-4xl tracking-[0.5em] font-mono border-2 border-slate-200 dark:border-slate-800 rounded-2xl bg-white dark:bg-slate-900 dark:text-white focus:border-emerald-500 outline-none transition-all"
+                        />
+                        
+                        <div className="space-y-3">
+                          <button 
+                            onClick={handleVerifyOTP}
+                            disabled={isVerifyingOtp}
+                            className="w-full py-5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-2xl shadow-xl shadow-emerald-600/20 active:scale-[0.98] transition-all text-lg h-16"
+                          >
+                            {isVerifyingOtp ? 'Verificando...' : 'Confirmar Identidade'}
+                          </button>
+                          
+                          <button 
+                            onClick={() => setOtpSent(false)} 
+                            className="text-sm text-slate-400 hover:text-blue-500 font-bold uppercase tracking-widest transition-colors"
+                          >
+                            Tentar outro e-mail
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
+                
+                <button 
+                  onClick={onBack} 
+                  className="w-full py-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-bold flex items-center justify-center gap-2 transition-colors"
+                >
+                  <X size={18} />
+                  Sair do Portal
+                </button>
               </div>
-            )}
-            <button 
-              onClick={onBack} 
-              className="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700"
-            >
-              Voltar
-            </button>
+            </div>
           </div>
         </div>
       );
@@ -778,9 +814,9 @@ export const ViewSecret = ({ id, user, onBack, setScreen }: ViewSecretProps) => 
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans overflow-x-hidden flex items-center justify-center">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans overflow-x-hidden">
       <ScreenProtector active={isUnlocked && !loading && !hasBurned && !error}>
-        <div className="w-full max-w-4xl px-4 py-12">
+        <div className="w-full px-4 py-12">
           {renderContent()}
         </div>
       </ScreenProtector>

@@ -85,10 +85,10 @@ export const ScreenProtector: React.FC<ScreenProtectorProps> = ({ children, acti
   }, [active]);
 
   return (
-    <div className="relative w-full h-full">
+    <div className="relative w-full min-h-screen flex items-center justify-center">
       {/* Conteúdo protegido com CSS Anti-Seleção */}
       <div 
-        className={`w-full h-full transition-all duration-300 ${isProtected ? 'blur-[80px] grayscale opacity-0' : 'blur-0 opacity-100'} select-none privacy-screen-content`}
+        className={`w-full min-h-screen flex items-center justify-center transition-all duration-300 ${isProtected ? 'blur-[80px] grayscale opacity-0' : 'blur-0 opacity-100'} select-none privacy-screen-content`}
         style={{ 
           userSelect: 'none', 
           WebkitUserSelect: 'none', 
