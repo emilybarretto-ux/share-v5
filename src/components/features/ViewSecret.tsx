@@ -525,46 +525,46 @@ export const ViewSecret = ({ id, user, onBack, setScreen }: ViewSecretProps) => 
   return (
     <div className="min-h-screen py-12 px-4 flex items-center justify-center">
       <ScreenProtector active={isUnlocked && !loading && !hasBurned && !error}>
-        {loading ? (
-          <div key="loading-state" className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-            <div className="size-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-            <p className="text-slate-500 font-medium">Buscando dados seguros...</p>
-          </div>
-        ) : error ? (
-          <div key="error-state-container" className="max-w-md mx-auto p-8 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl">
-            <div 
-              key={error === 'AUTH_REQUIRED' ? 'icon-auth' : 'icon-error'}
-              className={`size-16 rounded-2xl flex items-center justify-center mx-auto mb-6 ${error === 'AUTH_REQUIRED' ? 'bg-amber-100 dark:bg-amber-900/20 text-amber-600' : 'bg-red-100 dark:bg-red-900/20 text-red-600'}`}>
-              {error === 'AUTH_REQUIRED' ? <ShieldCheck size={32} /> : <X size={32} />}
-            </div>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
-              {error === 'AUTH_REQUIRED' ? 'Acesso Restrito' : 'Link Indisponível'}
-            </h2>
-            <p className="text-slate-500 dark:text-slate-400 mb-8">
-              {error === 'AUTH_REQUIRED' 
-                ? 'Este segredo requer validação de identidade. Insira seu e-mail abaixo para receber um token de acesso.' 
-                : error.startsWith('ACESSO_NEGADO_EMAIL')
-                ? `Acesso Negado: Este segredo é exclusivo para os e-mails autorizados. Verifique se digitou o e-mail correto.`
-                : error.startsWith('ACESSO_NEGADO_DOMINIO')
-                ? `Acesso Negado: Apenas usuários @${error.split(':')[1]} podem ler este segredo.`
-                : error}
-            </p>
-            
-            <div className="space-y-4">
-              <AnimatePresence mode="wait">
+        <AnimatePresence mode="wait">
+          {loading ? (
+            <motion.div 
+              key="loading-screen"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex flex-col items-center justify-center min-h-[60vh] gap-4"
+            >
+              <div className="size-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+              <p className="text-slate-500 font-medium">Buscando dados seguros...</p>
+            </motion.div>
+          ) : error ? (
+            <motion.div 
+              key="error-screen"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="max-w-md w-full mx-auto p-8 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl"
+            >
+              <div className={`size-16 rounded-2xl flex items-center justify-center mx-auto mb-6 ${error === 'AUTH_REQUIRED' ? 'bg-amber-100 dark:bg-amber-900/20 text-amber-600' : 'bg-red-100 dark:bg-red-900/20 text-red-600'}`}>
+                {error === 'AUTH_REQUIRED' ? <ShieldCheck size={32} /> : <X size={32} />}
+              </div>
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
+                {error === 'AUTH_REQUIRED' ? 'Acesso Restrito' : 'Link Indisponível'}
+              </h2>
+              <p className="text-slate-500 dark:text-slate-400 mb-8">
+                {error === 'AUTH_REQUIRED' 
+                  ? 'Este segredo requer validação de identidade. Insira seu e-mail abaixo para receber um token de acesso.' 
+                  : error.startsWith('ACESSO_NEGADO_')
+                  ? 'Você não tem permissão para visualizar este segredo. Verifique se o e-mail informado está na lista de acesso.'
+                  : error}
+              </p>
+              
+              <div className="space-y-4">
                 {(error === 'AUTH_REQUIRED' || error.startsWith('ACESSO_NEGADO_')) && (
-                  <motion.div 
-                    key="otp-flow-wrapper"
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="space-y-4 overflow-hidden"
-                  >
+                  <div className="space-y-4 text-left">
                     {!otpSent ? (
-                      <div className="space-y-3" key="otp-input-group">
-                        <div className="text-left px-1">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">E-mail para receber o token</label>
-                        </div>
+                      <div className="space-y-3">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">E-mail para receber o token</label>
                         <div className="relative">
                           <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                           <input 
@@ -572,329 +572,188 @@ export const ViewSecret = ({ id, user, onBack, setScreen }: ViewSecretProps) => 
                             value={verificationEmail}
                             onChange={(e) => setVerificationEmail(e.target.value)}
                             placeholder="seu-email@exemplo.com"
-                            className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none dark:text-white font-medium"
+                            className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none"
                           />
                         </div>
                         <button 
                           onClick={handleSendToken}
                           disabled={isSendingOtp}
-                          className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:opacity-90 transition-all flex items-center justify-center gap-2"
+                          className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl flex items-center justify-center gap-2"
                         >
-                          {isSendingOtp ? (
-                            <RefreshCcw className="animate-spin" size={20} />
-                          ) : (
-                            <Mail size={20} />
-                          )}
-                          {isSendingOtp ? 'Enviando...' : 'Receber Token no E-mail'}
+                          {isSendingOtp ? <RefreshCcw className="animate-spin" size={20} /> : <Mail size={20} />}
+                          {isSendingOtp ? 'Enviando...' : 'Receber Token'}
                         </button>
-                        <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-900/10 rounded-xl text-[10px] text-blue-600 dark:text-blue-400 text-left">
-                          <div className="mt-0.5 shrink-0"><Info size={14} /></div>
-                          <span>Se o seu e-mail estiver na lista de permissão, um código de 8 dígitos será enviado agora.</span>
-                        </div>
                       </div>
                     ) : (
-                      <div className="p-6 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-center space-y-4 shadow-sm" key="otp-verify-group">
-                        <div className="size-12 bg-green-100 dark:bg-green-900/20 text-green-600 rounded-full flex items-center justify-center mx-auto">
+                      <div className="p-6 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-center space-y-4">
+                        <div className="size-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto">
                           <Check size={24} />
                         </div>
-                        <p className="text-sm font-bold text-green-700 dark:text-green-400">Token Enviado!</p>
-                        <p className="text-xs text-green-600 dark:text-green-500 leading-tight">Digite o código de 8 dígitos enviado para o seu e-mail para validar seu acesso.</p>
-                        
-                        <div className="space-y-3 py-2">
-                          <input 
-                            type="text"
-                            maxLength={8}
-                            value={otpCode}
-                            onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                            placeholder="00000000"
-                            className="w-full px-4 py-4 text-center text-2xl tracking-[0.3em] font-mono bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-green-600 dark:text-white"
-                          />
-                          <button 
-                            onClick={handleVerifyOTP}
-                            disabled={isVerifyingOtp || otpCode.length < 6}
-                            className="w-full py-4 bg-green-600 text-white font-bold rounded-xl shadow-lg shadow-green-600/20 hover:opacity-90 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                          >
-                            {isVerifyingOtp ? <RefreshCcw className="animate-spin" size={20} /> : <ShieldCheck size={20} />}
-                            {isVerifyingOtp ? 'Verificando...' : 'Confirmar Token'}
-                          </button>
-                        </div>
-  
-                        <div className="pt-2 flex flex-col gap-3">
-                          <button 
-                            onClick={handleSendToken} 
-                            disabled={isSendingOtp || resendCooldown > 0}
-                            className="text-[10px] font-black uppercase text-slate-500 hover:text-accent transition-colors flex items-center justify-center gap-1 mx-auto disabled:opacity-50"
-                          >
-                            <RefreshCcw size={10} className={isSendingOtp ? 'animate-spin' : ''} />
-                            {resendCooldown > 0 ? `Aguarde ${resendCooldown}s para reenviar` : `Reenviar código para ${verificationEmail}`}
-                          </button>
-                          <button 
-                            onClick={() => { setOtpSent(false); setOtpCode(''); }} 
-                            className="text-[10px] font-black uppercase text-accent hover:underline focus:outline-none"
-                          >
-                            Usar outro e-mail
-                          </button>
-                        </div>
+                        <p className="text-sm font-bold">Token Enviado!</p>
+                        <input 
+                          type="text"
+                          maxLength={8}
+                          value={otpCode}
+                          onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                          placeholder="00000000"
+                          className="w-full p-4 text-center text-2xl tracking-widest font-mono border rounded-xl"
+                        />
+                        <button 
+                          onClick={handleVerifyOTP}
+                          disabled={isVerifyingOtp}
+                          className="w-full py-4 bg-green-600 text-white font-bold rounded-xl"
+                        >
+                          Confirmar Token
+                        </button>
                       </div>
                     )}
-                  </motion.div>
+                  </div>
                 )}
-              </AnimatePresence>
-  
-              <button 
-                key="back-button"
-                onClick={onBack} 
-                className="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-200 transition-colors"
-                disabled={isSendingOtp}
-              >
-                Voltar ao Início
-              </button>
-            </div>
-          </div>
-        ) : !isUnlocked && !showConfirmBurn ? (
-          <div key="password-gate-container" className="max-w-md mx-auto p-8 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl">
-            <div className="size-16 bg-blue-100 dark:bg-blue-900/20 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-              <Lock size={32} />
-            </div>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white text-center mb-2">Protegido por Senha</h2>
-            <p className="text-slate-500 dark:text-slate-400 text-center mb-8">Esta comunicação requer uma senha para ser visualizada.</p>
-            
-            <div className="space-y-4">
-              <div className="relative">
-                <input 
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    if (unlockError) setUnlockError(null);
-                  }}
-                  placeholder="Insira a senha de acesso"
-                  className="w-full px-4 py-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none dark:text-white transition-all text-center text-lg shadow-inner"
-                  onKeyDown={(e) => e.key === 'Enter' && handleUnlock()}
-                />
                 <button 
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                  onClick={onBack} 
+                  className="w-full py-3 bg-slate-100 text-slate-700 font-bold rounded-xl"
                 >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  Voltar
                 </button>
               </div>
+            </motion.div>
+          ) : !isUnlocked ? (
+            <motion.div 
+              key="auth-gate"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="max-w-md w-full mx-auto p-8 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl"
+            >
+              <div className="size-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <Lock size={32} />
+              </div>
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white text-center mb-2">Protegido por Senha</h2>
+              <p className="text-slate-500 text-center mb-8 italic">Este segredo requer uma chave para ser revelado.</p>
               
-              {unlockError && (
-                <div className="bg-red-50 dark:bg-red-900/10 text-red-600 p-4 rounded-xl text-sm font-bold animate-shake border border-red-100 dark:border-red-900/30">
-                  {unlockError}
-                </div>
-              )}
-
-              <button 
-                onClick={handleUnlock}
-                disabled={isUnlocking}
-                className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
-              >
-                {isUnlocking ? (
-                  <div className="size-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <Key size={20} />
-                    Desbloquear agora
-                  </>
-                )}
-              </button>
-              
-              <button 
-                onClick={onBack}
-                className="w-full py-3 bg-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-bold transition-colors"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        ) : (
-          <motion.div 
-            key="revealed-secret-container"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden mx-auto"
-          >
-            <div className="flex items-center justify-between p-8 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-4">
-                <div className="size-12 rounded-2xl bg-green-100 dark:bg-green-900/20 text-green-600 flex items-center justify-center">
-                  <ShieldCheck size={24} />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-slate-900 dark:text-white">{(secret as any)?.name || 'Comunicação Segura'}</h2>
-                  <p className="text-slate-500 text-xs font-medium">Visualizado agora • Criptografia de ponta-a-ponta</p>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {(secret as any)?.require_email && (
-                  <div className="px-3 py-1 bg-amber-50 dark:bg-amber-900/20 text-amber-600 text-[10px] font-bold rounded-full uppercase tracking-wider flex items-center gap-1 border border-amber-100 dark:border-amber-900/40">
-                    <span className="size-1.5 bg-amber-600 rounded-full animate-pulse" />
-                    E-mail Identificado
-                  </div>
-                )}
-                {(secret as any)?.restrict_ip && (
-                  <div className="px-3 py-1 bg-purple-50 dark:bg-purple-900/20 text-purple-600 text-[10px] font-bold rounded-full uppercase tracking-wider flex items-center gap-1 border border-purple-100 dark:border-purple-900/40">
-                    <ShieldCheck size={10} />
-                    IP Restrito
-                  </div>
-                )}
-                <div className="px-3 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 text-[10px] font-bold rounded-full uppercase tracking-wider border border-blue-100 dark:border-blue-900/40">
-                  Seguro
-                </div>
-              </div>
-            </div>
-
-            <div className="p-8 space-y-6">
-              {(secret as any)?.content && (
-                <div className="relative group/secret">
-                  <div className="p-6 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800 transition-all duration-75">
-                    <div className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed prose prose-slate dark:prose-invert max-w-none">
-                      <Markdown>{(secret as any).content}</Markdown>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {(secret as any)?.file_url && (
-                <div className="relative group/file">
-                   <div className="p-4 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800 transition-all duration-75">
-                      <div className="flex flex-col gap-4">
-                        {/* Preview se for imagem */}
-                        {['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'svg'].some(ext => (secret as any).file_url.toLowerCase().endsWith(ext)) ? (
-                          <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 max-h-80 flex items-center justify-center bg-slate-200 dark:bg-slate-900">
-                            <img 
-                              src={(secret as any).file_url} 
-                              alt="Anexo" 
-                              referrerPolicy="no-referrer"
-                              className="max-w-full max-h-80 object-contain shadow-lg"
-                            />
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-4 p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
-                            <div className="size-12 bg-blue-100 dark:bg-blue-900/20 text-blue-600 rounded-lg flex items-center justify-center">
-                              <FileIcon size={24} />
-                            </div>
-                            <div className="flex-1 overflow-hidden">
-                              <p className="text-sm font-bold text-slate-900 dark:text-white truncate">Arquivo Anexado</p>
-                              <p className="text-[10px] text-slate-500 uppercase font-black">Documento Protegido</p>
-                            </div>
-                          </div>
-                        )}
-
-                        <a 
-                          href={(secret as any).file_url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          download
-                          className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-600/20"
-                        >
-                          <Download size={20} />
-                          Download do Arquivo
-                        </a>
-                      </div>
-                   </div>
-                </div>
-              )}
-
-              {(secret as any)?.key_values && Array.isArray((secret as any).key_values) && (secret as any).key_values.length > 0 && (
-                <div className="space-y-3">
-                  <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest ml-1">Dados Estruturados</h3>
-                  <div className="grid grid-cols-1 gap-3">
-                    {(secret as any).key_values.map((kv: any, idx: number) => (
-                      <div key={idx} className="flex items-center justify-between p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm">
-                        <span className="text-sm font-bold text-slate-500 dark:text-slate-400">{kv.key}</span>
-                        <div className="flex items-center gap-3">
-                          <code className="text-sm font-mono font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded">
-                            {kv.value}
-                          </code>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {willBeIncinerated && (
-                <div className="mt-6 p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-2xl flex items-start gap-4">
-                  <div className="size-10 rounded-xl bg-amber-100 dark:bg-amber-900/20 text-amber-600 flex-shrink-0 flex items-center justify-center">
-                    <Timer size={20} />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-amber-900 dark:text-amber-300">Aviso de Segurança</h4>
-                    <p className="text-xs text-amber-700 dark:text-amber-400 mt-1 leading-relaxed">
-                      Esta informação será incinerada do servidor ao fechar esta página ou em 5 minutos.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex flex-col gap-4 pt-4">
-                <button 
-                  onClick={async () => {
-                    if (willBeIncinerated) await handleFinalBurn();
-                    onBack();
-                  }}
-                  className="w-full py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold rounded-xl hover:opacity-90 transition-all shadow-xl"
-                >
-                  Entendido, fechar
-                </button>
-              </div>
-
-              {(secret as any)?.redirect_url && (
-                <div className="mt-2 pt-6 border-t border-slate-100 dark:border-slate-800">
-                  <a 
-                    href={(secret as any).redirect_url.startsWith('http') ? (secret as any).redirect_url : `https://${(secret as any).redirect_url}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full py-5 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl shadow-xl shadow-blue-600/20 transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
+              <div className="space-y-4">
+                <div className="relative">
+                  <input 
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Chave de acesso"
+                    className="w-full px-4 py-4 bg-slate-50 dark:bg-slate-950 border rounded-xl text-center text-lg"
+                    onKeyDown={(e) => e.key === 'Enter' && handleUnlock()}
+                  />
+                  <button 
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"
                   >
-                    <ExternalLink size={20} strokeWidth={3} />
-                    Continuar para o site destino
-                  </a>
-                  <p className="text-[10px] text-center text-slate-400 mt-3 uppercase font-black tracking-widest opacity-60">Aviso: Você será enviado para um site externo</p>
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
                 </div>
-              )}
-            </div>
-          </motion.div>
-        )}
+                {unlockError && <div className="p-3 bg-red-50 text-red-600 rounded-lg text-xs font-bold text-center">{unlockError}</div>}
+                <button 
+                  onClick={handleUnlock}
+                  disabled={isUnlocking}
+                  className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl"
+                >
+                  {isUnlocking ? 'Verificando...' : 'Desbloquear'}
+                </button>
+                <button onClick={onBack} className="w-full py-2 text-slate-400 text-sm font-bold uppercase">Voltar</button>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div 
+              key="revealed"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden mx-auto"
+            >
+              <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="size-12 rounded-2xl bg-green-600 text-white flex items-center justify-center">
+                    <ShieldCheck size={24} />
+                  </div>
+                  <h2 className="text-xl font-bold">Conteúdo Revelado</h2>
+                </div>
+                <button onClick={onBack} className="p-2 hover:bg-slate-100 rounded-lg"><X size={20} /></button>
+              </div>
+
+              <div className="p-8 space-y-6">
+                 {(secret as any).content && (
+                   <div className="p-6 bg-slate-50 dark:bg-slate-950 rounded-2xl border">
+                     <pre className="whitespace-pre-wrap font-sans text-lg">{(secret as any).content}</pre>
+                   </div>
+                 )}
+                 
+                 {(secret as any).file_url && (
+                   <div className="p-4 bg-blue-50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 flex flex-col gap-4">
+                      <div className="flex items-center gap-3">
+                        <FileIcon className="text-blue-600" />
+                        <span className="font-bold truncate text-sm">Arquivo em Anexo</span>
+                      </div>
+                      <a 
+                        href={(secret as any).file_url} 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="py-3 bg-blue-600 text-white text-center rounded-xl font-bold"
+                      >
+                        Download do Arquivo
+                      </a>
+                   </div>
+                 )}
+
+                 <div className="flex flex-col gap-4 pt-4">
+                    <button 
+                      onClick={async () => {
+                        if (willBeIncinerated) await handleFinalBurn();
+                        onBack();
+                      }}
+                      className="w-full py-4 bg-slate-900 text-white font-bold rounded-xl"
+                    >
+                      {willBeIncinerated ? 'Confirmar leitura e Apagar' : 'Fechar'}
+                    </button>
+                    {(secret as any).redirect_url && (
+                      <a 
+                        href={(secret as any).redirect_url.startsWith('http') ? (secret as any).redirect_url : `https://${(secret as any).redirect_url}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="py-4 bg-accent text-white text-center rounded-xl font-bold shadow-lg"
+                      >
+                        Ir para URL Destino
+                      </a>
+                    )}
+                 </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </ScreenProtector>
 
       <AnimatePresence>
         {showConfirmBurn && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md">
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
             <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[2.5rem] p-8 border border-slate-200 dark:border-slate-800 shadow-2xl text-center"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white dark:bg-slate-950 max-w-sm w-full p-8 rounded-[2rem] border shadow-2xl text-center"
             >
-              <div className="size-20 bg-red-100 dark:bg-red-900/20 text-red-600 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                <Trash2 size={32} />
+              <div className="size-16 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <ShieldAlert size={32} />
               </div>
-              <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-4">
-                {isOneTime ? 'Acesso Único Detectado' : 'Link de Acesso Limitado'}
-              </h3>
-              <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed mb-8">
-                {isOneTime 
-                  ? <>⚠️ Este dado foi marcado para <strong>Incineração Imediata</strong>. Ao clicar em visualizar, o conteúdo será apagado permanentemente do nosso servidor.</>
-                  : <>Este link possui um limite de visualizações. Ao clicar em visualizar, um acesso será contabilizado.</>
-                }
+              <h3 className="text-xl font-black mb-4">Atenção!</h3>
+              <p className="text-slate-500 text-sm mb-8">
+                Este segredo será autodestruído permanentemente após a leitura. Prosseguir?
               </p>
               <div className="flex flex-col gap-3">
-                <button
+                <button 
                   onClick={confirmAndRevealOneTime}
-                  className="w-full py-4 bg-red-600 text-white font-bold rounded-2xl hover:bg-red-700 transition-all shadow-lg shadow-red-600/20"
+                  className="py-4 bg-red-600 text-white font-bold rounded-xl"
                 >
-                  Confirmar e Revelar
+                  Sim, Revelar e Apagar
                 </button>
-                <button
-                  onClick={() => {
-                    setShowConfirmBurn(false);
-                    onBack();
-                  }}
-                  className="w-full py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold rounded-2xl"
+                <button 
+                  onClick={() => { setShowConfirmBurn(false); onBack(); }}
+                  className="py-3 text-slate-400 font-bold"
                 >
                   Cancelar
                 </button>
