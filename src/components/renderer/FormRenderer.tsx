@@ -178,9 +178,14 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
 
     // Primeiro passamos coletando quem deve ser escondido por outros
     for (const field of fields) {
-      if (field.logic?.action === 'hide' && checkCondition(field)) {
-        if (field.logic.targetId) {
-          hiddenIds.add(field.logic.targetId);
+      if (field.logic) {
+        const isMet = checkCondition(field);
+        
+        if (field.logic.action === 'hide' && isMet) {
+          if (field.logic.targetId) hiddenIds.add(field.logic.targetId);
+        } else if (field.logic.action === 'show' && !isMet) {
+          // Se for uma lógica de "Mostrar se...", e a condição NÃO foi atendida, então ocultamos o alvo
+          if (field.logic.targetId) hiddenIds.add(field.logic.targetId);
         }
       }
     }
@@ -376,7 +381,7 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
                     const val = applyMask(e.target.value, field.mask);
                     updateData(field.id, val);
                   }}
-                  className={`w-full py-4 bg-transparent border-b outline-none transition-all text-2xl font-medium text-text-primary focus:border-b-2 placeholder:text-text-secondary/30 placeholder:font-normal ${ (field.type === 'date' || field.type === 'time') ? 'pl-10' : '' } ${hasError ? 'border-red-500' : 'border-border-base'}`}
+                  className={`w-full py-6 bg-transparent border-b outline-none transition-all text-3xl font-medium text-text-primary focus:border-b-2 placeholder:text-text-secondary/30 placeholder:font-normal ${ (field.type === 'date' || field.type === 'time') ? 'pl-10' : '' } ${hasError ? 'border-red-500' : 'border-border-base'}`}
                   style={{ borderBottomColor: formData[field.id] ? fieldColor : undefined } as any}
                 />
             </div>
@@ -396,7 +401,7 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
                 target.style.height = target.scrollHeight + 'px';
               }}
               onChange={(e) => updateData(field.id, e.target.value)}
-              className={`w-full py-4 bg-transparent border-b outline-none transition-all text-2xl font-medium text-text-primary focus:border-b-2 placeholder:text-text-secondary/30 placeholder:font-normal resize-none overflow-hidden ${hasError ? 'border-red-500' : 'border-border-base'}`}
+              className={`w-full py-6 bg-transparent border-b outline-none transition-all text-3xl font-medium text-text-primary focus:border-b-2 placeholder:text-text-secondary/30 placeholder:font-normal resize-none overflow-hidden ${hasError ? 'border-red-500' : 'border-border-base'}`}
               style={{ borderBottomColor: formData[field.id] ? fieldColor : undefined } as any}
             />
             {hasError && <p className="text-[10px] text-red-500 font-bold uppercase mt-1 tracking-tight">{hasError}</p>}
@@ -678,9 +683,9 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
         </div>
       )}
       
-      <div className="max-w-[1400px] mx-auto space-y-6">
+      <div className="max-w-7xl mx-auto space-y-8">
         {settings.headerImage && (
-          <div className="w-full h-48 md:h-64 overflow-hidden rounded-2xl shadow-sm">
+          <div className="w-full h-56 md:h-72 overflow-hidden rounded-[2rem] shadow-sm">
             <img 
               src={settings.headerImage} 
               alt="Header" 
@@ -704,12 +709,12 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
               </div>
             )}
             
-            <div className="space-y-4 text-left">
-              <h1 className={`${(isStepMode && currentStep >= 0) ? 'text-2xl' : 'text-4xl md:text-5xl'} font-bold tracking-tight transition-all`} style={{ color: settings.titleColor || undefined }}>
+            <div className="space-y-6 text-left">
+              <h1 className={`${(isStepMode && currentStep >= 0) ? 'text-3xl' : 'text-5xl md:text-6xl'} font-bold tracking-tight transition-all`} style={{ color: settings.titleColor || undefined }}>
                 {renderText(form.title)}
               </h1>
               {form.description && (!isStepMode || currentStep === -1) && (
-                <p className="text-lg font-medium opacity-80" style={{ color: settings.subtitleColor || undefined }}>
+                <p className="text-xl font-medium opacity-80" style={{ color: settings.subtitleColor || undefined }}>
                   {renderText(form.description)}
                 </p>
               )}
@@ -754,12 +759,12 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
                   </div>
                   
                   {visibleFields[currentStep].type !== 'section' && visibleFields[currentStep].type !== 'heading' && (
-                    <div className="space-y-4">
+                    <div className="space-y-6">
                       <div className="flex items-start gap-1">
-                        <h2 className="text-2xl font-normal text-[#202124] dark:text-white leading-tight">{renderText(visibleFields[currentStep].label)}</h2>
-                        {visibleFields[currentStep].required && <span className="text-red-500 font-normal text-xl">*</span>}
+                        <h2 className="text-3xl font-medium text-[#202124] dark:text-white leading-tight">{renderText(visibleFields[currentStep].label)}</h2>
+                        {visibleFields[currentStep].required && <span className="text-red-500 font-normal text-3xl">*</span>}
                       </div>
-                      {visibleFields[currentStep].description && <p className="text-base opacity-60 italic">{renderText(visibleFields[currentStep].description)}</p>}
+                      {visibleFields[currentStep].description && <p className="text-lg opacity-60 italic">{renderText(visibleFields[currentStep].description)}</p>}
                     </div>
                   )}
 
@@ -779,7 +784,7 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
                   )}
                   <button 
                     onClick={handleNext} 
-                    className="px-8 py-2 text-white font-bold rounded shadow-md hover:shadow-lg active:scale-[0.98] transition-all text-sm"
+                    className="px-12 py-3 text-white font-bold rounded-xl shadow-md hover:shadow-xl active:scale-[0.98] transition-all text-lg"
                     style={{ backgroundColor: visibleFields[currentStep].customColor || settings.primaryColor }}
                   >
                     {currentStep === visibleFields.length - 1 ? 'Enviar' : 'Próxima'}
