@@ -668,14 +668,34 @@ export const ViewSecret = ({ id, user, onBack, setScreen }: ViewSecretProps) => 
           <button onClick={onBack} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400"><X size={20} /></button>
         </div>
 
-        <div className="p-8 space-y-6">
-           {(secret as any).content && (
-             <div className="p-6 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800">
-               <div className="text-slate-800 dark:text-slate-200 leading-relaxed prose dark:prose-invert max-w-none">
-                  <Markdown>{(secret as any).content}</Markdown>
-               </div>
-             </div>
-           )}
+        <div className="p-8 space-y-6" translate="no">
+            {((secret as any).content || (secret as any).key_values) ? (
+              <>
+                {(secret as any).content && (
+                  <div className="p-6 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800">
+                    <div className="text-slate-800 dark:text-slate-200 leading-relaxed markdown-body max-w-none">
+                      <Markdown>{(secret as any).content}</Markdown>
+                    </div>
+                  </div>
+                )}
+                
+                {(secret as any).key_values && (
+                  <div className="space-y-3">
+                    {Object.entries((secret as any).key_values).map(([key, value]: [string, any]) => (
+                      <div key={key} className="flex flex-col p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-border-base">
+                        <span className="text-[10px] font-black uppercase text-slate-400 mb-1">{key}</span>
+                        <span className="font-mono text-sm break-all text-slate-700 dark:text-slate-300">{String(value)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="p-12 text-center bg-slate-50 dark:bg-slate-950 rounded-2xl border border-dashed border-slate-300 dark:border-slate-800">
+                <ShieldAlert className="size-12 text-slate-400 mx-auto mb-4" />
+                <p className="text-slate-500 font-medium italic">Nenhum conteúdo disponível ou já incinerado.</p>
+              </div>
+            )}
            
            {(secret as any).file_url && (
              <div className="p-4 bg-blue-50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-900/30 flex flex-col gap-4">
@@ -721,10 +741,12 @@ export const ViewSecret = ({ id, user, onBack, setScreen }: ViewSecretProps) => 
   };
 
   return (
-    <div className="min-h-screen py-12 px-4 flex items-center justify-center bg-slate-50 dark:bg-slate-950 font-sans">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans">
       <ScreenProtector active={isUnlocked && !loading && !hasBurned && !error}>
-        <div className="w-full max-w-4xl mx-auto flex items-center justify-center">
-          {renderContent()}
+        <div className="min-h-screen py-12 px-4 flex items-center justify-center">
+          <div className="w-full max-w-4xl flex items-center justify-center">
+            {renderContent()}
+          </div>
         </div>
       </ScreenProtector>
 
