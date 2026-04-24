@@ -667,7 +667,7 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
         </div>
       )}
       
-      <div className="w-full max-w-2xl space-y-6">
+      <div className="w-full max-w-3xl space-y-8">
         {settings.headerImage && (
           <div 
             className="w-full h-48 overflow-hidden shadow-md mb-4 relative bg-black/5"
@@ -683,36 +683,46 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
         )}
 
         <header 
-          className={`shadow-md border overflow-hidden relative z-10 transition-all ${themeStyles.card}`} 
-          style={{ borderRadius: settings.borderRadius === 'none' ? '0' : '0.75rem' }}
+          className={`shadow-2xl border overflow-hidden relative z-10 transition-all ${themeStyles.card}`} 
+          style={{ borderRadius: settings.borderRadius === 'none' ? '0' : '1.5rem' }}
         >
-          <div className="p-8 space-y-4">
+          <div className="p-10 md:p-16 space-y-8 flex flex-col items-center text-center">
             {settings.logo && (
-              <div className="mb-6 flex justify-start">
-                <img src={settings.logo} alt="Logo" className="h-12 w-auto object-contain" referrerPolicy="no-referrer" />
+              <div className="mb-2">
+                <img src={settings.logo} alt="Logo" className="h-16 w-auto object-contain" referrerPolicy="no-referrer" />
               </div>
             )}
-            <h1 className="text-4xl font-black leading-tight" style={{ color: settings.titleColor || undefined }}>
-              {renderText(form.title)}
-            </h1>
-            <div className={`h-px w-full opacity-20 ${settings.themePreset === 'glass' || settings.themePreset === 'dark' ? 'bg-white' : 'bg-current'}`} />
+            <div className="space-y-4">
+              <h1 className="text-4xl md:text-6xl font-black leading-tight tracking-tight px-4" style={{ color: settings.titleColor || undefined }}>
+                {renderText(form.title)}
+              </h1>
+              <div className={`h-1.5 w-24 mx-auto rounded-full opacity-30 ${settings.themePreset === 'glass' || settings.themePreset === 'dark' ? 'bg-white' : 'bg-current'}`} />
+            </div>
+            
             {form.description && (
-              <p className="text-sm opacity-80 whitespace-pre-wrap" style={{ color: settings.subtitleColor || undefined }}>
+              <p className="text-lg md:text-xl opacity-80 whitespace-pre-wrap max-w-lg font-medium" style={{ color: settings.subtitleColor || undefined }}>
                 {renderText(form.description)}
               </p>
             )}
+            
             {isStepMode && currentStep === -1 && (
-              <div className="space-y-4 pt-4">
+              <div className="w-full max-w-sm pt-4 space-y-6">
                  <button 
                   onClick={() => setCurrentStep(0)}
-                  className="w-full py-5 text-white font-black rounded-2xl shadow-2xl flex items-center justify-center gap-2 hover:brightness-110 active:scale-[0.98] transition-all text-xl mt-6"
-                  style={{ backgroundColor: settings.primaryColor }}
+                  className="w-full py-6 text-white font-black rounded-[2rem] shadow-2xl flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98] transition-all text-2xl mt-4"
+                  style={{ 
+                    backgroundColor: settings.primaryColor,
+                    boxShadow: `0 20px 40px -12px ${settings.primaryColor}50`
+                  }}
                 >
                   Começar agora
-                  <ChevronRight size={22} />
+                  <ChevronRight size={28} strokeWidth={2.5} />
                 </button>
                 {settings.estimatedTime && (
-                  <p className="text-center text-[10px] font-black uppercase tracking-widest opacity-60">Tempo estimado: {settings.estimatedTime} min</p>
+                  <div className="flex items-center justify-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] opacity-50">
+                    <Clock size={14} />
+                    <span>Tempo estimado: {settings.estimatedTime} min</span>
+                  </div>
                 )}
               </div>
             )}
