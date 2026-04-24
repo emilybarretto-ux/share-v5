@@ -660,12 +660,12 @@ export const ViewSecret = ({ id, user, onBack, setScreen }: ViewSecretProps) => 
       <div key="revealed-content" className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden mx-auto">
         <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="size-12 rounded-2xl bg-green-600 text-white flex items-center justify-center">
+            <div className="size-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20">
               <ShieldCheck size={24} />
             </div>
             <h2 className="text-xl font-bold text-slate-900 dark:text-white">Conteúdo Revelado</h2>
           </div>
-          <button onClick={onBack} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400"><X size={20} /></button>
+          <button onClick={onBack} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400 transition-colors"><X size={20} /></button>
         </div>
 
         <div className="p-8 space-y-6" translate="no">
@@ -680,13 +680,35 @@ export const ViewSecret = ({ id, user, onBack, setScreen }: ViewSecretProps) => 
                 )}
                 
                 {(secret as any).key_values && (
-                  <div className="space-y-3">
-                    {Object.entries((secret as any).key_values).map(([key, value]: [string, any]) => (
-                      <div key={key} className="flex flex-col p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-border-base">
-                        <span className="text-[10px] font-black uppercase text-slate-400 mb-1">{key}</span>
-                        <span className="font-mono text-sm break-all text-slate-700 dark:text-slate-300">{String(value)}</span>
-                      </div>
-                    ))}
+                  <div className="grid gap-3">
+                    {(() => {
+                      const kv = (secret as any).key_values;
+                      const pairs = Array.isArray(kv) ? kv : (typeof kv === 'object' ? Object.entries(kv).map(([k, v]) => ({ key: k, value: String(v) })) : []);
+                      
+                      return pairs.map((pair: any, idx: number) => {
+                        // Se por algum motivo o par ainda for um objeto mas não tiver key/value amigável
+                        const displayKey = pair.key || `Campo ${idx + 1}`;
+                        const displayValue = typeof pair.value === 'object' ? JSON.stringify(pair.value) : String(pair.value);
+
+                        return (
+                          <div key={idx} className="flex flex-col p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 group relative transition-all hover:border-blue-500/30">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider font-sans">{displayKey}</span>
+                              <button 
+                                onClick={() => {
+                                  navigator.clipboard.writeText(displayValue);
+                                  showNotification(`Copiado: ${displayKey}`, 'success');
+                                }}
+                                className="p-1 px-2 bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[10px] font-black rounded uppercase opacity-0 group-hover:opacity-100 transition-all hover:bg-blue-500 hover:text-white"
+                              >
+                                Copiar
+                              </button>
+                            </div>
+                            <span className="font-mono text-sm break-all text-slate-700 dark:text-slate-200 pr-12">{displayValue}</span>
+                          </div>
+                        );
+                      });
+                    })()}
                   </div>
                 )}
               </>
@@ -741,10 +763,10 @@ export const ViewSecret = ({ id, user, onBack, setScreen }: ViewSecretProps) => 
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans overflow-x-hidden">
       <ScreenProtector active={isUnlocked && !loading && !hasBurned && !error}>
         <div className="min-h-screen py-12 px-4 flex items-center justify-center">
-          <div className="w-full max-w-4xl flex items-center justify-center">
+          <div className="w-full max-w-4xl mx-auto flex flex-col items-center">
             {renderContent()}
           </div>
         </div>
