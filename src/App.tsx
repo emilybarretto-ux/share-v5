@@ -1245,24 +1245,24 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
           )}
 
           {screen === 'view-secret' && (
-            <motion.div key="view-secret-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <div key="view-secret-screen">
               <ViewSecret 
                 id={viewingSecretId} 
                 user={user}
                 onBack={() => { window.history.pushState({}, '', '/'); setScreen('home'); }} 
                 setScreen={setScreen as any}
               />
-            </motion.div>
+            </div>
           )}
 
           {screen === 'fill-request' && (
-            <motion.div key="fill-request-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <div key="fill-request-screen">
               <FillRequest 
                 id={fillingRequestId} 
                 user={user}
                 onSuccess={() => { window.history.pushState({}, '', '/'); setScreen('home'); }} 
               />
-            </motion.div>
+            </div>
           )}
 
           {screen === 'create-request' && (

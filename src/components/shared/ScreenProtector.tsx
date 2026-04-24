@@ -88,7 +88,7 @@ export const ScreenProtector: React.FC<ScreenProtectorProps> = ({ children, acti
     <div className="relative w-full h-full">
       {/* Conteúdo protegido com CSS Anti-Seleção */}
       <div 
-        className={`w-full h-full transition-all duration-75 ${isProtected ? 'blur-[80px] grayscale opacity-0' : 'blur-0 opacity-100'} select-none privacy-screen-content`}
+        className={`w-full h-full transition-all duration-300 ${isProtected ? 'blur-[80px] grayscale opacity-0' : 'blur-0 opacity-100'} select-none privacy-screen-content`}
         style={{ 
           userSelect: 'none', 
           WebkitUserSelect: 'none', 
@@ -99,44 +99,39 @@ export const ScreenProtector: React.FC<ScreenProtectorProps> = ({ children, acti
       </div>
 
       {/* Interface de Bloqueio (Overlay Absoluto) */}
-      <AnimatePresence>
-        {isProtected && (
-          <motion.div
-            initial={{ opacity: 1 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => {
-              setIsProtected(false);
-              document.body.classList.remove('privacy-active');
-            }}
-            className="fixed inset-0 z-[99999] bg-slate-950 flex flex-col items-center justify-center text-white p-6 text-center cursor-pointer"
-          >
-            <div className="relative mb-8">
-              <div className="absolute inset-0 bg-accent/20 blur-3xl rounded-full scale-150 animate-pulse" />
-              <div className="relative size-24 bg-accent/10 border border-accent/20 rounded-[2rem] flex items-center justify-center text-accent">
-                <Lock size={48} className="animate-bounce" />
-              </div>
+      {isProtected && (
+        <div
+          onClick={() => {
+            setIsProtected(false);
+            document.body.classList.remove('privacy-active');
+          }}
+          className="fixed inset-0 z-[99999] bg-slate-950 flex flex-col items-center justify-center text-white p-6 text-center cursor-pointer"
+        >
+          <div className="relative mb-8">
+            <div className="absolute inset-0 bg-accent/20 blur-3xl rounded-full scale-150 animate-pulse" />
+            <div className="relative size-24 bg-accent/10 border border-accent/20 rounded-[2rem] flex items-center justify-center text-accent">
+              <Lock size={48} className="animate-bounce" />
             </div>
-            
-            <h2 className="text-3xl font-black uppercase tracking-tighter mb-4 italic">
-              CONTEÚDO <span className="text-accent">PROTEGIDO</span>
-            </h2>
-            
-            <div className="flex flex-col items-center gap-2 max-w-sm">
-              <div className="flex items-center gap-2 px-4 py-1 bg-green-500/10 text-green-500 rounded-full border border-green-500/20 mb-2">
-                <ShieldCheck size={16} />
-                <span className="text-[10px] font-bold uppercase tracking-widest">Segurança de Camada 4 Ativada</span>
-              </div>
-              <p className="text-slate-400 text-sm leading-relaxed">
-                Por motivos de segurança e privacidade, este conteúdo não pode ser capturado ou visualizado fora do foco da aplicação.
-              </p>
-              <p className="text-accent text-[10px] font-bold uppercase mt-4 animate-pulse">
-                Clique na janela para retomar o acesso
-              </p>
+          </div>
+          
+          <h2 className="text-3xl font-black uppercase tracking-tighter mb-4 italic">
+            CONTEÚDO <span className="text-accent">PROTEGIDO</span>
+          </h2>
+          
+          <div className="flex flex-col items-center gap-2 max-w-sm">
+            <div className="flex items-center gap-2 px-4 py-1 bg-green-500/10 text-green-500 rounded-full border border-green-500/20 mb-2">
+              <ShieldCheck size={16} />
+              <span className="text-[10px] font-bold uppercase tracking-widest">Segurança de Camada 4 Ativada</span>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            <p className="text-slate-400 text-sm leading-relaxed">
+              Por motivos de segurança e privacidade, este conteúdo não pode ser capturado ou visualizado fora do foco da aplicação.
+            </p>
+            <p className="text-accent text-[10px] font-bold uppercase mt-4 animate-pulse">
+              Clique na janela para retomar o acesso
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
