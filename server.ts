@@ -260,6 +260,20 @@ async function startServer() {
         .single();
 
       if (error || !data) return res.status(404).json({ error: 'Segredo não encontrado' });
+
+      // SEGURANÇA: Se houver senha, verificar se foi fornecida
+      const providedPassword = req.headers['x-secret-password'] || req.query.password;
+      
+      if (data.password && data.password !== providedPassword) {
+        // Retornar metadados, mas ocultar o conteúdo sensível
+        const { content, password, ...metadata } = data;
+        return res.status(403).json({ 
+          error: 'Este segredo é protegido por senha.', 
+          requires_password: true,
+          metadata 
+        });
+      }
+
       res.json(data);
     } catch (err: any) {
       res.status(500).json({ error: err.message });

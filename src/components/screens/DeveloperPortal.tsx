@@ -178,11 +178,14 @@ export const DeveloperPortal = ({ setScreen }: { setScreen: (s: any) => void }) 
       method: 'GET',
       path: '/api/v1/secrets/:id',
       title: 'Ver Detalhes do Segredo',
-      description: 'Recupera os dados completos de um segredo específico. O conteúdo é descriptografado se a senha estiver correta.',
+      description: 'Recupera os dados completos de um segredo específico. Se o segredo possuir senha, você deve enviá-la no header X-Secret-Password ou via query.',
       auth: true,
-      params: { id: { type: 'string', required: true, description: 'ID único do segredo' } },
+      params: { id: { type: 'string', required: true, description: 'ID único do segredo', example: '' } },
+      headers: {
+        'X-Secret-Password': { type: 'string', required: false, description: 'Senha de acesso (se definida na criação)' }
+      },
       query: { 
-        password: { type: 'string', required: false, description: 'Senha de acesso (se definida na criação)' } 
+        password: { type: 'string', required: false, description: 'Alternativa ao header para enviar a senha' } 
       },
       scopes: ['secrets:read']
     },
@@ -253,6 +256,11 @@ export const DeveloperPortal = ({ setScreen }: { setScreen: (s: any) => void }) 
           ...requestHeaders
         }
       };
+
+      // Add headers from input
+      Object.keys(requestHeaders).forEach(key => {
+        if (requestHeaders[key]) (options.headers as any)[key] = requestHeaders[key];
+      });
 
       if (endpoint.auth && testToken) {
         (options.headers as any)['Authorization'] = `Bearer ${testToken}`;
@@ -635,41 +643,53 @@ export const DeveloperPortal = ({ setScreen }: { setScreen: (s: any) => void }) 
                               
                               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                                 <div className="space-y-4">
-                                  {/* Headers (Standard for API) */}
-                                  <div className="space-y-3">
-                                    <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Cabeçalhos (Headers)</h5>
-                                    <div className="space-y-2">
-                                      <div className="flex flex-col gap-1">
-                                        <div className="flex items-center gap-2">
-                                          <span className="text-xs font-mono text-emerald-400">Content-Type</span>
-                                          <span className="text-[8px] font-black text-slate-600 uppercase">Fixo</span>
-                                        </div>
-                                        <div className="bg-black/20 p-2 rounded-xl border border-white/5 opacity-50">
-                                          <code className="text-xs text-white">application/json</code>
-                                        </div>
-                                      </div>
-                                      
-                                      {ep.auth && (
+                                  {/* Headers (Input for custom headers like X-Secret-Password) */}
+                                  {(ep.headers || ep.auth) && (
+                                    <div className="space-y-3">
+                                      <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Cabeçalhos (Headers)</h5>
+                                      <div className="space-y-2">
                                         <div className="flex flex-col gap-1">
                                           <div className="flex items-center gap-2">
-                                            <span className="text-xs font-mono text-indigo-400">Authorization</span>
-                                            <span className="text-[8px] font-black text-red-500 uppercase">Obrigatório</span>
+                                            <span className="text-xs font-mono text-emerald-400">Content-Type</span>
+                                            <span className="text-[8px] font-black text-slate-600 uppercase">Fixo</span>
                                           </div>
-                                          <div className="bg-black/20 p-2 rounded-xl border border-accent/30 flex items-center gap-2">
-                                            <span className="text-[10px] text-slate-500 font-mono">Bearer</span>
-                                            <input 
-                                              type="text" 
-                                              value={testToken}
-                                              readOnly
-                                              placeholder="Token não gerado"
-                                              className="bg-transparent border-none outline-none text-[10px] text-white font-mono flex-1 truncate"
-                                            />
+                                          <div className="bg-black/20 p-2 rounded-xl border border-white/5 opacity-50">
+                                            <code className="text-xs text-white">application/json</code>
                                           </div>
-                                          {!testToken && <p className="text-[9px] text-amber-500">Gere um token na aba anterior primeiro.</p>}
                                         </div>
-                                      )}
+                                        
+                                        {ep.auth && (
+                                          <div className="flex flex-col gap-1">
+                                            <div className="flex items-center gap-2">
+                                              <span className="text-xs font-mono text-indigo-400">Authorization</span>
+                                              <span className="text-[8px] font-black text-red-500 uppercase">Obrigatório</span>
+                                            </div>
+                                            <div className="bg-black/20 p-2 rounded-xl border border-accent/20 flex items-center gap-2">
+                                              <span className="text-[10px] text-slate-300 font-mono">Bearer</span>
+                                              <span className="text-[10px] text-white font-mono flex-1 truncate">{testToken || 'Token ausente'}</span>
+                                            </div>
+                                          </div>
+                                        )}
+
+                                        {ep.headers && Object.entries(ep.headers).map(([key, val]: [string, any]) => (
+                                          <div key={key} className="flex flex-col gap-1">
+                                            <div className="flex items-center gap-2">
+                                              <span className="text-xs font-mono text-indigo-400">{key}</span>
+                                              {val.required && <span className="text-[8px] font-black text-red-500 uppercase">Obrigatório</span>}
+                                            </div>
+                                            <div className="bg-black/20 p-2 rounded-xl border border-white/10 focus-within:border-accent/40">
+                                              <input 
+                                                type="text" 
+                                                placeholder={val.description}
+                                                onChange={(e) => setRequestHeaders(prev => ({ ...prev, [key]: e.target.value }))}
+                                                className="bg-transparent border-none outline-none text-xs text-white p-1 flex-1"
+                                              />
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
                                     </div>
-                                  </div>
+                                  )}
 
                                   {/* Parameters */}
                                   {(ep.params || ep.query) && (
