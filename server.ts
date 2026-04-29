@@ -139,14 +139,107 @@ async function startServer() {
     const supabase = createClient(supabaseUrl, serviceKey);
 
     try {
-      const payload = { ...req.body, user_id: req.apiClient.userId };
+      const { 
+        name, 
+        content, 
+        password, 
+        expiration_hours, 
+        max_views, 
+        is_burn_on_read,
+        restrict_ip,
+        require_email,
+        allowed_email,
+        allowed_domain,
+        notify_access,
+        redirect_url
+      } = req.body;
+      
+      const payload: any = { 
+        name: name || 'Segredo sem nome',
+        content,
+        password: password || null,
+        max_views: is_burn_on_read ? 1 : (max_views || null),
+        restrict_ip: !!restrict_ip,
+        require_email: !!require_email,
+        allowed_email: allowed_email || null,
+        allowed_domain: allowed_domain || null,
+        notify_access: !!notify_access,
+        redirect_url: redirect_url || null,
+        user_id: req.apiClient.userId,
+        status: 'active'
+      };
+
+      if (expiration_hours) {
+        const expiresAt = new Date();
+        expiresAt.setHours(expiresAt.getHours() + Number(expiration_hours));
+        payload.expires_at = expiresAt.toISOString();
+      }
+
       const { data, error } = await supabase
         .from('secrets')
         .insert([payload])
         .select();
 
       if (error) throw error;
-      res.status(201).json(data[0]);
+      
+      const result = data[0];
+      const protocol = req.headers['x-forwarded-proto'] || 'https';
+      const host = req.headers.host;
+      const origin = `${protocol}://${host}`;
+
+      res.status(201).json({
+        ...result,
+        share_url: `${origin}/?id=${result.id}`
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST: Criar solicitação de dados (CRUD - Create)
+  app.post('/api/v1/requests', verifyAPIToken('secrets:write'), async (req: any, res) => {
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+    const supabase = createClient(supabaseUrl, serviceKey);
+
+    try {
+      const { 
+        title, 
+        description, 
+        expiration_hours 
+      } = req.body;
+      
+      const expiresAt = new Date();
+      if (expiration_hours) {
+        expiresAt.setHours(expiresAt.getHours() + Number(expiration_hours));
+      } else {
+        expiresAt.setHours(expiresAt.getHours() + 24);
+      }
+
+      const payload = { 
+        title,
+        description,
+        expires_at: expiresAt.toISOString(),
+        user_id: req.apiClient.userId,
+        status: 'active'
+      };
+      
+      const { data, error } = await supabase
+        .from('requests')
+        .insert([payload])
+        .select();
+
+      if (error) throw error;
+      
+      const result = data[0];
+      const protocol = req.headers['x-forwarded-proto'] || 'https';
+      const host = req.headers.host;
+      const origin = `${protocol}://${host}`;
+
+      res.status(201).json({
+        ...result,
+        share_url: `${origin}/?request=${result.id}`
+      });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -180,9 +273,36 @@ async function startServer() {
     const supabase = createClient(supabaseUrl, serviceKey);
 
     try {
+      const { 
+        name, 
+        content, 
+        password, 
+        max_views, 
+        status,
+        restrict_ip,
+        require_email,
+        allowed_email,
+        allowed_domain,
+        notify_access,
+        redirect_url
+      } = req.body;
+
+      const updatePayload: any = {};
+      if (name !== undefined) updatePayload.name = name;
+      if (content !== undefined) updatePayload.content = content;
+      if (password !== undefined) updatePayload.password = password;
+      if (max_views !== undefined) updatePayload.max_views = max_views;
+      if (status !== undefined) updatePayload.status = status;
+      if (restrict_ip !== undefined) updatePayload.restrict_ip = restrict_ip;
+      if (require_email !== undefined) updatePayload.require_email = require_email;
+      if (allowed_email !== undefined) updatePayload.allowed_email = allowed_email;
+      if (allowed_domain !== undefined) updatePayload.allowed_domain = allowed_domain;
+      if (notify_access !== undefined) updatePayload.notify_access = notify_access;
+      if (redirect_url !== undefined) updatePayload.redirect_url = redirect_url;
+
       const { data, error } = await supabase
         .from('secrets')
-        .update(req.body)
+        .update(updatePayload)
         .eq('id', req.params.id)
         .eq('user_id', req.apiClient.userId)
         .select();

@@ -71,6 +71,8 @@ export default async function handler(req: any, res: any) {
         status: 'active'
       };
       
+      console.log('Inserting payload to requests:', JSON.stringify(payload));
+      
       const { data, error } = await supabase
         .from('requests')
         .insert([payload])

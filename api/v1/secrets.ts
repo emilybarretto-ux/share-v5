@@ -105,19 +105,20 @@ export default async function handler(req: any, res: any) {
         redirect_url
       } = req.body;
       
-      const payload: any = { 
+      const payload = { 
         name: name || 'Segredo sem nome',
-        content,
-        password, // Note: If the client sends a plain password, it should ideally be hashed here if not using the same logic as App.tsx
-        max_views: is_burn_on_read ? 1 : max_views,
-        restrict_ip,
-        require_email,
-        allowed_email,
-        allowed_domain,
-        notify_access,
-        redirect_url,
+        content: content,
+        password: password || null,
+        max_views: is_burn_on_read ? 1 : (max_views || null),
+        restrict_ip: !!restrict_ip,
+        require_email: !!require_email,
+        allowed_email: allowed_email || null,
+        allowed_domain: allowed_domain || null,
+        notify_access: !!notify_access,
+        redirect_url: redirect_url || null,
         user_id: apiClient.userId,
-        status: 'active'
+        status: 'active',
+        expires_at: undefined as string | undefined
       };
 
       if (expiration_hours) {
@@ -125,6 +126,8 @@ export default async function handler(req: any, res: any) {
         expiresAt.setHours(expiresAt.getHours() + Number(expiration_hours));
         payload.expires_at = expiresAt.toISOString();
       }
+
+      console.log('Inserting payload to secrets:', JSON.stringify(payload));
 
       const { data, error } = await supabase
         .from('secrets')
