@@ -28,8 +28,16 @@ export default async function handler(req: any, res: any) {
     return res.status(400).json({ error: 'clientId e clientSecret são obrigatórios' });
   }
 
-  const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+  const supabaseUrl = process.env.VITE_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !serviceKey) {
+    return res.status(500).json({ 
+      error: 'Configuração do servidor incompleta', 
+      details: 'As variáveis de ambiente do Supabase não foram encontradas no Vercel.' 
+    });
+  }
+
   const supabase = createClient(supabaseUrl, serviceKey);
 
   try {
@@ -39,12 +47,16 @@ export default async function handler(req: any, res: any) {
       .eq('client_id', clientId)
       .single();
 
-    if (error || !client) {
-      return res.status(401).json({ error: 'Credenciais inválidas' });
+    if (error) {
+      console.error('Supabase Error:', error);
+      return res.status(401).json({ 
+        error: 'Credenciais inválidas', 
+        details: error.message.includes('JSON object') ? 'App não encontrado' : error.message 
+      });
     }
 
-    if (client.client_secret !== clientSecret) {
-      return res.status(401).json({ error: 'Credenciais inválidas' });
+    if (!client || client.client_secret !== clientSecret) {
+      return res.status(401).json({ error: 'Credenciais inválidas', details: 'Client ID ou Secret incorretos' });
     }
 
     const token = jwt.sign(
