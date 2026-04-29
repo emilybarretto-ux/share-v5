@@ -77,7 +77,15 @@ export default async function handler(req: any, res: any) {
         .select();
 
       if (error) throw error;
-      return res.status(201).json(data ? data[0] : {});
+      const result = data ? data[0] : {};
+      const protocol = req.headers['x-forwarded-proto'] || 'https';
+      const host = req.headers.host;
+      const origin = `${protocol}://${host}`;
+
+      return res.status(201).json({
+        ...result,
+        share_url: `${origin}/?request=${result.id}`
+      });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
     }
