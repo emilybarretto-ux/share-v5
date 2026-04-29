@@ -2,6 +2,22 @@
   "version": 2,
   "rewrites": [
     {
+      "source": "/api/auth/token",
+      "destination": "/api/auth/token.ts"
+    },
+    {
+      "source": "/api/v1/secrets/:id",
+      "destination": "/api/v1/secrets.ts?id=:id"
+    },
+    {
+      "source": "/api/v1/secrets",
+      "destination": "/api/v1/secrets.ts"
+    },
+    {
+      "source": "/api/v1/requests",
+      "destination": "/api/v1/requests.ts"
+    },
+    {
       "source": "/api/create-secret",
       "destination": "/api/create-secret.ts"
     },
