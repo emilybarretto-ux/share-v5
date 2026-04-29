@@ -3,15 +3,19 @@ import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'bold-share-secret-key-123';
 
-const verifyToken = (authHeader: string | undefined) => {
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return null;
+const verifyToken = (authHeader: string | undefined | string[]) => {
+  const header = Array.isArray(authHeader) ? authHeader[0] : authHeader;
+  if (!header) return { error: 'Cabeçalho Authorization ausente' };
+
+  let token = header;
+  if (header.toLowerCase().startsWith('bearer ')) {
+    token = header.slice(7).trim();
   }
-  const token = authHeader.split(' ')[1];
+
   try {
     return jwt.verify(token, JWT_SECRET) as any;
-  } catch (err) {
-    return null;
+  } catch (err: any) {
+    return { error: err.message };
   }
 };
 
@@ -29,9 +33,11 @@ export default async function handler(req: any, res: any) {
     return res.status(200).end();
   }
 
-  const apiClient = verifyToken(req.headers.authorization);
-  if (!apiClient) {
-    return res.status(401).json({ error: 'Token inválido ou ausente' });
+  const rawHeader = req.headers.authorization || req.headers.Authorization;
+  const apiClient = verifyToken(rawHeader);
+
+  if (apiClient.error) {
+    return res.status(401).json({ error: 'Token inválido ou ausente', details: apiClient.error });
   }
 
   const supabaseUrl = process.env.VITE_SUPABASE_URL || '';

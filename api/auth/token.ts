@@ -24,6 +24,8 @@ export default async function handler(req: any, res: any) {
 
   const { clientId, clientSecret } = req.body;
 
+  console.log('Tentando autenticar app:', clientId);
+
   if (!clientId || !clientSecret) {
     return res.status(400).json({ error: 'clientId e clientSecret são obrigatórios' });
   }
@@ -38,22 +40,23 @@ export default async function handler(req: any, res: any) {
     });
   }
 
+  const isUsingServiceRole = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
   const supabase = createClient(supabaseUrl, serviceKey);
 
   try {
     const { data: client, error } = await supabase
       .from('api_apps')
       .select('*')
-      .eq('client_id', clientId)
+      .eq('client_id', clientId.trim())
       .single();
 
     if (error) {
       console.error('Supabase Error:', error);
-      // PGRST116 is the code for "no rows returned" when using .single()
       const isNotFound = error.code === 'PGRST116';
       return res.status(401).json({ 
         error: 'Credenciais inválidas', 
-        details: isNotFound ? 'Cliente ID não encontrado no banco de dados' : error.message,
+        details: isNotFound ? `App "${clientId}" não encontrado.` : error.message,
+        hint: isUsingServiceRole ? 'Verifique o RLS no Supabase.' : 'Faltando SERVICE_ROLE_KEY no Vercel.',
         code: error.code
       });
     }

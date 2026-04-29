@@ -1058,25 +1058,55 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
               <span className="font-bold text-xl hidden sm:block">Bold Share</span>
             </div>
             <div className="flex items-center gap-6 ml-4">
-              <button onClick={() => setScreen('home')} className="text-sm font-bold text-text-secondary hover:text-accent">Início</button>
-              <button onClick={() => navigateWithAuth('dashboard')} className="text-sm font-bold text-text-secondary hover:text-accent">Dashboard</button>
-              <button onClick={() => navigateWithAuth('form-builder')} className="text-sm font-bold text-text-secondary hover:text-accent">Construtor</button>
-              <button onClick={() => navigateWithAuth('create-request')} className="text-sm font-bold text-text-secondary hover:text-accent">Solicitação</button>
+              <button 
+                onClick={() => setScreen('home')} 
+                className={`text-sm font-bold transition-colors ${screen === 'home' ? 'text-accent' : 'text-text-secondary hover:text-accent'}`}
+              >
+                Início
+              </button>
+              <button 
+                onClick={() => setScreen('how-it-works')} 
+                className={`text-sm font-bold transition-colors ${screen === 'how-it-works' ? 'text-accent' : 'text-text-secondary hover:text-accent'}`}
+              >
+                Como Funciona
+              </button>
+              <button 
+                onClick={() => setScreen('security')} 
+                className={`text-sm font-bold transition-colors ${screen === 'security' ? 'text-accent' : 'text-text-secondary hover:text-accent'}`}
+              >
+                Segurança
+              </button>
+              <button 
+                onClick={() => navigateWithAuth('create-request')} 
+                className={`text-sm font-bold transition-colors ${screen === 'create-request' || screen === 'request-success' ? 'text-accent' : 'text-text-secondary hover:text-accent'}`}
+              >
+                Solicitação
+              </button>
+              <button 
+                onClick={() => navigateWithAuth('form-builder')} 
+                className={`text-sm font-bold transition-colors ${screen === 'form-builder' ? 'text-accent' : 'text-text-secondary hover:text-accent'}`}
+              >
+                Construtor
+              </button>
+              <button 
+                onClick={() => navigateWithAuth('dashboard')} 
+                className={`text-sm font-bold transition-colors ${screen === 'dashboard' ? 'text-accent' : 'text-text-secondary hover:text-accent'}`}
+              >
+                Dashboard
+              </button>
               <button 
                 onClick={() => {
                   if (!user) {
                     setScreen('login');
                   } else {
-                    setScreen('developer-portal' as any);
+                    setScreen('developer-portal');
                     window.history.pushState({}, '', '/developers');
                   }
                 }} 
-                className="text-sm font-bold text-accent hover:text-accent/80"
+                className={`text-sm font-bold transition-colors ${screen === 'developer-portal' ? 'text-accent' : 'text-text-secondary hover:text-accent'}`}
               >
                 API/Developers
               </button>
-              <button onClick={() => setScreen('security')} className="text-sm font-bold text-text-secondary hover:text-accent">Segurança</button>
-              <button onClick={() => setScreen('how-it-works')} className="text-sm font-bold text-text-secondary hover:text-accent truncate max-w-[100px] sm:max-w-none">Como Funciona</button>
             </div>
           </div>
           <div className="flex items-center gap-4">

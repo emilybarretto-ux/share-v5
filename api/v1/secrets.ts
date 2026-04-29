@@ -3,15 +3,29 @@ import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'bold-share-secret-key-123';
 
-const verifyToken = (authHeader: string | undefined) => {
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return null;
+const verifyToken = (authHeader: string | undefined | string[]) => {
+  const header = Array.isArray(authHeader) ? authHeader[0] : authHeader;
+  
+  if (!header) {
+    return { error: 'Cabeçalho Authorization ausente' };
   }
-  const token = authHeader.split(' ')[1];
+
+  // Tenta extrair o token removendo "Bearer " (case-insensitive)
+  let token = header;
+  if (header.toLowerCase().startsWith('bearer ')) {
+    token = header.slice(7).trim();
+  }
+
+  if (!token || token === 'undefined' || token === 'null') {
+    return { error: 'Token não encontrado no cabeçalho' };
+  }
+
   try {
-    return jwt.verify(token, JWT_SECRET) as any;
-  } catch (err) {
-    return null;
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    return decoded;
+  } catch (err: any) {
+    console.error('Erro na verificação do JWT:', err.message);
+    return { error: `JWT Error: ${err.message}` };
   }
 };
 
@@ -29,9 +43,16 @@ export default async function handler(req: any, res: any) {
     return res.status(200).end();
   }
 
-  const apiClient = verifyToken(req.headers.authorization);
-  if (!apiClient) {
-    return res.status(401).json({ error: 'Token inválido ou ausente' });
+  // Pega o header de forma robusta
+  const rawHeader = req.headers.authorization || req.headers.Authorization;
+  const apiClient = verifyToken(rawHeader);
+  
+  if (apiClient.error) {
+    return res.status(401).json({ 
+      error: 'Autenticação falhou', 
+      details: apiClient.error,
+      hint: 'Certifique-se de que o cabeçalho Authorization contém "Bearer SEU_TOKEN"'
+    });
   }
 
   const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
