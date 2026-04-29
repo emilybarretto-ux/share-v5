@@ -220,8 +220,7 @@ export const DeveloperPortal = ({ setScreen }: { setScreen: (s: any) => void }) 
       body: {
         title: { type: 'string', required: true, example: 'Documentos para Onboarding', description: 'Título da solicitação' },
         description: { type: 'string', required: false, example: 'Favor enviar o RG e CPF.', description: 'Instruções para quem for enviar os dados' },
-        expiration_hours: { type: 'number', required: false, example: 48, description: 'Expiração do link (em horas). Sugestões: 1, 24, 168.' },
-        is_file_required: { type: 'boolean', required: false, example: true, description: 'Obrigatório o envio de anexo?' }
+        expiration_hours: { type: 'number', required: false, example: 48, description: 'Expiração do link (em horas). Sugestões: 1, 24, 168.' }
       }
     }
   ];

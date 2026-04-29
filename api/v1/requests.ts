@@ -49,7 +49,11 @@ export default async function handler(req: any, res: any) {
       return res.status(403).json({ error: 'Escopo insuficiente' });
     }
     try {
-      const { expiration_hours, ...rest } = req.body;
+      const { 
+        title, 
+        description, 
+        expiration_hours 
+      } = req.body;
       
       const expiresAt = new Date();
       if (expiration_hours) {
@@ -60,7 +64,8 @@ export default async function handler(req: any, res: any) {
       }
 
       const payload = { 
-        ...rest, 
+        title,
+        description,
         expires_at: expiresAt.toISOString(),
         user_id: apiClient.userId,
         status: 'active'

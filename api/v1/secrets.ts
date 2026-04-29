@@ -90,11 +90,34 @@ export default async function handler(req: any, res: any) {
       return res.status(403).json({ error: 'Escopo insuficiente (secrets:write necessário)' });
     }
     try {
-      const { expiration_hours, ...rest } = req.body;
+      const { 
+        name, 
+        content, 
+        password, 
+        expiration_hours, 
+        max_views, 
+        is_burn_on_read,
+        restrict_ip,
+        require_email,
+        allowed_email,
+        allowed_domain,
+        notify_access,
+        redirect_url
+      } = req.body;
       
       const payload: any = { 
-        ...rest, 
-        user_id: apiClient.userId 
+        name: name || 'Segredo sem nome',
+        content,
+        password, // Note: If the client sends a plain password, it should ideally be hashed here if not using the same logic as App.tsx
+        max_views: is_burn_on_read ? 1 : max_views,
+        restrict_ip,
+        require_email,
+        allowed_email,
+        allowed_domain,
+        notify_access,
+        redirect_url,
+        user_id: apiClient.userId,
+        status: 'active'
       };
 
       if (expiration_hours) {
