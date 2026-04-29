@@ -49,11 +49,23 @@ export default async function handler(req: any, res: any) {
       return res.status(403).json({ error: 'Escopo insuficiente' });
     }
     try {
+      const { expiration_hours, ...rest } = req.body;
+      
+      const expiresAt = new Date();
+      if (expiration_hours) {
+        expiresAt.setHours(expiresAt.getHours() + Number(expiration_hours));
+      } else {
+        // Default to 24h if not provided
+        expiresAt.setHours(expiresAt.getHours() + 24);
+      }
+
       const payload = { 
-        ...req.body, 
+        ...rest, 
+        expires_at: expiresAt.toISOString(),
         user_id: apiClient.userId,
-        status: 'pending'
+        status: 'active'
       };
+      
       const { data, error } = await supabase
         .from('requests')
         .insert([payload])

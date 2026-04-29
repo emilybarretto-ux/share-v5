@@ -90,7 +90,19 @@ export default async function handler(req: any, res: any) {
       return res.status(403).json({ error: 'Escopo insuficiente (secrets:write necessário)' });
     }
     try {
-      const payload = { ...req.body, user_id: apiClient.userId };
+      const { expiration_hours, ...rest } = req.body;
+      
+      const payload: any = { 
+        ...rest, 
+        user_id: apiClient.userId 
+      };
+
+      if (expiration_hours) {
+        const expiresAt = new Date();
+        expiresAt.setHours(expiresAt.getHours() + Number(expiration_hours));
+        payload.expires_at = expiresAt.toISOString();
+      }
+
       const { data, error } = await supabase
         .from('secrets')
         .insert([payload])

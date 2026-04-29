@@ -198,7 +198,7 @@ export const DeveloperPortal = ({ setScreen }: { setScreen: (s: any) => void }) 
         name: { type: 'string', required: true, example: 'Minha API Key', description: 'Nome identificador do segredo' },
         content: { type: 'string', required: true, example: 'v-secret-123', description: 'O valor sensível que será armazenado' },
         password: { type: 'string', required: false, description: 'Senha adicional para acesso (Opcional)' },
-        expiration_hours: { type: 'number', required: false, example: 24, description: 'Prazo de validade. Opções aceitas: 1 (1h), 24 (24h), 168 (7 dias).' },
+        expiration_hours: { type: 'number', required: false, example: 24, description: 'Prazo de validade em horas. Opções sugeridas: 1, 24, 168 (7 dias).' },
         max_views: { type: 'number', required: false, example: 1, description: 'Limite de visualizações. Use 1 para garantir acesso único.' },
         is_burn_on_read: { type: 'boolean', required: false, example: true, description: 'Acesso Único Automático: Se true, o segredo é deletado imediatamente após a primeira leitura.' },
         restrict_ip: { type: 'boolean', required: false, example: false, description: 'Se true, apenas o seu IP atual poderá acessar' },
@@ -220,7 +220,7 @@ export const DeveloperPortal = ({ setScreen }: { setScreen: (s: any) => void }) 
       body: {
         title: { type: 'string', required: true, example: 'Documentos para Onboarding', description: 'Título da solicitação' },
         description: { type: 'string', required: false, example: 'Favor enviar o RG e CPF.', description: 'Instruções para quem for enviar os dados' },
-        expiration_hours: { type: 'number', required: false, example: 48, description: 'Prazo de expiração do link em horas. Recomendado: 24, 48 ou 168 (7 dias).' },
+        expiration_hours: { type: 'number', required: false, example: 48, description: 'Expiração do link (em horas). Sugestões: 1, 24, 168.' },
         is_file_required: { type: 'boolean', required: false, example: true, description: 'Obrigatório o envio de anexo?' }
       }
     }
@@ -799,24 +799,24 @@ export const DeveloperPortal = ({ setScreen }: { setScreen: (s: any) => void }) 
                   <div className="space-y-6 bg-white/5 p-8 rounded-3xl border border-white/10">
                     <h4 className="text-xl font-bold text-white flex items-center gap-3">
                       <Zap size={24} className="text-accent" />
-                      No n8n
+                      No n8n (HTTP Request)
                     </h4>
                     <ul className="space-y-4 text-sm text-slate-400">
                       <li className="flex gap-3">
                         <span className="text-accent font-black">1.</span>
-                        <span>Use o nó <strong>HTTP Request</strong>.</span>
+                        <span>Selecione <strong>Authentication: None</strong> se for injetar o header manualmente.</span>
                       </li>
                       <li className="flex gap-3">
                         <span className="text-accent font-black">2.</span>
-                        <span>Em Authentication, selecione <strong>Predefined Credential Type</strong>.</span>
+                        <span>Ou em <strong>Authentication</strong>, mude para <strong>Predefined Credential Type</strong>.</span>
                       </li>
                       <li className="flex gap-3">
                         <span className="text-accent font-black">3.</span>
-                        <span>Escolha <strong>Header Auth</strong>.</span>
+                        <span>Escolha <strong>Header Auth</strong>. Nome: <code className="text-white">Authorization</code>. Valor: <code className="text-white">Bearer SEU_TOKEN</code></span>
                       </li>
                       <li className="flex gap-3">
                         <span className="text-accent font-black">4.</span>
-                        <span>Nome: <code className="text-white">Authorization</code> | Valor: <code className="text-white">Bearer SeuToken</code></span>
+                        <span>Envie como <strong>Method: POST</strong> e <strong>Body Type: JSON</strong>.</span>
                       </li>
                     </ul>
                   </div>
