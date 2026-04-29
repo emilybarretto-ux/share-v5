@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import CryptoJS from 'crypto-js';
 import { createServer as createViteServer } from 'vite';
 import { createClient } from '@supabase/supabase-js';
 import path from 'path';
@@ -17,6 +18,30 @@ async function startServer() {
   app.use(cors());
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+  // HELPERS DE CRIPTO (Espelhando src/lib/crypto.ts)
+  const encryptData = (text: string, password: string) => {
+    if (!text) return '';
+    const cleanPassword = (password || '').trim();
+    // Usamos AES com a senha fornecida.
+    return CryptoJS.AES.encrypt(text, cleanPassword).toString();
+  };
+
+  const hashPassword = (password: string) => {
+    return CryptoJS.SHA256((password || '').trim()).toString();
+  };
+
+  const decryptData = (ciphertext: string, password: string) => {
+    try {
+      if (!ciphertext) return '';
+      const cleanPassword = (password || '').trim();
+      const bytes = CryptoJS.AES.decrypt(ciphertext, cleanPassword);
+      const originalText = bytes.toString(CryptoJS.enc.Utf8);
+      return originalText || ciphertext; // Fallback if decryption fails or wasn't encrypted
+    } catch (e) {
+      return ciphertext;
+    }
+  };
 
   // Log de requisições para depuração
   app.use((req, res, next) => {
@@ -50,7 +75,7 @@ async function startServer() {
         }
 
         next();
-      } catch (err) {
+      } catch (err: any) {
         return res.status(401).json({ error: 'Token inválido ou expirado' });
       }
     };
@@ -109,6 +134,51 @@ async function startServer() {
     }
   });
 
+  // Endpoint para atualizar o token (Refresh)
+  app.post('/api/auth/refresh', async (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Token não fornecido' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    try {
+      const decoded: any = jwt.verify(token, JWT_SECRET, { ignoreExpiration: true });
+      
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+      const supabase = createClient(supabaseUrl, serviceKey);
+      
+      const { data: client, error } = await supabase
+        .from('api_apps')
+        .select('*')
+        .eq('client_id', decoded.clientId)
+        .single();
+
+      if (error || !client) {
+        return res.status(401).json({ error: 'App inativo ou não encontrado' });
+      }
+
+      const newToken = jwt.sign(
+        { 
+          clientId: client.client_id, 
+          userId: client.user_id, 
+          scopes: client.scopes || ['read'] 
+        }, 
+        JWT_SECRET, 
+        { expiresIn: '24h' }
+      );
+
+      res.json({
+        access_token: newToken,
+        token_type: 'Bearer',
+        expires_in: 86400
+      });
+    } catch (err: any) {
+      res.status(401).json({ error: 'Token inválido' });
+    }
+  });
+
   // ==========================================
   // MODULE: EXTERNAL API CRUD (V1)
   // ==========================================
@@ -122,7 +192,7 @@ async function startServer() {
     try {
       const { data, error } = await supabase
         .from('secrets')
-        .select('*')
+        .select('id, name, status, views, created_at, expires_at, max_views, restrict_ip, require_email, notify_access, redirect_url')
         .eq('user_id', req.apiClient.userId);
 
       if (error) throw error;
@@ -154,10 +224,25 @@ async function startServer() {
         redirect_url
       } = req.body;
       
+      // VALIDAÇÃO: Se não há senha, deve haver allowed_email ou allowed_domain
+      const hasPassword = !!(password && password.trim());
+      const hasAccessRestriction = !!((allowed_email && allowed_email.trim()) || (allowed_domain && allowed_domain.trim()));
+      
+      if (!hasPassword && !hasAccessRestriction) {
+        return res.status(400).json({ 
+          error: 'Segurança insuficiente: Segredos sem senha devem possuir restrição por e-mail ou domínio para envio de Token.',
+          code: 'INSUFFICIENT_SECURITY'
+        });
+      }
+      
+      // CRIPTOGRAFIA: Só criptografar se houver senha, caso contrário manter original
+      const encryptedContent = password ? encryptData(content, password) : content;
+      const hashedPassword = password ? hashPassword(password) : null;
+
       const payload: any = { 
         name: name || 'Segredo sem nome',
-        content,
-        password: password || null,
+        content: encryptedContent,
+        password: hashedPassword,
         max_views: is_burn_on_read ? 1 : (max_views || null),
         restrict_ip: !!restrict_ip,
         require_email: !!require_email,
@@ -178,7 +263,7 @@ async function startServer() {
       const { data, error } = await supabase
         .from('secrets')
         .insert([payload])
-        .select();
+        .select('id, name, content, status, views, created_at, expires_at, max_views, restrict_ip, require_email, notify_access, redirect_url');
 
       if (error) throw error;
       
@@ -206,7 +291,7 @@ async function startServer() {
       const { 
         title, 
         description, 
-        expiration_hours 
+        expiration_hours
       } = req.body;
       
       const expiresAt = new Date();
@@ -261,11 +346,17 @@ async function startServer() {
 
       if (error || !data) return res.status(404).json({ error: 'Segredo não encontrado' });
 
-      // SEGURANÇA: Se houver senha, verificar se foi fornecida
-      const providedPassword = req.headers['x-secret-password'] || req.query.password;
+      // SEGURANÇA: Se houver senha, verificar se foi fornecida via HEADER (recomendado)
+      const providedPassword = req.headers['x-secret-password'];
+      const hashedProvided = providedPassword ? hashPassword(providedPassword as string) : null;
       
-      if (data.password && data.password !== providedPassword) {
-        // Retornar metadados, mas ocultar o conteúdo sensível
+      // Verificação de senha (suporta texto puro para legado ou hash para novos)
+      const isCorrectPassword = !data.password || 
+                               data.password === providedPassword || 
+                               data.password === hashedProvided;
+
+      if (!isCorrectPassword) {
+        // Retornar metadados, mas ocultar o conteúdo e a senha
         const { content, password, ...metadata } = data;
         return res.status(403).json({ 
           error: 'Este segredo é protegido por senha.', 
@@ -274,7 +365,14 @@ async function startServer() {
         });
       }
 
-      res.json(data);
+      // Se passou pela senha, descriptografar o conteúdo
+      if (data.password && providedPassword) {
+        data.content = decryptData(data.content, providedPassword as string);
+      }
+
+      // REMOVER O CAMPO PASSWORD DA RESPOSTA SEMPRE
+      const { password: _, ...finalData } = data;
+      res.json(finalData);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }

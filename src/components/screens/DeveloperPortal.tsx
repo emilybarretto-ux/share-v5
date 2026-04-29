@@ -6,7 +6,7 @@ import { useNotification } from '../shared/NotificationProvider';
 
 export const DeveloperPortal = ({ setScreen }: { setScreen: (s: any) => void }) => {
   const [copied, setCopied] = React.useState<string | null>(null);
-  const [activeTab, setActiveTab] = React.useState('apps');
+  const [activeTab, setActiveTab] = React.useState('introduction');
   const [apiApps, setApiApps] = React.useState<any[]>([]);
   const [isCreatingApp, setIsCreatingApp] = React.useState(false);
   const [newAppName, setNewAppName] = React.useState('');
@@ -91,7 +91,6 @@ export const DeveloperPortal = ({ setScreen }: { setScreen: (s: any) => void }) 
     { id: 'apps', title: 'Minhas Credenciais', icon: <Key size={18} /> },
     { id: 'playground', title: 'API Playground', icon: <Zap size={18} /> },
     { id: 'docs', title: 'Documentação API', icon: <Book size={18} /> },
-    { id: 'postman', title: 'Ambiente Externo', icon: <Terminal size={18} /> },
   ];
 
   const [testClientId, setTestClientId] = React.useState('');
@@ -99,6 +98,45 @@ export const DeveloperPortal = ({ setScreen }: { setScreen: (s: any) => void }) 
   const [testToken, setTestToken] = React.useState('');
   const [testResult, setTestResult] = React.useState<any>(null);
   const [isTesting, setIsTesting] = React.useState(false);
+  const [snippetLanguage, setSnippetLanguage] = React.useState<'curl' | 'js' | 'python'>('js');
+
+  const generateSnippet = (endpoint: any) => {
+    let url = `${window.location.origin}${endpoint.path}`;
+    if (endpoint.params) {
+      Object.keys(requestParams).forEach(key => {
+        url = url.replace(`:${key}`, requestParams[key] || `{${key}}`);
+      });
+    }
+
+    const headers: any = { 'Content-Type': 'application/json' };
+    if (endpoint.auth) headers['Authorization'] = `Bearer ${testToken || '[SEU_TOKEN]'}`;
+    Object.entries(requestHeaders).forEach(([k, v]) => { if (v) headers[k] = v; });
+
+    if (snippetLanguage === 'curl') {
+      let cmd = `curl -X ${endpoint.method} "${url}" \\\n`;
+      Object.entries(headers).forEach(([k, v]) => { cmd += `  -H "${k}: ${v}" \\\n`; });
+      if (['POST', 'PUT'].includes(endpoint.method)) cmd += `  -d '${requestBody}'`;
+      return cmd.trim();
+    }
+
+    if (snippetLanguage === 'js') {
+      return `fetch("${url}", {
+  method: "${endpoint.method}",
+  headers: ${JSON.stringify(headers, null, 2)},
+  ${['POST', 'PUT'].includes(endpoint.method) ? `body: JSON.stringify(${requestBody})` : ''}
+}).then(res => res.json()).then(console.log);`;
+    }
+
+    if (snippetLanguage === 'python') {
+      return `import requests
+
+url = "${url}"
+headers = ${JSON.stringify(headers, null, 2)}
+${['POST', 'PUT'].includes(endpoint.method) ? `payload = ${requestBody}\nresponse = requests.${endpoint.method.toLowerCase()}(url, json=payload, headers=headers)` : `response = requests.${endpoint.method.toLowerCase()}(url, headers=headers)`}
+
+print(response.json())`;
+    }
+  };
 
   const testGetToken = async () => {
     setIsTesting(true);
@@ -158,6 +196,10 @@ export const DeveloperPortal = ({ setScreen }: { setScreen: (s: any) => void }) 
       body: {
         clientId: { type: 'string', required: true, description: 'Seu ID de cliente gerado no portal', example: 'cl_...' },
         clientSecret: { type: 'string', required: true, description: 'Sua chave secreta (mantenha em segurança)', example: 'sk_...' }
+      },
+      responses: {
+        200: 'Token gerado com sucesso.',
+        401: 'Credenciais inválidas ou App inativo.'
       }
     },
     {
@@ -165,12 +207,16 @@ export const DeveloperPortal = ({ setScreen }: { setScreen: (s: any) => void }) 
       method: 'GET',
       path: '/api/v1/secrets',
       title: 'Listar Segredos',
-      description: 'Retorna a lista de todos os segredos criados pelo seu usuário. Paginação e filtros podem ser aplicados via query.',
+      description: 'Retorna a lista de todos os segredos criados pelo seu usuário. Note que o campo "content" não é enviado nesta listagem por segurança.',
       auth: true,
       scopes: ['secrets:read'],
       query: {
         limit: { type: 'number', required: false, description: 'Quantidade de itens (padrão 100)' },
         offset: { type: 'number', required: false, description: 'Ponto de partida para paginação' }
+      },
+      responses: {
+        200: 'Lista retornada com sucesso.',
+        401: 'Token ausente ou expirado.'
       }
     },
     {
@@ -178,38 +224,91 @@ export const DeveloperPortal = ({ setScreen }: { setScreen: (s: any) => void }) 
       method: 'GET',
       path: '/api/v1/secrets/:id',
       title: 'Ver Detalhes do Segredo',
-      description: 'Recupera os dados completos de um segredo específico. Se o segredo possuir senha, você deve enviá-la no header X-Secret-Password ou via query.',
+      description: 'Recupera os dados completos de um segredo específico. Se houver senha, ela deve ser enviada para descriptografia.',
       auth: true,
-      params: { id: { type: 'string', required: true, description: 'ID único do segredo', example: '' } },
+      params: { id: { type: 'string', required: true, description: 'ID único do segredo (UUID)', example: '' } },
       headers: {
-        'X-Secret-Password': { type: 'string', required: false, description: 'Senha de acesso (se definida na criação)' }
+        'X-Secret-Password': { type: 'string', required: false, description: 'A mesma senha real que você definiu ao criar o segredo.' }
       },
-      query: { 
-        password: { type: 'string', required: false, description: 'Alternativa ao header para enviar a senha' } 
+      scopes: ['secrets:read'],
+      responses: {
+        200: 'Segredo encontrado e descriptografado.',
+        403: 'Senha incorreta ou ausente para este segredo.',
+        404: 'Segredo não encontrado.'
+      }
+    },
+    {
+      id: 'refresh-token',
+      method: 'POST',
+      path: '/api/auth/refresh',
+      title: 'Atualizar Token',
+      description: 'Gera um novo access_token usando um token atual. Útil para manter sessões logadas sem pedir novas credenciais.',
+      auth: true,
+      headers: {
+        'Authorization': { type: 'string', required: true, description: 'Bearer <seu_token_atual>' }
       },
-      scopes: ['secrets:read']
+      responses: {
+        200: 'Novo token gerado.',
+        401: 'Token original inválido ou bloqueado.'
+      }
     },
     {
       id: 'create-secret',
       method: 'POST',
       path: '/api/v1/secrets',
       title: 'Criar Novo Segredo',
-      description: 'Armazena um novo dado sensível. Você pode definir regras de autodestruição, expiração temporal e restrições de acesso por e-mail ou IP.',
+      description: 'Armazena um novo dado sensível criptografado ponta-a-ponta.',
       auth: true,
       scopes: ['secrets:write'],
       body: {
         name: { type: 'string', required: true, example: 'Minha API Key', description: 'Nome identificador do segredo' },
-        content: { type: 'string', required: true, example: 'v-secret-123', description: 'O valor sensível que será armazenado' },
-        password: { type: 'string', required: false, description: 'Senha adicional para acesso (Opcional)' },
-        expiration_hours: { type: 'number', required: false, example: 24, description: 'Prazo de validade em horas. Opções sugeridas: 1, 24, 168 (7 dias).' },
-        max_views: { type: 'number', required: false, example: 1, description: 'Limite de visualizações. Use 1 para garantir acesso único.' },
-        is_burn_on_read: { type: 'boolean', required: false, example: true, description: 'Acesso Único Automático: Se true, o segredo é deletado imediatamente após a primeira leitura.' },
-        restrict_ip: { type: 'boolean', required: false, example: false, description: 'Se true, apenas o seu IP atual poderá acessar' },
-        require_email: { type: 'boolean', required: false, example: false, description: 'Exigir que o destinatário valide o e-mail (2FA)' },
-        allowed_emails: { type: 'array', required: false, example: ['user@example.com'], description: 'Lista de e-mails específicos permitidos' },
-        allowed_domain: { type: 'string', required: false, example: 'empresa.com', description: 'Restringir a um domínio de e-mail (ex: boldsolution.com.br)' },
-        redirect_url: { type: 'string', required: false, example: 'https://seusite.com', description: 'URL para onde o usuário será enviado após ler o segredo' },
-        notify_access: { type: 'boolean', required: false, example: true, description: 'Enviar e-mail para você quando for acessado' }
+        content: { type: 'string', required: true, example: 'v-secret-123', description: 'O valor sensível que será criptografado' },
+        password: { type: 'string', required: false, description: 'Senha real para proteger. Opcional se usar restrição por e-mail/domínio (Token via e-mail).' },
+        expiration_hours: { type: 'number', required: false, example: 24, description: 'Validade em horas.' },
+        max_views: { type: 'number', required: false, example: 1, description: 'Limite de acessos.' },
+        is_burn_on_read: { type: 'boolean', required: false, example: true, description: 'Se TRUE, destrói após a primeira leitura (max_views vira 1).' },
+        restrict_ip: { type: 'boolean', required: false, example: false, description: 'Restringir acesso apenas ao seu IP atual' },
+        require_email: { type: 'boolean', required: false, example: false, description: 'Exigir que o visualizador informe o e-mail' },
+        allowed_email: { type: 'string', required: false, example: 'user@example.com', description: 'Permitir visualização apenas para este e-mail específico' },
+        allowed_domain: { type: 'string', required: false, example: 'empresa.com', description: 'Restringir a um domínio de e-mail corporativo' },
+        notify_access: { type: 'boolean', required: false, example: true, description: 'Receber notificação por e-mail quando acessado' },
+        redirect_url: { type: 'string', required: false, example: 'https://meusite.com', description: 'URL para redirecionar após a leitura' }
+      },
+      responses: {
+        201: 'Segredo criado com sucesso.',
+        400: 'Dados inválidos ou incompletos.'
+      }
+    },
+    {
+      id: 'update-secret',
+      method: 'PUT',
+      path: '/api/v1/secrets/:id',
+      title: 'Atualizar Segredo',
+      description: 'Modifica os metadados ou o conteúdo de um segredo existente.',
+      auth: true,
+      params: { id: { type: 'string', required: true, description: 'ID do segredo (UUID)' } },
+      body: {
+        name: { type: 'string', required: false, description: 'Novo nome do segredo' },
+        content: { type: 'string', required: false, description: 'Novo conteúdo sensível' },
+        status: { type: 'string', required: false, description: 'Estado: active ou completed' },
+        max_views: { type: 'number', required: false, description: 'Novo limite de acessos' }
+      },
+      responses: {
+        200: 'Segredo atualizado.',
+        404: 'Não encontrado ou sem permissão.'
+      }
+    },
+    {
+      id: 'delete-secret',
+      method: 'DELETE',
+      path: '/api/v1/secrets/:id',
+      title: 'Excluir Segredo',
+      description: 'Remove permanentemente um segredo do sistema.',
+      auth: true,
+      params: { id: { type: 'string', required: true, description: 'ID do segredo (UUID)' } },
+      responses: {
+        200: 'Segredo excluído.',
+        404: 'Não encontrado ou sem permissão.'
       }
     },
     {
@@ -224,6 +323,11 @@ export const DeveloperPortal = ({ setScreen }: { setScreen: (s: any) => void }) 
         title: { type: 'string', required: true, example: 'Documentos para Onboarding', description: 'Título da solicitação' },
         description: { type: 'string', required: false, example: 'Favor enviar o RG e CPF.', description: 'Instruções para quem for enviar os dados' },
         expiration_hours: { type: 'number', required: false, example: 48, description: 'Expiração do link (em horas). Sugestões: 1, 24, 168.' }
+      },
+      responses: {
+        201: 'Solicitação criada com sucesso.',
+        401: 'Token ausente ou inválido.',
+        403: 'Escopo insuficiente.'
       }
     }
   ];
@@ -271,7 +375,18 @@ export const DeveloperPortal = ({ setScreen }: { setScreen: (s: any) => void }) 
       }
 
       const response = await fetch(url, options);
-      const data = await response.json();
+      const contentType = response.headers.get('content-type');
+      let data;
+      
+      if (contentType && contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        data = { 
+          error: 'O servidor não retornou JSON.', 
+          raw_response: text.substring(0, 1000) + (text.length > 1000 ? '...' : '')
+        };
+      }
       
       setTestResult({
         status: response.status + ' ' + response.statusText,
@@ -322,6 +437,10 @@ export const DeveloperPortal = ({ setScreen }: { setScreen: (s: any) => void }) 
             </div>
           </div>
           <div className="flex items-center gap-6">
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
+              <div className="size-2 bg-emerald-500 rounded-full animate-pulse" />
+              <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">API Status: Online</span>
+            </div>
             <button onClick={() => {
               setScreen('home');
               window.history.pushState({}, '', '/');
@@ -367,24 +486,54 @@ export const DeveloperPortal = ({ setScreen }: { setScreen: (s: any) => void }) 
             {activeTab === 'introduction' && (
               <motion.div key="intro" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
                 <div className="space-y-4">
-                  <h2 className="text-5xl font-black text-white tracking-tight">Construa sobre <br/>o Bold Share.</h2>
+                  <h2 className="text-5xl font-black text-white tracking-tight">Integre com o <br/>Bold Share.</h2>
                   <p className="text-lg text-slate-400 max-w-2xl leading-relaxed">
                     Nossa API é robusta, segura e permite que você integre compartilhamento de segredos e coleta de dados 
                     diretamente em seus fluxos de trabalho, ERPs e ferramentas personalizadas.
                   </p>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-                  <div className="p-8 bg-white/5 rounded-[2rem] border border-white/5 hover:border-accent/30 transition-colors">
-                    <Zap className="text-accent mb-4" size={32} />
-                    <h4 className="text-lg font-bold text-white mb-2">Tokens Rápidos</h4>
-                    <p className="text-sm text-slate-500">Autenticação via OAuth2 para máxima segurança e praticidade.</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
+                  <div className="p-8 bg-white/5 rounded-[2rem] border border-white/5 hover:border-accent/30 transition-all hover:-translate-y-1">
+                    <div className="size-12 bg-accent/20 rounded-2xl flex items-center justify-center mb-6">
+                       <Zap className="text-accent" size={24} />
+                    </div>
+                    <h4 className="text-lg font-bold text-white mb-2">Tokens JWT</h4>
+                    <p className="text-sm text-slate-500 leading-relaxed">Autenticação robusta via OAuth2 para máxima segurança.</p>
                   </div>
-                  <div className="p-8 bg-white/5 rounded-[2rem] border border-white/5 hover:border-accent/30 transition-colors">
-                    <Smartphone className="text-indigo-400 mb-4" size={32} />
-                    <h4 className="text-lg font-bold text-white mb-2">Full CRUD</h4>
-                    <p className="text-sm text-slate-500">Controle total sobre segredos: Criar, Listar, Atualizar e Deletar.</p>
+                  <div className="p-8 bg-white/5 rounded-[2rem] border border-white/5 hover:border-indigo-400/30 transition-all hover:-translate-y-1">
+                    <div className="size-12 bg-indigo-500/20 rounded-2xl flex items-center justify-center mb-6">
+                       <Shield className="text-indigo-400" size={24} />
+                    </div>
+                    <h4 className="text-lg font-bold text-white mb-2">RESTful API</h4>
+                    <p className="text-sm text-slate-500 leading-relaxed">Endpoints padronizados para integrar em qualquer linguagem.</p>
                   </div>
+                  <div className="p-8 bg-white/5 rounded-[2rem] border border-white/5 hover:border-emerald-400/30 transition-all hover:-translate-y-1">
+                    <div className="size-12 bg-emerald-500/20 rounded-2xl flex items-center justify-center mb-6">
+                       <Code className="text-emerald-400" size={24} />
+                    </div>
+                    <h4 className="text-lg font-bold text-white mb-2">Playground Vivo</h4>
+                    <p className="text-sm text-slate-500 leading-relaxed">Teste requisições em tempo real e copie o código pronto.</p>
+                  </div>
+                </div>
+
+                <div className="mt-12 space-y-6">
+                   <h5 className="text-sm font-black text-slate-500 uppercase tracking-widest">Quick Start em 3 passos</h5>
+                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {[
+                        { step: '01', title: 'Crie um App', desc: 'Gere suas credenciais na aba "Minhas Credenciais".' },
+                        { step: '02', title: 'Obtenha o Token', desc: 'Use o Playground para gerar seu access_token.' },
+                        { step: '03', title: 'Integre!', desc: 'Use os snippets de código para integrar no seu fluxo.' }
+                      ].map((s) => (
+                        <div key={s.step} className="p-6 bg-slate-900/50 rounded-2xl border border-white/5 flex gap-4">
+                           <span className="text-2xl font-black text-white/10 select-none">{s.step}</span>
+                           <div>
+                             <h6 className="text-sm font-bold text-white mb-1">{s.title}</h6>
+                             <p className="text-xs text-slate-500">{s.desc}</p>
+                           </div>
+                        </div>
+                      ))}
+                   </div>
                 </div>
               </motion.div>
             )}
@@ -594,9 +743,9 @@ export const DeveloperPortal = ({ setScreen }: { setScreen: (s: any) => void }) 
                       <button 
                         onClick={() => {
                           setExpandedEndpoint(expandedEndpoint === ep.id ? null : ep.id);
-                          setTestResult(null);
-                          // Initialize body if post
-                          if (ep.body) {
+                          
+                          // Initialize body only if it's currently empty or default, to preserve user edits
+                          if (ep.body && (!requestBody || requestBody === '{}')) {
                             const initialBody: any = {};
                             Object.keys(ep.body).forEach(k => {
                               const prop = (ep.body as any)[k];
@@ -641,114 +790,93 @@ export const DeveloperPortal = ({ setScreen }: { setScreen: (s: any) => void }) 
                             <div className="p-6 border-t border-white/5 space-y-6">
                               <p className="text-sm text-slate-400 leading-relaxed">{ep.description}</p>
                               
-                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                                <div className="space-y-4">
-                                  {/* Headers (Input for custom headers like X-Secret-Password) */}
+                              <div className="grid grid-cols-1 lg:grid-cols-11 gap-8">
+                                {/* Coluna de Parâmetros e Headers (Esquerda) */}
+                                <div className="lg:col-span-5 space-y-6">
                                   {(ep.headers || ep.auth) && (
                                     <div className="space-y-3">
-                                      <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Cabeçalhos (Headers)</h5>
+                                      <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Headers</h5>
                                       <div className="space-y-2">
                                         <div className="flex flex-col gap-1">
-                                          <div className="flex items-center gap-2">
-                                            <span className="text-xs font-mono text-emerald-400">Content-Type</span>
-                                            <span className="text-[8px] font-black text-slate-600 uppercase">Fixo</span>
-                                          </div>
-                                          <div className="bg-black/20 p-2 rounded-xl border border-white/5 opacity-50">
-                                            <code className="text-xs text-white">application/json</code>
+                                          <div className="bg-black/20 p-2.5 rounded-xl border border-white/5 opacity-50 flex items-center justify-between">
+                                            <code className="text-xs text-indigo-400">Content-Type</code>
+                                            <code className="text-[10px] text-white">application/json</code>
                                           </div>
                                         </div>
-                                        
                                         {ep.auth && (
-                                          <div className="flex flex-col gap-1">
-                                            <div className="flex items-center gap-2">
-                                              <span className="text-xs font-mono text-indigo-400">Authorization</span>
-                                              <span className="text-[8px] font-black text-red-500 uppercase">Obrigatório</span>
-                                            </div>
-                                            <div className="bg-black/20 p-2 rounded-xl border border-accent/20 flex items-center gap-2">
-                                              <span className="text-[10px] text-slate-300 font-mono">Bearer</span>
-                                              <span className="text-[10px] text-white font-mono flex-1 truncate">{testToken || 'Token ausente'}</span>
-                                            </div>
+                                          <div className="bg-black/20 p-2.5 rounded-xl border border-accent/20 flex items-center justify-between">
+                                            <code className="text-xs text-indigo-400">Authorization</code>
+                                            <code className="text-[10px] text-white truncate max-w-[150px]">Bearer {testToken ? '••••' + testToken.slice(-5) : 'Token ausente'}</code>
                                           </div>
                                         )}
-
                                         {ep.headers && Object.entries(ep.headers).map(([key, val]: [string, any]) => (
-                                          <div key={key} className="flex flex-col gap-1">
+                                          <div key={key} className="space-y-1">
                                             <div className="flex items-center gap-2">
-                                              <span className="text-xs font-mono text-indigo-400">{key}</span>
-                                              {val.required && <span className="text-[8px] font-black text-red-500 uppercase">Obrigatório</span>}
+                                              <span className="text-[10px] font-mono text-indigo-400">{key}</span>
+                                              {val.required && <span className="text-[7px] font-black text-red-500 uppercase">Req</span>}
                                             </div>
-                                            <div className="bg-black/20 p-2 rounded-xl border border-white/10 focus-within:border-accent/40">
-                                              <input 
-                                                type="text" 
-                                                placeholder={val.description}
-                                                onChange={(e) => setRequestHeaders(prev => ({ ...prev, [key]: e.target.value }))}
-                                                className="bg-transparent border-none outline-none text-xs text-white p-1 flex-1"
-                                              />
-                                            </div>
+                                            <input 
+                                              type="text" 
+                                              placeholder={val.description}
+                                              onChange={(e) => setRequestHeaders(prev => ({ ...prev, [key]: e.target.value }))}
+                                              className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-accent/40"
+                                            />
                                           </div>
                                         ))}
                                       </div>
                                     </div>
                                   )}
 
-                                  {/* Parameters */}
                                   {(ep.params || ep.query) && (
-                                    <div className="space-y-4">
-                                      <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Parâmetros (Path & Query)</h5>
-                                      <div className="space-y-3">
+                                    <div className="space-y-3">
+                                      <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Parâmetros</h5>
+                                      <div className="grid grid-cols-1 gap-3">
                                         {[...Object.entries(ep.params || {}), ...Object.entries(ep.query || {})].map(([key, val]: [string, any]) => (
                                           <div key={key} className="space-y-1">
                                             <div className="flex items-center gap-2">
-                                              <span className="text-xs font-mono text-indigo-400">{key}</span>
-                                              {val.required && <span className="text-[8px] font-black text-red-500 uppercase">Obrigatório</span>}
-                                              <span className="text-[10px] text-slate-600">({val.type})</span>
+                                              <span className="text-[10px] font-mono text-indigo-400">{key}</span>
+                                              <span className="text-[8px] text-slate-600">({val.type})</span>
                                             </div>
-                                            <div className="flex items-center gap-4 bg-black/20 p-2 rounded-xl border border-white/5 focus-within:border-accent/40">
-                                              <input 
-                                                type="text" 
-                                                placeholder={val.description || val.type}
-                                                onChange={(e) => setRequestParams(prev => ({ ...prev, [key]: e.target.value }))}
-                                                className="bg-transparent border-none outline-none text-xs text-white placeholder:text-slate-700 flex-1 px-1"
-                                              />
-                                            </div>
+                                            <input 
+                                              type="text" 
+                                              placeholder={val.example ? `Ex: ${val.example}` : val.description}
+                                              onChange={(e) => setRequestParams(prev => ({ ...prev, [key]: e.target.value }))}
+                                              className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-accent/40"
+                                            />
                                           </div>
                                         ))}
                                       </div>
                                     </div>
                                   )}
 
-                                  {/* Body Definition / Schema */}
                                   {ep.body && (
                                     <div className="space-y-4">
-                                      <div className="flex items-center justify-between">
-                                        <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Estrutura do Corpo (Body Schema)</h5>
-                                      </div>
-                                      <div className="space-y-3 bg-black/20 rounded-2xl p-4 border border-white/5">
-                                        {Object.entries(ep.body).map(([key, val]: [string, any]) => (
-                                          <div key={key} className="flex flex-col gap-1 pb-3 border-b border-white/5 last:border-0 last:pb-0">
-                                            <div className="flex items-center gap-2">
-                                              <span className="text-xs font-mono text-emerald-400">{key}</span>
-                                              {val.required ? (
-                                                <span className="text-[8px] font-black text-red-500 uppercase">Obrigatório</span>
-                                              ) : (
-                                                <span className="text-[8px] font-black text-slate-600 uppercase">Opcional</span>
-                                              )}
-                                              <span className="text-[10px] text-slate-500">({val.type})</span>
-                                            </div>
-                                            <p className="text-[11px] text-slate-400">{val.description}</p>
-                                          </div>
-                                        ))}
-                                      </div>
-                                      
                                       <div className="space-y-3">
-                                        <div className="flex items-center justify-between">
-                                          <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Editor de Requisição (JSON)</h5>
-                                          <span className="text-[10px] text-slate-600 font-mono">application/json</span>
+                                        <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Documentação do Body (Schema)</h5>
+                                        <div className="bg-black/20 rounded-2xl p-4 border border-white/5 max-h-48 overflow-y-auto scrollbar-thin">
+                                          {Object.entries(ep.body).map(([key, val]: [string, any]) => (
+                                            <div key={key} className="flex flex-col gap-1 pb-3 mb-3 border-b border-white/5 last:border-0 last:pb-0 last:mb-0">
+                                              <div className="flex items-center gap-2">
+                                                <span className="text-xs font-mono text-emerald-400 font-bold">{key}</span>
+                                                {val.required ? (
+                                                  <span className="text-[7px] font-black text-red-500 bg-red-500/10 px-1.5 py-0.5 rounded-full uppercase">Obrigatório</span>
+                                                ) : (
+                                                  <span className="text-[7px] font-black text-slate-500 bg-white/5 px-1.5 py-0.5 rounded-full uppercase">Opcional</span>
+                                                )}
+                                                <span className="text-[9px] text-slate-500 font-mono">({val.type})</span>
+                                              </div>
+                                              <p className="text-[10px] text-slate-400 leading-tight">{val.description}</p>
+                                            </div>
+                                          ))}
                                         </div>
+                                      </div>
+
+                                      <div className="space-y-3">
+                                        <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Request Body (JSON Editor)</h5>
                                         <textarea 
                                           value={requestBody}
                                           onChange={(e) => setRequestBody(e.target.value)}
-                                          className="w-full h-48 bg-black/40 border border-white/5 rounded-2xl p-4 text-xs font-mono text-emerald-400 outline-none focus:ring-1 focus:ring-accent"
+                                          className="w-full h-40 bg-black/40 border border-white/10 rounded-2xl p-4 text-xs font-mono text-emerald-400 outline-none focus:ring-1 focus:ring-accent"
                                         />
                                       </div>
                                     </div>
@@ -757,127 +885,103 @@ export const DeveloperPortal = ({ setScreen }: { setScreen: (s: any) => void }) 
                                   <button 
                                     onClick={() => handleTestEndpoint(ep)}
                                     disabled={isTesting || (ep.auth && !testToken)}
-                                    className="w-full py-4 bg-accent text-white font-bold rounded-2xl shadow-lg shadow-accent/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                    className="w-full py-4 bg-accent text-white font-bold rounded-2xl shadow-lg shadow-accent/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-3"
                                   >
-                                    {isTesting ? <Zap className="animate-pulse" size={16} /> : <Send size={16} />}
-                                    {isTesting ? 'Executando...' : 'Try it out / Executar'}
+                                    {isTesting ? <Zap className="animate-spin" size={18} /> : <Send size={18} />}
+                                    {isTesting ? 'Processando...' : 'Executar Teste'}
                                   </button>
-                                  {ep.auth && !testToken && <p className="text-[10px] text-red-400 text-center uppercase tracking-tighter">* Requer autenticação</p>}
                                 </div>
 
-                                {/* Result area */}
-                                <div className="space-y-4">
-                                  <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Servidor Resposta</h5>
-                                  <div className="bg-slate-900 border border-white/5 rounded-2xl p-5 h-64 overflow-auto font-mono text-xs">
-                                    {testResult ? (
-                                      <div className="space-y-4">
-                                        <div className={`font-bold ${testResult.isError ? 'text-red-400' : 'text-emerald-400'}`}>
-                                          HTTP {testResult.status}
-                                        </div>
-                                        <pre className="text-slate-300 bg-black/20 p-4 rounded-xl whitespace-pre-wrap break-all">
-                                          {JSON.stringify(testResult.data || { error: testResult.error }, null, 2)}
-                                        </pre>
+                                {/* Coluna de Snippets e Resposta (Direita) */}
+                                <div className="lg:col-span-6 space-y-6">
+                                  <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                      <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Snippet de Código</h5>
+                                      <div className="flex bg-white/5 p-1 rounded-lg">
+                                        {(['js', 'curl', 'python'] as const).map(lang => (
+                                          <button 
+                                            key={lang}
+                                            onClick={() => setSnippetLanguage(lang)}
+                                            className={`px-3 py-1 rounded-md text-[9px] font-black uppercase transition-all ${
+                                              snippetLanguage === lang ? 'bg-accent text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'
+                                            }`}
+                                          >
+                                            {lang}
+                                          </button>
+                                        ))}
                                       </div>
-                                    ) : (
-                                      <div className="h-full flex flex-col items-center justify-center text-slate-700 text-center">
-                                        <Terminal size={32} className="opacity-20 mb-2" />
-                                        <p>Execute a requisição para<br/>ver o resultado.</p>
+                                    </div>
+                                    <div className="relative group">
+                                      <pre className="bg-slate-900 border border-white/5 rounded-2xl p-5 font-mono text-[10px] text-indigo-300 h-48 overflow-auto leading-relaxed scrollbar-thin">
+                                        <code>{generateSnippet(ep)}</code>
+                                      </pre>
+                                      <button 
+                                        onClick={() => handleCopy(generateSnippet(ep) || '', 'snippet-'+ep.id)}
+                                        className="absolute right-4 top-4 p-2 bg-white/5 hover:bg-white/10 rounded-lg text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                                      >
+                                        {copied === 'snippet-'+ep.id ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  <div className="space-y-3 flex-1 flex flex-col">
+                                    <div className="flex items-center justify-between">
+                                      <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Resposta do Servidor</h5>
+                                      {testResult && (
+                                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${testResult.isError ? 'bg-red-500/10 text-red-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
+                                          Status: {testResult.status}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="bg-black/40 border border-white/5 rounded-2xl h-64 overflow-hidden flex flex-col font-mono text-[11px] shadow-inner relative group">
+                                      <div className="flex-1 p-5 overflow-auto scrollbar-thin text-slate-300">
+                                        {testResult ? (
+                                           <pre className="whitespace-pre-wrap">{JSON.stringify(testResult.data, null, 2)}</pre>
+                                        ) : (
+                                          <div className="h-full flex flex-col items-center justify-center text-slate-700 opacity-50">
+                                            <Cpu size={32} className="mb-2" />
+                                            <p className="text-[9px] uppercase tracking-widest font-black text-center">Execute um teste <br/>para ver os dados</p>
+                                          </div>
+                                        )}
                                       </div>
-                                    )}
+                                      {testResult && (
+                                        <button 
+                                          onClick={() => handleCopy(JSON.stringify(testResult.data, null, 2), 'res-'+ep.id)}
+                                          className="absolute right-4 top-4 p-2 bg-white/5 hover:bg-white/10 rounded-lg text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        >
+                                          {copied === 'res-'+ep.id ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                                        </button>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
                               </div>
+
+                              {/* Error/Responses Documentation */}
+                              {ep.responses && (
+                                <div className="space-y-3 pt-4 border-t border-white/5">
+                                  <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Possíveis Respostas (Status HTTP)</h5>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                    {Object.entries(ep.responses).map(([code, desc]: [string, any]) => (
+                                      <div key={code} className="flex items-center gap-4 px-4 py-3 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/[0.08] transition-colors">
+                                        <div className={`size-8 rounded-lg flex items-center justify-center text-[10px] font-black shrink-0 ${
+                                          code.startsWith('2') ? 'bg-emerald-500/10 text-emerald-400' : 
+                                          code === '401' ? 'bg-amber-500/10 text-amber-400' : 'bg-red-500/10 text-red-400'
+                                        }`}>
+                                          {code}
+                                        </div>
+                                        <span className="text-xs text-slate-400 font-medium">{desc}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </motion.div>
                         )}
                       </AnimatePresence>
                     </div>
                   ))}
-                </div>
-              </motion.div>
-            )}
-
-            {activeTab === 'postman' && (
-              <motion.div key="postman" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-12">
-                <div className="space-y-4 text-center py-12">
-                   <Terminal size={64} className="text-accent mx-auto mb-6" />
-                   <h2 className="text-3xl font-black text-white">Guia de Integração Externa</h2>
-                   <p className="text-slate-400 max-w-xl mx-auto">Use o Bold Share em suas automações (n8n, Zapier) ou ferramentas de teste (Postman, Insomnia).</p>
-                   
-                   <div className="mt-4 p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl max-w-md mx-auto">
-                     <p className="text-amber-500 text-xs font-bold uppercase flex items-center justify-center gap-2">
-                       <Shield size={14} /> Dica de Produção
-                     </p>
-                     <p className="text-[10px] text-amber-500/80 mt-1">
-                       Em ferramentas externas, use sempre o header <code className="text-white">Authorization: Bearer [SEU_TOKEN]</code>.
-                     </p>
-                   </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-6 bg-white/5 p-8 rounded-3xl border border-white/10">
-                    <h4 className="text-xl font-bold text-white flex items-center gap-3">
-                      <Zap size={24} className="text-accent" />
-                      No n8n (HTTP Request)
-                    </h4>
-                    <ul className="space-y-4 text-sm text-slate-400">
-                      <li className="flex gap-3">
-                        <span className="text-accent font-black">1.</span>
-                        <span>Selecione <strong>Authentication: None</strong> se for injetar o header manualmente.</span>
-                      </li>
-                      <li className="flex gap-3">
-                        <span className="text-accent font-black">2.</span>
-                        <span>Ou em <strong>Authentication</strong>, mude para <strong>Predefined Credential Type</strong>.</span>
-                      </li>
-                      <li className="flex gap-3">
-                        <span className="text-accent font-black">3.</span>
-                        <span>Escolha <strong>Header Auth</strong>. Nome: <code className="text-white">Authorization</code>. Valor: <code className="text-white">Bearer SEU_TOKEN</code></span>
-                      </li>
-                      <li className="flex gap-3">
-                        <span className="text-accent font-black">4.</span>
-                        <span>Envie como <strong>Method: POST</strong> e <strong>Body Type: JSON</strong>.</span>
-                      </li>
-                    </ul>
-                  </div>
-
-                  <div className="space-y-6 bg-white/5 p-8 rounded-3xl border border-white/10">
-                    <h4 className="text-xl font-bold text-white flex items-center gap-3">
-                      <Terminal size={24} className="text-orange-400" />
-                      No Postman
-                    </h4>
-                    <ul className="space-y-4 text-sm text-slate-400">
-                      <li className="flex gap-3">
-                        <span className="text-orange-400 font-black">1.</span>
-                        <span>Vá na aba <strong>Auth</strong> do request.</span>
-                      </li>
-                      <li className="flex gap-3">
-                        <span className="text-orange-400 font-black">2.</span>
-                        <span>Selecione Type: <strong>Bearer Token</strong>.</span>
-                      </li>
-                      <li className="flex gap-3">
-                        <span className="text-orange-400 font-black">3.</span>
-                        <span>Cole o token gerado no campo <strong>Token</strong>.</span>
-                      </li>
-                      <li className="flex gap-3">
-                        <span className="text-orange-400 font-black">4.</span>
-                        <span>O Postman adiciona o prefixo "Bearer " automaticamente.</span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <h4 className="text-sm font-black text-slate-500 uppercase tracking-widest text-center">Endpoints de Teste</h4>
-                  <div className="bg-slate-900 rounded-3xl border border-white/5 p-8 grid grid-cols-1 md:grid-cols-2 gap-8 font-mono text-xs">
-                    <div className="space-y-2">
-                      <p className="text-slate-500">OBTER TOKEN (POST)</p>
-                      <code className="text-emerald-400 block pb-2 border-b border-white/5">{window.location.origin}/api/auth/token</code>
-                    </div>
-                    <div className="space-y-2">
-                      <p className="text-slate-500">LISTAR SECRETS (GET)</p>
-                      <code className="text-emerald-400 block pb-2 border-b border-white/5">{window.location.origin}/api/v1/secrets</code>
-                    </div>
-                  </div>
                 </div>
               </motion.div>
             )}

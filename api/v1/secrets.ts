@@ -127,8 +127,6 @@ export default async function handler(req: any, res: any) {
         payload.expires_at = expiresAt.toISOString();
       }
 
-      console.log('Inserting payload to secrets:', JSON.stringify(payload));
-
       const { data, error } = await supabase
         .from('secrets')
         .insert([payload])
