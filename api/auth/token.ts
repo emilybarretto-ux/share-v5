@@ -49,9 +49,12 @@ export default async function handler(req: any, res: any) {
 
     if (error) {
       console.error('Supabase Error:', error);
+      // PGRST116 is the code for "no rows returned" when using .single()
+      const isNotFound = error.code === 'PGRST116';
       return res.status(401).json({ 
         error: 'Credenciais inválidas', 
-        details: error.message.includes('JSON object') ? 'App não encontrado' : error.message 
+        details: isNotFound ? 'Cliente ID não encontrado no banco de dados' : error.message,
+        code: error.code
       });
     }
 
