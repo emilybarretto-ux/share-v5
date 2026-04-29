@@ -1,10 +1,9 @@
 import React from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Link as LinkIcon, Eye, Copy, Check, Timer, ChevronLeft, ChevronRight, Mail, Trash2, Clock, Upload, ShieldCheck, Fingerprint, Info } from 'lucide-react';
 import { SharedLink, DataRequest, Screen } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { FileText, X } from 'lucide-react';
-import { AnimatePresence } from 'motion/react';
 
 import { useNotification } from '../shared/NotificationProvider';
 

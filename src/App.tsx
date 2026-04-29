@@ -18,7 +18,7 @@ import { CreateRequestScreen } from './components/screens/CreateRequestScreen';
 import { RequestSuccessScreen } from './components/screens/RequestSuccessScreen';
 import { HowItWorksScreen } from './components/screens/HowItWorksScreen';
 import { SecurityScreen } from './components/screens/SecurityScreen';
-import { VerificationScreen } from './components/screens/VerificationScreen';
+import { DeveloperPortal } from './components/screens/DeveloperPortal';
 import { PasswordGateScreen } from './components/screens/PasswordGateScreen';
 
 // Features
@@ -241,7 +241,8 @@ export default function App() {
   const [links, setLinks] = useState<SharedLink[]>([]);
   const [requests, setRequests] = useState<DataRequest[]>([]);
   const [forms, setForms] = useState<any[]>([]);
-  const [dashboardTab, setDashboardTab] = useState<'links' | 'requests' | 'forms' | 'security'>('links');
+  const [apiApps, setApiApps] = useState<any[]>([]);
+  const [dashboardTab, setDashboardTab] = useState<'links' | 'requests' | 'forms' | 'security' | 'api'>('links');
 
   // Limpeza de estado quando o usuário muda (segurança extra)
   useEffect(() => {
@@ -365,8 +366,10 @@ export default function App() {
       const urlId = params.get('id');
       const urlRequest = params.get('request');
       const urlForm = params.get('form');
+      const isDev = window.location.pathname === '/developers' || window.location.pathname === '/docs';
 
-      if (urlId) setScreen('view-secret');
+      if (isDev) setScreen('developer-portal');
+      else if (urlId) setScreen('view-secret');
       else if (urlRequest) setScreen('fill-request');
       else if (urlForm) setScreen('view-form');
     };
@@ -570,6 +573,7 @@ export default function App() {
       fetchLinks();
       fetchRequests();
       fetchForms();
+      fetchApiApps();
     }
   }, [user, screen]);
 
@@ -630,6 +634,16 @@ export default function App() {
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
     if (!error && data) setForms(data);
+  };
+
+  const fetchApiApps = async () => {
+    if (!user) return;
+    const { data, error } = await supabase
+      .from('api_apps')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+    if (!error && data) setApiApps(data);
   };
 
   const handleLogout = async () => {
@@ -1048,6 +1062,19 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
               <button onClick={() => navigateWithAuth('dashboard')} className="text-sm font-bold text-text-secondary hover:text-accent">Dashboard</button>
               <button onClick={() => navigateWithAuth('form-builder')} className="text-sm font-bold text-text-secondary hover:text-accent">Construtor</button>
               <button onClick={() => navigateWithAuth('create-request')} className="text-sm font-bold text-text-secondary hover:text-accent">Solicitação</button>
+              <button 
+                onClick={() => {
+                  if (!user) {
+                    setScreen('login');
+                  } else {
+                    setScreen('developer-portal' as any);
+                    window.history.pushState({}, '', '/developers');
+                  }
+                }} 
+                className="text-sm font-bold text-accent hover:text-accent/80"
+              >
+                API/Developers
+              </button>
               <button onClick={() => setScreen('security')} className="text-sm font-bold text-text-secondary hover:text-accent">Segurança</button>
               <button onClick={() => setScreen('how-it-works')} className="text-sm font-bold text-text-secondary hover:text-accent truncate max-w-[100px] sm:max-w-none">Como Funciona</button>
             </div>
@@ -1216,7 +1243,7 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
               <DashboardScreen 
                 userEmail={user.email || ''}
                 links={links} requests={requests} forms={forms}
-                dashboardTab={dashboardTab} setDashboardTab={setDashboardTab}
+                dashboardTab={dashboardTab as any} setDashboardTab={setDashboardTab as any}
                 fetchLinks={fetchLinks} fetchRequests={fetchRequests} fetchForms={fetchForms}
                 copied={copied} setCopied={setCopied} setScreen={setScreen as any} handleCopy={handleCopy}
               />
@@ -1280,6 +1307,12 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
           {screen === 'how-it-works' && (
             <div key="how-it-works">
               <HowItWorksScreen setScreen={setScreen as any} />
+            </div>
+          )}
+
+          {screen === 'developer-portal' && (
+            <div key="developer-portal">
+              <DeveloperPortal setScreen={setScreen as any} />
             </div>
           )}
 

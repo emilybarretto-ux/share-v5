@@ -478,6 +478,11 @@ export const HomeScreen = ({
     </div>
 
     <footer className="pt-10 border-t border-border-base flex flex-col items-center gap-6">
+      <div className="flex flex-wrap items-center justify-center gap-6 text-sm">
+        <button onClick={() => setScreen('how-it-works')} className="text-text-secondary hover:text-text-primary transition-colors">Como funciona?</button>
+        <button onClick={() => setScreen('security')} className="text-text-secondary hover:text-text-primary transition-colors">Segurança</button>
+        <a href="/developers" onClick={(e) => { e.preventDefault(); setScreen('developer-portal' as any); window.history.pushState({}, '', '/developers'); }} className="text-accent font-bold hover:underline">Developers/API</a>
+      </div>
       <div className="text-sm text-text-secondary text-center">
         © 2024 Bold Share. Excelência em segurança e privacidade de dados.
       </div>

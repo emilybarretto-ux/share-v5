@@ -1,11 +1,14 @@
 import express from 'express';
 import cors from 'cors';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 import { createServer as createViteServer } from 'vite';
 import { createClient } from '@supabase/supabase-js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const JWT_SECRET = process.env.JWT_SECRET || 'bold-share-secret-key-123';
 
 async function startServer() {
   const app = express();
@@ -22,10 +25,196 @@ async function startServer() {
   });
 
   app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', message: 'API is alive' });
+    res.json({ status: 'ok', message: 'API is alive', version: '1.0.0' });
   });
 
-  // ROTA DE VISUALIZAÇÃO E EVENTOS (Notificações)
+  // ==========================================
+  // MODULE: API AUTH & DOCUMENTATION
+  // ==========================================
+
+  // Middleware de Autenticação para a API Externa
+  const verifyAPIToken = (requiredScope?: string) => {
+    return async (req: any, res: any, next: any) => {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Token não fornecido ou inválido' });
+      }
+
+      const token = authHeader.split(' ')[1];
+      try {
+        const decoded: any = jwt.verify(token, JWT_SECRET);
+        req.apiClient = decoded;
+
+        if (requiredScope && !decoded.scopes?.includes(requiredScope)) {
+          return res.status(403).json({ error: `Escopo insuficiente: ${requiredScope} é necessário` });
+        }
+
+        next();
+      } catch (err) {
+        return res.status(401).json({ error: 'Token inválido ou expirado' });
+      }
+    };
+  };
+
+  // Endpoint para gerar Token (Client Credentials Flow)
+  app.post('/api/auth/token', async (req, res) => {
+    const { clientId, clientSecret } = req.body;
+
+    if (!clientId || !clientSecret) {
+      return res.status(400).json({ error: 'clientId e clientSecret são obrigatórios' });
+    }
+
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+    const supabase = createClient(supabaseUrl, serviceKey);
+
+    try {
+      // Buscar o cliente API no banco
+      const { data: client, error } = await supabase
+        .from('api_apps')
+        .select('*')
+        .eq('client_id', clientId)
+        .single();
+
+      if (error || !client) {
+        return res.status(401).json({ error: 'Credenciais inválidas' });
+      }
+
+      // Validar Secret (usando bcrypt se estiver hasheado, ou plain text se for demo)
+      // Aqui estamos usando comparison direta por simplicidade inicial, mas o ideal é bcrypt.compare
+      const isValid = client.client_secret === clientSecret;
+      
+      if (!isValid) {
+        return res.status(401).json({ error: 'Credenciais inválidas' });
+      }
+
+      const token = jwt.sign(
+        { 
+          clientId: client.client_id, 
+          userId: client.user_id, 
+          scopes: client.scopes || ['read'] 
+        }, 
+        JWT_SECRET, 
+        { expiresIn: '24h' }
+      );
+
+      res.json({
+        access_token: token,
+        token_type: 'Bearer',
+        expires_in: 86400,
+        scopes: client.scopes
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ==========================================
+  // MODULE: EXTERNAL API CRUD (V1)
+  // ==========================================
+
+  // GET: Listar segredos (CRUD - Read)
+  app.get('/api/v1/secrets', verifyAPIToken('secrets:read'), async (req: any, res) => {
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+    const supabase = createClient(supabaseUrl, serviceKey);
+
+    try {
+      const { data, error } = await supabase
+        .from('secrets')
+        .select('*')
+        .eq('user_id', req.apiClient.userId);
+
+      if (error) throw error;
+      res.json(data);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST: Criar segredo (CRUD - Create)
+  app.post('/api/v1/secrets', verifyAPIToken('secrets:write'), async (req: any, res) => {
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+    const supabase = createClient(supabaseUrl, serviceKey);
+
+    try {
+      const payload = { ...req.body, user_id: req.apiClient.userId };
+      const { data, error } = await supabase
+        .from('secrets')
+        .insert([payload])
+        .select();
+
+      if (error) throw error;
+      res.status(201).json(data[0]);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET: Obter segredo específico (CRUD - Read)
+  app.get('/api/v1/secrets/:id', verifyAPIToken('secrets:read'), async (req: any, res) => {
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+    const supabase = createClient(supabaseUrl, serviceKey);
+
+    try {
+      const { data, error } = await supabase
+        .from('secrets')
+        .select('*')
+        .eq('id', req.params.id)
+        .eq('user_id', req.apiClient.userId)
+        .single();
+
+      if (error || !data) return res.status(404).json({ error: 'Segredo não encontrado' });
+      res.json(data);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // PUT: Atualizar segredo (CRUD - Update)
+  app.put('/api/v1/secrets/:id', verifyAPIToken('secrets:write'), async (req: any, res) => {
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+    const supabase = createClient(supabaseUrl, serviceKey);
+
+    try {
+      const { data, error } = await supabase
+        .from('secrets')
+        .update(req.body)
+        .eq('id', req.params.id)
+        .eq('user_id', req.apiClient.userId)
+        .select();
+
+      if (error || !data.length) return res.status(404).json({ error: 'Segredo não encontrado ou sem permissão' });
+      res.json(data[0]);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // DELETE: Excluir segredo (CRUD - Delete)
+  app.delete('/api/v1/secrets/:id', verifyAPIToken('secrets:write'), async (req: any, res) => {
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+    const supabase = createClient(supabaseUrl, serviceKey);
+
+    try {
+      const { error } = await supabase
+        .from('secrets')
+        .delete()
+        .eq('id', req.params.id)
+        .eq('user_id', req.apiClient.userId);
+
+      if (error) throw error;
+      res.json({ message: 'Segredo excluído com sucesso' });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ==========================================
   app.post('/api/view-event', async (req, res) => {
     const { id, viewerEmail, viewerIp, action = 'increment' } = req.body;
     
