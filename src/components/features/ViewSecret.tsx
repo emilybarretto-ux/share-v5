@@ -692,6 +692,14 @@ export const ViewSecret = ({ id, user, onBack, setScreen }: ViewSecretProps) => 
       );
     }
 
+    const tryParseJSON = (text: string) => {
+      try {
+        const obj = JSON.parse(text);
+        if (obj && typeof obj === 'object') return obj;
+      } catch {}
+      return null;
+    };
+
     return (
       <div key="revealed-content" className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden mx-auto">
         <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
@@ -707,13 +715,68 @@ export const ViewSecret = ({ id, user, onBack, setScreen }: ViewSecretProps) => 
         <div className="p-8 space-y-6" translate="no">
             {((secret as any).content || (secret as any).key_values) ? (
               <>
-                {(secret as any).content && (
-                  <div className="p-6 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800">
-                    <div className="text-slate-800 dark:text-slate-200 leading-relaxed markdown-body max-w-none">
-                      <Markdown>{(secret as any).content}</Markdown>
+                {(secret as any).content && (() => {
+                  const json = tryParseJSON((secret as any).content);
+                  
+                  if (json) {
+                    const items = Array.isArray(json) ? json : [json];
+                    return (
+                      <div className="space-y-4">
+                        {items.map((item: any, itemIdx: number) => (
+                          <div key={itemIdx} className="p-1 bg-slate-50 dark:bg-slate-950 rounded-[2rem] border border-slate-100 dark:border-slate-800 overflow-hidden">
+                            <div className="px-5 py-2 flex items-center justify-between bg-white dark:bg-slate-900 rounded-t-[1.8rem] border-b border-slate-100 dark:border-slate-800">
+                               <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{items.length > 1 ? `Item ${itemIdx + 1}` : 'Conteúdo Estruturado'}</span>
+                               {typeof item === 'object' && (
+                                 <button 
+                                   onClick={() => {
+                                     navigator.clipboard.writeText(JSON.stringify(item, null, 2));
+                                     showNotification('Objeto copiado!', 'success');
+                                   }}
+                                   className="text-[10px] font-black text-blue-500 uppercase hover:text-blue-600 transition-colors"
+                                 >
+                                   Copiar tudo
+                                 </button>
+                               )}
+                            </div>
+                            <div className="p-4 grid gap-3">
+                              {typeof item === 'object' && item !== null ? (
+                                Object.entries(item).map(([k, v], vIdx) => (
+                                  <div key={vIdx} className="flex flex-col p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 group relative transition-all hover:border-blue-500/30">
+                                    <div className="flex items-center justify-between mb-1">
+                                      <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">{k}</span>
+                                      <button 
+                                        onClick={() => {
+                                          navigator.clipboard.writeText(String(v));
+                                          showNotification(`Copiado: ${k}`, 'success');
+                                        }}
+                                        className="p-1 px-2 bg-blue-500/5 text-blue-600 dark:text-blue-400 text-[9px] font-black rounded uppercase opacity-0 group-hover:opacity-100 transition-all"
+                                      >
+                                        Copiar
+                                      </button>
+                                    </div>
+                                    <span className="font-mono text-sm break-all text-slate-700 dark:text-slate-200 pr-12">{String(v)}</span>
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800">
+                                  <span className="font-mono text-sm text-slate-700 dark:text-slate-200">{String(item)}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="p-6 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800">
+                      <div className="text-slate-800 dark:text-slate-200 leading-relaxed markdown-body max-w-none">
+                        <Markdown>{(secret as any).content}</Markdown>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
                 
                 {(secret as any).key_values && (
                   <div className="grid gap-3">

@@ -99,6 +99,33 @@ export const DeveloperPortal = ({ setScreen }: { setScreen: (s: any) => void }) 
   const [testResult, setTestResult] = React.useState<any>(null);
   const [isTesting, setIsTesting] = React.useState(false);
   const [snippetLanguage, setSnippetLanguage] = React.useState<'curl' | 'js' | 'python'>('js');
+  const [expandedEndpoint, setExpandedEndpoint] = React.useState<string | null>(null);
+  const [requestHeaders, setRequestHeaders] = React.useState<Record<string, string>>({});
+  const [requestParams, setRequestParams] = React.useState<Record<string, string>>({});
+  const [requestBody, setRequestBody] = React.useState<string>('{}');
+  const [isJsonValid, setIsJsonValid] = React.useState(true);
+
+  React.useEffect(() => {
+    if (!requestBody || requestBody === '') {
+      setIsJsonValid(true);
+      return;
+    }
+    try {
+      JSON.parse(requestBody);
+      setIsJsonValid(true);
+    } catch {
+      setIsJsonValid(false);
+    }
+  }, [requestBody]);
+
+  const formatJson = () => {
+    try {
+      const parsed = JSON.parse(requestBody);
+      setRequestBody(JSON.stringify(parsed, null, 2));
+    } catch (e) {
+      showNotification('JSON inválido para formatar', 'error');
+    }
+  };
 
   const generateSnippet = (endpoint: any) => {
     let url = `${window.location.origin}${endpoint.path}`;
@@ -180,10 +207,6 @@ print(response.json())`;
     }
   };
 
-  const [expandedEndpoint, setExpandedEndpoint] = React.useState<string | null>(null);
-  const [requestHeaders, setRequestHeaders] = React.useState<Record<string, string>>({});
-  const [requestParams, setRequestParams] = React.useState<Record<string, string>>({});
-  const [requestBody, setRequestBody] = React.useState<string>('{}');
 
   const endpoints = [
     {
@@ -261,8 +284,13 @@ print(response.json())`;
       auth: true,
       scopes: ['secrets:write'],
       body: {
-        name: { type: 'string', required: true, example: 'Minha API Key', description: 'Nome identificador do segredo' },
-        content: { type: 'string', required: true, example: 'v-secret-123', description: 'O valor sensível que será criptografado' },
+        name: { type: 'string', required: true, example: 'Credenciais Externas', description: 'Nome identificador do segredo' },
+        content: { 
+          type: 'any', 
+          required: true, 
+          example: { teste: '123', emily: '456' }, 
+          description: 'O conteúdo sensível. Pode ser uma string simples ou um objeto JSON com múltiplos pares.' 
+        },
         password: { type: 'string', required: false, description: 'Senha real para proteger. Opcional se usar restrição por e-mail/domínio (Token via e-mail).' },
         expiration_hours: { type: 'number', required: false, example: 24, description: 'Validade em horas.' },
         max_views: { type: 'number', required: false, example: 1, description: 'Limite de acessos.' },
@@ -872,11 +900,24 @@ print(response.json())`;
                                       </div>
 
                                       <div className="space-y-3">
-                                        <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Request Body (JSON Editor)</h5>
+                                        <div className="flex items-center justify-between">
+                                          <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Request Body (JSON Editor)</h5>
+                                          <div className="flex items-center gap-2">
+                                            {!isJsonValid && (
+                                              <span className="text-[8px] font-black text-red-500 uppercase animate-pulse">JSON Inválido</span>
+                                            )}
+                                            <button 
+                                              onClick={formatJson}
+                                              className="text-[9px] font-black text-accent hover:text-white uppercase px-2 py-1 bg-accent/10 rounded-md transition-colors"
+                                            >
+                                              Beautify / Formatar
+                                            </button>
+                                          </div>
+                                        </div>
                                         <textarea 
                                           value={requestBody}
                                           onChange={(e) => setRequestBody(e.target.value)}
-                                          className="w-full h-40 bg-black/40 border border-white/10 rounded-2xl p-4 text-xs font-mono text-emerald-400 outline-none focus:ring-1 focus:ring-accent"
+                                          className={`w-full h-40 bg-black/40 border ${isJsonValid ? 'border-white/10' : 'border-red-500/50'} rounded-2xl p-4 text-xs font-mono text-emerald-400 outline-none focus:ring-1 ${isJsonValid ? 'focus:ring-accent' : 'focus:ring-red-500'}`}
                                         />
                                       </div>
                                     </div>

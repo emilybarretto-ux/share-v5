@@ -20,8 +20,9 @@ async function startServer() {
   app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
   // HELPERS DE CRIPTO (Espelhando src/lib/crypto.ts)
-  const encryptData = (text: string, password: string) => {
-    if (!text) return '';
+  const encryptData = (data: any, password: string) => {
+    if (!data) return '';
+    const text = typeof data === 'object' ? JSON.stringify(data) : String(data);
     const cleanPassword = (password || '').trim();
     // Usamos AES com a senha fornecida.
     return CryptoJS.AES.encrypt(text, cleanPassword).toString();
@@ -225,7 +226,8 @@ async function startServer() {
       } = req.body;
       
       // VALIDAÇÃO: Se não há senha, deve haver allowed_email ou allowed_domain
-      const hasPassword = !!(password && password.trim());
+      const passwordStr = password ? String(password) : '';
+      const hasPassword = !!(passwordStr && passwordStr.trim());
       const hasAccessRestriction = !!((allowed_email && allowed_email.trim()) || (allowed_domain && allowed_domain.trim()));
       
       if (!hasPassword && !hasAccessRestriction) {
@@ -235,9 +237,12 @@ async function startServer() {
         });
       }
       
-      // CRIPTOGRAFIA: Só criptografar se houver senha, caso contrário manter original
-      const encryptedContent = password ? encryptData(content, password) : content;
-      const hashedPassword = password ? hashPassword(password) : null;
+      // NORMALIZAÇÃO: Se for objeto, converter para string
+      const normalizedContent = typeof content === 'object' ? JSON.stringify(content) : String(content);
+      
+      // CRIPTOGRAFIA: Só criptografar se houver senha, caso contrário manter original (normalizado)
+      const encryptedContent = hasPassword ? encryptData(normalizedContent, passwordStr) : normalizedContent;
+      const hashedPassword = hasPassword ? hashPassword(passwordStr) : null;
 
       const payload: any = { 
         name: name || 'Segredo sem nome',
