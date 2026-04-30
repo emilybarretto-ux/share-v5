@@ -50,7 +50,7 @@ export const SuccessScreen = ({
               <div className="w-full max-w-[280px] aspect-square rounded-2xl border-4 border-white bg-white shadow-xl overflow-hidden flex items-center justify-center p-4 mx-auto">
                  <div className="w-full h-full flex items-center justify-center">
                    <QRCodeSVG 
-                     value={`${window.location.origin}/?id=${generatedLinkId}`} 
+                     value={`${window.location.origin}/s/${generatedLinkId}`} 
                      size={240}
                      level="H"
                      includeMargin={false}
@@ -83,7 +83,7 @@ export const SuccessScreen = ({
 
         <div className="relative flex items-center bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800 rounded-xl h-12 px-4 overflow-hidden">
           <span className="text-slate-500 dark:text-slate-400 text-xs truncate pr-10 font-mono">
-            {window.location.origin}/?id={generatedLinkId || '...'}
+            {window.location.origin}/s/{generatedLinkId || '...'}
           </span>
           <div className="absolute right-4 flex items-center text-slate-400">
             <Lock size={14} />
@@ -98,7 +98,7 @@ export const SuccessScreen = ({
         Enviar por E-mail
       </button>
       <button 
-        onClick={() => setScreen('login')}
+        onClick={() => setScreen('dashboard')}
         className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-200/50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors border border-transparent dark:border-slate-700"
       >
         <Settings size={18} />

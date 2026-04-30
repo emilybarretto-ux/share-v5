@@ -1,10 +1,11 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Link as LinkIcon, Eye, Copy, Check, Timer, ChevronLeft, ChevronRight, Mail, Trash2, Clock, Upload, ShieldCheck, Fingerprint, Info } from 'lucide-react';
+import { Link as LinkIcon, Eye, Copy, Check, Timer, ChevronLeft, ChevronRight, Mail, Trash2, Clock, Upload, ShieldCheck, Fingerprint, Info, Plus, Share2 } from 'lucide-react';
 import { SharedLink, DataRequest, Screen } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { FileText, X } from 'lucide-react';
-
+import { QRCodeSVG } from 'qrcode.react';
+import { SecretCreator } from '../features/SecretCreator';
 import { useNotification } from '../shared/NotificationProvider';
 
 interface DashboardScreenProps {
@@ -13,8 +14,8 @@ interface DashboardScreenProps {
   links: SharedLink[];
   requests: DataRequest[];
   forms: any[];
-  dashboardTab: 'links' | 'requests' | 'forms' | 'security' | 'analytics';
-  setDashboardTab: (t: 'links' | 'requests' | 'forms' | 'security' | 'analytics') => void;
+  dashboardTab: 'links' | 'requests' | 'forms' | 'security' | 'create';
+  setDashboardTab: (t: 'links' | 'requests' | 'forms' | 'security' | 'create') => void;
   fetchLinks: () => void;
   fetchRequests: () => void;
   fetchForms: () => void;
@@ -22,14 +23,61 @@ interface DashboardScreenProps {
   setCopied: (c: boolean) => void;
   setScreen: (s: Screen) => void;
   handleCopy: (text: string) => void;
+  user: any;
+  // Props for SecretCreator integration
+  secretText: string;
+  setSecretText: (t: string) => void;
+  keyValuePairs: Array<{ id: number, key: string, value: string }>;
+  addPair: () => void;
+  removePair: (id: number) => void;
+  updatePair: (id: number, field: 'key' | 'value', value: string) => void;
+  handleFormat: (type: 'bold' | 'italic' | 'code') => void;
+  expiration: string;
+  setExpiration: (e: string) => void;
+  limitViews: boolean;
+  setLimitViews: (l: boolean) => void;
+  maxViews: number;
+  setMaxViews: (m: number) => void;
+  password: string;
+  setPassword: (p: string) => void;
+  referenceName: string;
+  setReferenceName: (r: string) => void;
+  handleCreateSecret: () => void;
+  isCreating?: boolean;
+  restrictIp: boolean;
+  setRestrictIp: (v: boolean) => void;
+  requireEmail: boolean;
+  setRequireEmail: (v: boolean) => void;
+  allowedEmails: string[];
+  setAllowedEmails: (v: string[]) => void;
+  allowedDomain: string;
+  setAllowedDomain: (v: string) => void;
+  notifyAccess: boolean;
+  setNotifyAccess: (v: boolean) => void;
+  selectedFile: File | null;
+  setSelectedFile: (f: File | null) => void;
+  redirectUrl: string;
+  setRedirectUrl: (r: string) => void;
 }
-
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 
 export const DashboardScreen = ({
   userEmail,
   links, requests, forms, dashboardTab, setDashboardTab,
-  fetchLinks, fetchRequests, fetchForms, copied, setCopied, setScreen, handleCopy
+  fetchLinks, fetchRequests, fetchForms, copied, setCopied, setScreen, handleCopy,
+  user,
+  secretText, setSecretText,
+  keyValuePairs, addPair, removePair, updatePair,
+  handleFormat, expiration, setExpiration,
+  limitViews, setLimitViews, maxViews, setMaxViews,
+  password, setPassword, referenceName, setReferenceName,
+  handleCreateSecret, isCreating,
+  restrictIp, setRestrictIp,
+  requireEmail, setRequireEmail,
+  allowedEmails, setAllowedEmails,
+  allowedDomain, setAllowedDomain,
+  notifyAccess, setNotifyAccess,
+  selectedFile, setSelectedFile,
+  redirectUrl, setRedirectUrl
 }: DashboardScreenProps) => {
   const { showNotification } = useNotification();
   const [revealedRequests, setRevealedRequests] = React.useState<Set<string>>(new Set());
@@ -37,6 +85,7 @@ export const DashboardScreen = ({
   const [incineratedIds, setIncineratedIds] = React.useState<Set<string>>(new Set());
   const [tempMemory, setTempMemory] = React.useState<Record<string, string>>({});
   const [selectedLinkDetails, setSelectedLinkDetails] = React.useState<SharedLink | null>(null);
+  const [sharingForm, setSharingForm] = React.useState<any | null>(null);
 
   const confirmRevealAndBurn = async () => {
     if (!requestToBurn) return;
@@ -290,10 +339,10 @@ export const DashboardScreen = ({
         {/* Main Table/List Section */}
         <div className="bg-surface rounded-panel border border-border-base overflow-hidden shadow-sm">
           <div className="px-6 py-4 border-b border-border-base flex items-center justify-between bg-bg-base/50">
-            <div className="flex bg-bg-base p-1 rounded-xl">
+            <div className="flex bg-bg-base p-1 rounded-xl overflow-x-auto max-w-full no-scrollbar">
               <button 
                 onClick={() => setDashboardTab('links')}
-                className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${dashboardTab === 'links' ? 'bg-surface shadow-sm text-accent' : 'text-text-secondary hover:text-text-primary'}`}
+                className={`px-6 py-2 rounded-lg text-sm font-bold transition-all shrink-0 ${dashboardTab === 'links' ? 'bg-surface shadow-sm text-accent' : 'text-text-secondary hover:text-text-primary'}`}
               >
                 Meus Links
               </button>
@@ -310,12 +359,6 @@ export const DashboardScreen = ({
                 Formulários
               </button>
               <button 
-                onClick={() => setDashboardTab('analytics')}
-                className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${dashboardTab === 'analytics' ? 'bg-surface shadow-sm text-accent' : 'text-text-secondary hover:text-text-primary'}`}
-              >
-                Analytics
-              </button>
-              <button 
                 onClick={() => setDashboardTab('security')}
                 className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${dashboardTab === 'security' ? 'bg-surface shadow-sm text-accent' : 'text-text-secondary hover:text-text-primary'}`}
               >
@@ -325,7 +368,47 @@ export const DashboardScreen = ({
           </div>
 
           <div className="p-0">
-            {dashboardTab === 'links' ? (
+            {dashboardTab === 'create' ? (
+              <div className="p-6 md:p-10">
+                <SecretCreator 
+                  user={user}
+                  secretText={secretText}
+                  setSecretText={setSecretText}
+                  keyValuePairs={keyValuePairs}
+                  addPair={addPair}
+                  removePair={removePair}
+                  updatePair={updatePair}
+                  handleFormat={handleFormat}
+                  expiration={expiration}
+                  setExpiration={setExpiration}
+                  limitViews={limitViews}
+                  setLimitViews={setLimitViews}
+                  maxViews={maxViews}
+                  setMaxViews={setMaxViews}
+                  password={password}
+                  setPassword={setPassword}
+                  referenceName={referenceName}
+                  setReferenceName={setReferenceName}
+                  handleCreateSecret={handleCreateSecret}
+                  setScreen={setScreen}
+                  isCreating={isCreating}
+                  restrictIp={restrictIp}
+                  setRestrictIp={setRestrictIp}
+                  requireEmail={requireEmail}
+                  setRequireEmail={setRequireEmail}
+                  allowedEmails={allowedEmails}
+                  setAllowedEmails={setAllowedEmails}
+                  allowedDomain={allowedDomain}
+                  setAllowedDomain={setAllowedDomain}
+                  notifyAccess={notifyAccess}
+                  setNotifyAccess={setNotifyAccess}
+                  selectedFile={selectedFile}
+                  setSelectedFile={setSelectedFile}
+                  redirectUrl={redirectUrl}
+                  setRedirectUrl={setRedirectUrl}
+                />
+              </div>
+            ) : dashboardTab === 'links' ? (
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
@@ -444,6 +527,19 @@ export const DashboardScreen = ({
               </div>
             ) : dashboardTab === 'requests' ? (
               <div className="divide-y divide-border-base">
+                <div className="p-6 bg-bg-base/30 flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-black text-text-primary uppercase tracking-widest">Minhas Solicitações</h4>
+                    <p className="text-xs text-text-secondary">Peça informações de forma segura para seus contatos.</p>
+                  </div>
+                  <button 
+                    onClick={() => setScreen('create-request')}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-accent text-white font-black rounded-xl hover:scale-105 active:scale-95 transition-all shadow-lg shadow-accent/20 uppercase tracking-tighter text-xs"
+                  >
+                    <Plus size={16} strokeWidth={4} />
+                    Nova Solicitação
+                  </button>
+                </div>
                 {requests.map((req) => {
                   const expired = isExpired(req.expires_at);
                   const isIncinerated = (req.status === 'completed' && req.response === '') || (req.response === '' && req.title !== '' && req.status !== 'active');
@@ -575,101 +671,6 @@ export const DashboardScreen = ({
                   );
                 })}
               </div>
-            ) : dashboardTab === 'analytics' ? (
-               <div className="p-8 space-y-10">
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                   <div className="bg-bg-base/30 p-5 rounded-3xl border border-border-base">
-                     <p className="text-[10px] font-black text-text-secondary uppercase tracking-widest mb-1">Taxa de Conversão</p>
-                     <p className="text-3xl font-black text-text-primary">68.4%</p>
-                     <p className="text-[10px] text-success-base font-bold mt-2">↑ 12% vs mês anterior</p>
-                   </div>
-                   <div className="bg-bg-base/30 p-5 rounded-3xl border border-border-base">
-                     <p className="text-[10px] font-black text-text-secondary uppercase tracking-widest mb-1">Tempo Médio</p>
-                     <p className="text-3xl font-black text-text-primary">1m 24s</p>
-                     <p className="text-[10px] text-text-secondary font-bold mt-2">Formulários conversacionais</p>
-                   </div>
-                   <div className="bg-bg-base/30 p-5 rounded-3xl border border-border-base">
-                     <p className="text-[10px] font-black text-text-secondary uppercase tracking-widest mb-1">Total Respostas</p>
-                     <p className="text-3xl font-black text-text-primary">
-                       {forms.reduce((acc, f) => acc + (f.form_responses?.length || 0), 0)}
-                     </p>
-                     <p className="text-[10px] text-accent font-bold mt-2">Dados processados</p>
-                   </div>
-                   <div className="bg-bg-base/30 p-5 rounded-3xl border border-border-base">
-                     <p className="text-[10px] font-black text-text-secondary uppercase tracking-widest mb-1">Links Ativos</p>
-                     <p className="text-3xl font-black text-text-primary">{links.filter(l => l.status === 'active').length}</p>
-                     <p className="text-[10px] text-text-secondary font-bold mt-2">Monitoramento 24/7</p>
-                   </div>
-                 </div>
-
-                 <div className="bg-bg-base/20 border border-border-base rounded-[2rem] p-8">
-                   <h4 className="text-sm font-black text-text-primary uppercase tracking-widest mb-6">Atividade de Respostas (Últimos 7 dias)</h4>
-                   <div className="h-[300px] w-full">
-                     <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={[
-                          { name: 'Seg', total: 12 },
-                          { name: 'Ter', total: 18 },
-                          { name: 'Qua', total: 15 },
-                          { name: 'Qui', total: 24 },
-                          { name: 'Sex', total: 32 },
-                          { name: 'Sáb', total: 28 },
-                          { name: 'Dom', total: 38 },
-                        ]}>
-                           <defs>
-                            <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="var(--color-accent)" stopOpacity={0.3}/>
-                              <stop offset="95%" stopColor="var(--color-accent)" stopOpacity={0}/>
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />
-                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold' }} />
-                          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold' }} />
-                          <Tooltip 
-                            contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
-                          />
-                          <Area type="monotone" dataKey="total" stroke="var(--color-accent)" strokeWidth={3} fillOpacity={1} fill="url(#colorTotal)" />
-                        </AreaChart>
-                     </ResponsiveContainer>
-                   </div>
-                 </div>
-
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                   <div className="bg-bg-base/10 border border-border-base rounded-[2rem] p-8">
-                     <h4 className="text-sm font-black text-text-primary uppercase tracking-widest mb-6 px-1">Top Formulários</h4>
-                     <div className="space-y-4">
-                       {forms.sort((a, b) => (b.form_responses?.length || 0) - (a.form_responses?.length || 0)).slice(0, 3).map((f, i) => (
-                         <div key={f.id} className="flex items-center justify-between p-4 bg-surface rounded-2xl border border-border-base shadow-sm">
-                           <div className="flex items-center gap-4">
-                             <span className="text-xs font-black text-text-secondary opacity-30">#{i+1}</span>
-                             <p className="text-sm font-bold truncate max-w-[150px]">{f.title}</p>
-                           </div>
-                           <span className="text-xs font-black text-accent">{f.form_responses?.length || 0} envios</span>
-                         </div>
-                       ))}
-                       {forms.length === 0 && <p className="text-xs text-text-secondary italic text-center py-4">Sem dados para exibir.</p>}
-                     </div>
-                   </div>
-                   <div className="bg-bg-base/10 border border-border-base rounded-[2rem] p-8">
-                     <h4 className="text-sm font-black text-text-primary uppercase tracking-widest mb-6 px-1">Segurança e Integridade</h4>
-                     <div className="space-y-4">
-                        <div className="flex items-center gap-4 p-4 bg-surface rounded-2xl border border-border-base shadow-sm">
-                           <ShieldCheck size={20} className="text-success-base" />
-                           <div className="flex-1">
-                              <p className="text-xs font-bold">100% E2EE Active</p>
-                              <p className="text-[10px] text-text-secondary">Todos os dados criptografados</p>
-                           </div>
-                        </div>
-                        <div className="flex items-center gap-4 p-4 bg-surface rounded-2xl border border-border-base shadow-sm">
-                           <Timer size={20} className="text-accent" />
-                           <div className="flex-1">
-                              <p className="text-xs font-bold">Incineração Automática</p>
-                              <p className="text-[10px] text-text-secondary">42 segredos destruídos hoje</p>
-                           </div>
-                        </div>
-                     </div>
-                   </div>
-                 </div>
-               </div>
             ) : dashboardTab === 'security' ? (
               <div className="p-8 space-y-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -723,6 +724,19 @@ export const DashboardScreen = ({
               </div>
             ) : (
               <div className="divide-y divide-border-base">
+                <div className="p-6 bg-bg-base/30 flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-black text-text-primary uppercase tracking-widest">Meus Formulários</h4>
+                    <p className="text-xs text-text-secondary">Colete dados estruturados com segurança ponta-a-ponta.</p>
+                  </div>
+                  <button 
+                    onClick={() => setScreen('form-builder')}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-accent text-white font-black rounded-xl hover:scale-105 active:scale-95 transition-all shadow-lg shadow-accent/20 uppercase tracking-tighter text-xs"
+                  >
+                    <Plus size={16} strokeWidth={4} />
+                    Novo Formulário
+                  </button>
+                </div>
                 {forms.map((form) => (
                   <div key={form.id} className="p-6 hover:bg-bg-base/30 transition-colors">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -748,11 +762,11 @@ export const DashboardScreen = ({
                           Ver Respostas
                         </button>
                         <button 
-                          onClick={() => handleCopy(`${window.location.origin}/?form=${form.id}`)}
+                          onClick={() => setSharingForm(form)}
                           className="flex items-center gap-2 px-4 py-2 bg-bg-base rounded-xl text-xs font-bold text-text-primary hover:text-accent transition-colors border border-border-base"
                         >
-                          <Copy size={14} />
-                          Copiar Link
+                          <Share2 size={14} />
+                          Compartilhar
                         </button>
                         <button 
                           onClick={() => deleteForm(form.id)}
@@ -772,6 +786,85 @@ export const DashboardScreen = ({
               </div>
             )}
           </div>
+
+          {/* Sharing Form Modal */}
+          <AnimatePresence>
+            {sharingForm && (
+              <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-bg-base/90 backdrop-blur-xl">
+                <motion.div 
+                  initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                  animate={{ scale: 1, opacity: 1, y: 0 }}
+                  exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                  className="bg-surface w-full max-w-lg rounded-[3rem] border border-border-base shadow-2xl p-8 relative overflow-hidden"
+                >
+                  <div className="absolute top-0 left-0 w-full h-1.5 bg-accent" />
+                  
+                  <button 
+                    onClick={() => setSharingForm(null)}
+                    className="absolute top-6 right-6 p-2 hover:bg-bg-base rounded-full transition-colors text-text-secondary"
+                  >
+                    <X size={20} />
+                  </button>
+
+                  <div className="text-center space-y-6 pt-4">
+                    <div className="size-16 bg-accent/10 text-accent rounded-3xl flex items-center justify-center mx-auto mb-2">
+                      <FileText size={32} />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <h3 className="text-2xl font-black text-text-primary tracking-tighter uppercase italic">{sharingForm.title}</h3>
+                      <p className="text-xs text-text-secondary font-bold uppercase tracking-widest">Link de Acesso Seguro</p>
+                    </div>
+
+                    <div className="space-y-4 pt-4">
+                       <div className="p-4 bg-white rounded-3xl shadow-sm border border-slate-100 w-fit mx-auto">
+                         <QRCodeSVG value={`${window.location.origin}/form/${sharingForm.id}`} size={140} />
+                       </div>
+
+                       <div className="relative group">
+                          <div className="w-full bg-bg-base border-2 border-border-base rounded-2xl p-4 text-left font-mono text-[10px] text-text-secondary break-all pr-16 group-hover:border-accent/30 transition-colors">
+                             {window.location.origin}/form/{sharingForm.id}
+                          </div>
+                          <button 
+                            onClick={() => {
+                              handleCopy(`${window.location.origin}/form/${sharingForm.id}`);
+                              setCopied(true);
+                              setTimeout(() => setCopied(false), 2000);
+                            }}
+                            className={`absolute right-2 top-1/2 -translate-y-1/2 p-2.5 rounded-xl text-white transition-all ${copied ? 'bg-success-base' : 'bg-accent hover:scale-105 active:scale-95'}`}
+                          >
+                            {copied ? <Check size={16} /> : <Copy size={16} />}
+                          </button>
+                       </div>
+
+                       <div className="flex gap-2">
+                         <button 
+                            onClick={() => window.open(`${window.location.origin}/form/${sharingForm.id}`, '_blank')}
+                            className="flex-1 py-3 bg-bg-base rounded-xl text-xs font-black uppercase tracking-widest text-text-primary border border-border-base hover:bg-bg-base/80 transition-all"
+                         >
+                            Visualizar
+                         </button>
+                         <button 
+                            onClick={() => {
+                              const url = `${window.location.origin}/form/${sharingForm.id}`;
+                              if (navigator.share) {
+                                navigator.share({ title: sharingForm.title, url });
+                              } else {
+                                handleCopy(url);
+                              }
+                            }}
+                            className="flex-1 py-3 bg-accent text-white rounded-xl text-xs font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-lg shadow-accent/20"
+                         >
+                            Compartilhar
+                         </button>
+                       </div>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
+
           {/* Footer Pagination/Info */}
           <div className="px-6 py-4 border-t border-border-base flex items-center justify-between">
             <span className="text-xs text-text-secondary font-medium">Mostrando {dashboardTab === 'links' ? links.length : requests.length} itens</span>

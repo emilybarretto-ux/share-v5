@@ -26,8 +26,12 @@ const renderText = (text: string) => {
   });
 };
 
+import { FormSuccessScreen } from '../screens/FormSuccessScreen';
+
 export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => void, onPreview: (form: any) => void, key?: string }) => {
   const [fields, setFields] = useState<FormField[]>([]);
+  const [lastPublishedId, setLastPublishedId] = useState<string | null>(null);
+  const [showSuccess, setShowSuccess] = useState(false);
   const [title, setTitle] = useState('Título');
   const [subtitle, setSubtitle] = useState('Subtítulo aqui');
   const [headerImage, setHeaderImage] = useState('');
@@ -396,14 +400,10 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
         return;
       }
 
-      const origin = window.location.origin.replace(/\/$/, "");
-      const baseOrigin = origin.replace('-dev-', '-pre-');
-      const shareUrl = `${baseOrigin}/?form=${formId}`;
-      
-      navigator.clipboard.writeText(shareUrl);
-      showNotification('Formulário publicado! Link público copiado.', 'success');
+      setLastPublishedId(formId);
+      setShowSuccess(true);
+      showNotification('Formulário publicado com sucesso!', 'success');
       localStorage.removeItem('form_builder_draft');
-      onBack();
     } catch (err: any) {
       console.error('Erro ao publicar:', err);
       showNotification('Erro ao publicar formulário.', 'error');
@@ -421,6 +421,18 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
     glass: { bg: 'bg-indigo-950/80', card: 'bg-white/10 backdrop-blur-xl border-white/20' }
   };
   const previewThemeStyles = themes[themePreset as keyof typeof themes] || themes.default;
+
+  if (showSuccess && lastPublishedId) {
+    return (
+      <div className="min-h-screen bg-bg-base flex items-center justify-center p-4">
+        <FormSuccessScreen 
+          formId={lastPublishedId}
+          title={title}
+          onBack={onBack}
+        />
+      </div>
+    );
+  }
 
   if (isPreview) {
     return (

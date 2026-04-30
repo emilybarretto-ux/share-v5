@@ -15,7 +15,7 @@ interface RequestSuccessScreenProps {
 export const RequestSuccessScreen = ({
   generatedLinkId, copied, handleCopy, setScreen
 }: RequestSuccessScreenProps) => {
-  const link = `${window.location.origin}/?request=${generatedLinkId}`;
+  const link = `${window.location.origin}/request/${generatedLinkId}`;
 
   return (
     <motion.div 

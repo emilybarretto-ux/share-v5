@@ -10,6 +10,7 @@ import { useNotification } from './components/shared/NotificationProvider';
 
 // Screens
 import { HomeScreen } from './components/screens/HomeScreen';
+import { CreateSecretScreen } from './components/screens/CreateSecretScreen';
 import { LoginScreen } from './components/screens/LoginScreen';
 import { RegisterScreen } from './components/screens/RegisterScreen';
 import { DashboardScreen } from './components/screens/DashboardScreen';
@@ -170,14 +171,23 @@ export default function App() {
     );
   };
   const [screen, setScreenState] = useState<Screen>(() => {
-    // 1. Tenta recuperar a tela da URL primeiro (Fator determinante)
     if (typeof window !== 'undefined') {
+      const path = window.location.pathname;
       const params = new URLSearchParams(window.location.search);
+      
+      // Rotas limpas por path
+      if (path.startsWith('/f/')) return 'view-form';
+      if (path.startsWith('/s/')) return 'view-secret';
+      if (path.startsWith('/r/')) return 'fill-request';
+      if (path === '/app') return 'dashboard';
+      if (path === '/app/builder') return 'form-builder';
+      if (path === '/app/requests/new') return 'create-request';
+      
+      // Fallback para params legados
       if (params.has('id')) return 'view-secret';
       if (params.has('request')) return 'fill-request';
       if (params.has('form')) return 'view-form';
       
-      // 2. Persistência de tela (apenas para certas telas)
       const savedScreen = localStorage.getItem('app_screen') as Screen;
       if (savedScreen && ['dashboard', 'form-builder', 'security', 'how-it-works'].includes(savedScreen)) {
         return savedScreen;
@@ -185,6 +195,16 @@ export default function App() {
     }
     return 'home';
   });
+
+  // Helper para obter o ID da URL baseado no path
+  const getUrlId = () => {
+    const path = window.location.pathname;
+    const parts = path.split('/');
+    if (parts.length >= 3) return parts[2];
+    
+    const params = new URLSearchParams(window.location.search);
+    return params.get('id') || params.get('request') || params.get('form');
+  };
   
   const screenRef = React.useRef<Screen>(screen);
   
@@ -242,7 +262,7 @@ export default function App() {
   const [requests, setRequests] = useState<DataRequest[]>([]);
   const [forms, setForms] = useState<any[]>([]);
   const [apiApps, setApiApps] = useState<any[]>([]);
-  const [dashboardTab, setDashboardTab] = useState<'links' | 'requests' | 'forms' | 'security' | 'api'>('links');
+  const [dashboardTab, setDashboardTab] = useState<'links' | 'requests' | 'forms' | 'security' | 'create'>('links');
 
   // Limpeza de estado quando o usuário muda (segurança extra)
   useEffect(() => {
@@ -366,12 +386,23 @@ export default function App() {
       const urlId = params.get('id');
       const urlRequest = params.get('request');
       const urlForm = params.get('form');
-      const isDev = window.location.pathname === '/developers' || window.location.pathname === '/docs';
+      
+      const path = window.location.pathname;
+      const pathId = path.startsWith('/s/') ? path.split('/')[2] : null;
+      const pathForm = path.startsWith('/form/') ? path.split('/')[2] : null;
+      const pathRequest = path.startsWith('/request/') ? path.split('/')[2] : null;
+
+      const isDev = path === '/developers' || path === '/docs';
 
       if (isDev) setScreen('developer-portal');
-      else if (urlId) setScreen('view-secret');
-      else if (urlRequest) setScreen('fill-request');
-      else if (urlForm) setScreen('view-form');
+      else if (urlId || pathId) {
+        if (pathId) {
+          // Sync state with path if needed
+        }
+        setScreen('view-secret');
+      }
+      else if (urlRequest || pathRequest) setScreen('fill-request');
+      else if (urlForm || pathForm) setScreen('view-form');
     };
 
     // Inicializa URL params uma vez no montagem
@@ -1027,7 +1058,7 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
   };
 
   const handleCopy = (text?: string) => {
-    const link = text || `${window.location.origin}/?id=${lastCreatedId}`;
+    const link = text || `${window.location.origin}/s/${lastCreatedId}`;
     navigator.clipboard.writeText(link);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -1035,9 +1066,20 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
   };
 
   const queryParams = new URLSearchParams(window.location.search);
-  const viewingFormId = queryParams.get('form') || '';
-  const viewingSecretId = queryParams.get('id') || '';
-  const fillingRequestId = queryParams.get('request') || '';
+  const pathParts = window.location.pathname.split('/');
+  const viewingFormId = queryParams.get('form') || (window.location.pathname.startsWith('/form/') ? pathParts[2] : '');
+  const viewingSecretId = queryParams.get('id') || (window.location.pathname.startsWith('/s/') ? pathParts[2] : '');
+  const fillingRequestId = queryParams.get('request') || (window.location.pathname.startsWith('/request/') ? pathParts[2] : '');
+
+  // --- DETERMINAR SE É UMA TELA PÚBLICA (SEM NAVBAR) ---
+  const isPublicScreen = 
+    screen === 'view-secret' || 
+    screen === 'view-form' || 
+    screen === 'fill-request' || 
+    screen === 'success' ||
+    screen === 'request-success' ||
+    screen === 'fill-success' ||
+    ['setup-2fa', 'verify-2fa'].includes(screen as any);
 
   return (
     <div className={`min-h-screen ${darkMode ? 'dark' : ''} bg-bg-base text-text-primary transition-colors duration-300 font-sans selection:bg-accent/20 selection:text-accent`}>
@@ -1047,86 +1089,71 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
         </div>
       ) : (
         <>
-      {screen !== 'view-secret' && screen !== 'view-form' && screen !== 'fill-request' && (
-      <nav className="border-b border-border-base bg-surface sticky top-0 z-50">
+      {!isPublicScreen && (
+      <nav className={`border-b border-border-base sticky top-0 z-50 backdrop-blur-md ${screen === 'home' ? 'bg-bg-base/80 border-transparent' : 'bg-surface'}`}>
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4 flex-1">
             <div className="flex items-center gap-2 cursor-pointer" onClick={() => setScreen('home')}>
               <div className="size-10 bg-accent rounded-lg flex items-center justify-center text-white shadow-lg">
                 <ShieldCheck size={24} />
               </div>
-              <span className="font-bold text-xl hidden sm:block">Bold Share</span>
+              <span className="font-black text-xl hidden sm:block tracking-tighter uppercase italic text-text-primary">Bold Share</span>
             </div>
-            <div className="flex items-center gap-6 ml-4">
-              <button 
-                onClick={() => setScreen('home')} 
-                className={`text-sm font-bold transition-colors ${screen === 'home' ? 'text-accent' : 'text-text-secondary hover:text-accent'}`}
-              >
-                Início
-              </button>
-              <button 
-                onClick={() => setScreen('how-it-works')} 
-                className={`text-sm font-bold transition-colors ${screen === 'how-it-works' ? 'text-accent' : 'text-text-secondary hover:text-accent'}`}
-              >
-                Como Funciona
-              </button>
-              <button 
-                onClick={() => setScreen('security')} 
-                className={`text-sm font-bold transition-colors ${screen === 'security' ? 'text-accent' : 'text-text-secondary hover:text-accent'}`}
-              >
-                Segurança
-              </button>
-              <button 
-                onClick={() => navigateWithAuth('create-request')} 
-                className={`text-sm font-bold transition-colors ${screen === 'create-request' || screen === 'request-success' ? 'text-accent' : 'text-text-secondary hover:text-accent'}`}
-              >
-                Solicitação
-              </button>
-              <button 
-                onClick={() => navigateWithAuth('form-builder')} 
-                className={`text-sm font-bold transition-colors ${screen === 'form-builder' ? 'text-accent' : 'text-text-secondary hover:text-accent'}`}
-              >
-                Construtor
-              </button>
-              <button 
-                onClick={() => navigateWithAuth('dashboard')} 
-                className={`text-sm font-bold transition-colors ${screen === 'dashboard' ? 'text-accent' : 'text-text-secondary hover:text-accent'}`}
-              >
-                Dashboard
-              </button>
-              <button 
-                onClick={() => {
-                  if (!user) {
-                    setScreen('login');
-                  } else {
-                    setScreen('developer-portal');
-                    window.history.pushState({}, '', '/developers');
-                  }
-                }} 
-                className={`text-sm font-bold transition-colors ${screen === 'developer-portal' ? 'text-accent' : 'text-text-secondary hover:text-accent'}`}
-              >
-                API/Developers
-              </button>
+            
+            <div className="hidden md:flex items-center gap-10 ml-10">
+              <button onClick={() => setScreen('home')} className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:translate-y-[-1px] ${screen === 'home' ? 'text-accent' : 'text-text-secondary hover:text-accent'}`}>Home</button>
+              <button onClick={() => setScreen('create-secret')} className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:translate-y-[-1px] ${screen === 'create-secret' ? 'text-accent' : 'text-text-secondary hover:text-accent'}`}>Criar Link</button>
+              
+              {user ? (
+                <>
+                  <button onClick={() => setScreen('dashboard')} className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:translate-y-[-1px] ${screen === 'dashboard' ? 'text-accent' : 'text-text-secondary hover:text-accent'}`}>Dashboard</button>
+                  <button 
+                    onClick={() => {
+                      setScreen('developer-portal');
+                      window.history.pushState({}, '', '/developers');
+                    }} 
+                    className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:translate-y-[-1px] ${screen === 'developer-portal' ? 'text-accent' : 'text-text-secondary hover:text-accent'}`}
+                  >
+                    API / Devs
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button onClick={() => setScreen('how-it-works')} className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:translate-y-[-1px] ${screen === 'how-it-works' ? 'text-accent' : 'text-text-secondary hover:text-accent'}`}>Como Funciona</button>
+                  <button onClick={() => setScreen('security')} className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:translate-y-[-1px] ${screen === 'security' ? 'text-accent' : 'text-text-secondary hover:text-accent'}`}>Segurança</button>
+                </>
+              )}
             </div>
           </div>
+
           <div className="flex items-center gap-4">
-            <button onClick={() => setDarkMode(!darkMode)} className="p-2 text-text-secondary hover:text-accent">
+            <button onClick={() => setDarkMode(!darkMode)} className="p-2 text-text-secondary hover:text-accent transition-colors">
               {darkMode ? <Sun size={20} /> : <Moon size={20} />}
             </button>
+            
             {user ? (
-              <button 
-                onClick={handleLogout} 
-                className="px-4 py-2 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white text-sm font-bold rounded-lg transition-all"
-              >
-                Sair
-              </button>
+              <div className="flex items-center gap-4 pl-4 border-l border-border-base">
+                <div className="text-right hidden sm:block">
+                  <p className="text-[10px] font-black text-text-secondary uppercase tracking-widest">Usuário Verificado</p>
+                  <p className="text-xs font-bold text-text-primary">{user.email?.split('@')[0]}</p>
+                </div>
+                <button 
+                  onClick={handleLogout} 
+                  className="px-4 py-2 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all"
+                >
+                  Sair
+                </button>
+              </div>
             ) : (
-              <button 
-                onClick={() => setScreen('login')} 
-                className="px-4 py-2 bg-accent text-white text-sm font-bold rounded-lg hover:opacity-90 transition-all"
-              >
-                Entrar
-              </button>
+              <div className="flex items-center gap-4">
+                <button onClick={() => setScreen('login')} className="text-xs font-black uppercase tracking-widest text-text-secondary hover:text-text-primary">Entrar</button>
+                <button 
+                  onClick={() => setScreen('register')} 
+                  className="px-6 py-2.5 bg-accent text-white text-xs font-black uppercase tracking-widest rounded-xl hover:scale-105 active:scale-95 transition-all shadow-xl shadow-accent/20"
+                >
+                  Criar Conta
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -1141,13 +1168,20 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
         <div key="main-content-flow">
           {screen === 'home' && (
             <div key="home-screen-container">
-              <HomeScreen 
+              <HomeScreen setScreen={setScreen as any} user={user} />
+            </div>
+          )}
+
+          {screen === 'create-secret' && (
+            <div key="create-secret-container">
+              <CreateSecretScreen 
+                user={user}
                 secretText={secretText} setSecretText={setSecretText}
                 keyValuePairs={keyValuePairs} addPair={addPair} removePair={removePair} updatePair={updatePair}
                 handleFormat={handleFormat} expiration={expiration} setExpiration={setExpiration}
                 limitViews={limitViews} setLimitViews={setLimitViews} maxViews={maxViews} setMaxViews={setMaxViews}
                 password={password} setPassword={setPassword} referenceName={referenceName} setReferenceName={setReferenceName}
-                handleCreateSecret={handleCreateSecret} setScreen={setScreen as any}
+                handleCreateSecret={handleCreateSecret}
                 isCreating={isCreatingSecret}
                 restrictIp={restrictIp} setRestrictIp={setRestrictIp}
                 requireEmail={requireEmail} setRequireEmail={setRequireEmail}
@@ -1156,7 +1190,6 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
                 notifyAccess={notifyAccess} setNotifyAccess={setNotifyAccess}
                 selectedFile={selectedFile} setSelectedFile={setSelectedFile}
                 redirectUrl={redirectUrl} setRedirectUrl={setRedirectUrl}
-                user={user}
               />
             </div>
           )}
@@ -1176,14 +1209,17 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
               <ViewForm 
                 id={viewingFormId} 
                 user={user}
-                onBack={() => { window.history.pushState({}, '', '/'); setScreen('home'); }} 
+                onBack={() => { 
+                  window.history.pushState({}, '', '/'); 
+                  setScreen(user ? 'dashboard' : 'home'); 
+                }} 
               />
             </div>
           )}
 
           {screen === 'form-builder' && (
             <div key="builder">
-              <FormBuilderScreen onBack={() => setScreen('home')} onPreview={() => {}} />
+              <FormBuilderScreen onBack={() => setScreen(user ? 'dashboard' : 'home')} onPreview={() => {}} />
             </div>
           )}
 
@@ -1276,6 +1312,40 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
                 dashboardTab={dashboardTab as any} setDashboardTab={setDashboardTab as any}
                 fetchLinks={fetchLinks} fetchRequests={fetchRequests} fetchForms={fetchForms}
                 copied={copied} setCopied={setCopied} setScreen={setScreen as any} handleCopy={handleCopy}
+                user={user}
+                secretText={secretText}
+                setSecretText={setSecretText}
+                keyValuePairs={keyValuePairs}
+                addPair={addPair}
+                removePair={removePair}
+                updatePair={updatePair}
+                handleFormat={handleFormat}
+                expiration={expiration}
+                setExpiration={setExpiration}
+                limitViews={limitViews}
+                setLimitViews={setLimitViews}
+                maxViews={maxViews}
+                setMaxViews={setMaxViews}
+                password={password}
+                setPassword={setPassword}
+                referenceName={referenceName}
+                setReferenceName={setReferenceName}
+                handleCreateSecret={handleCreateSecret}
+                isCreating={isCreatingSecret}
+                restrictIp={restrictIp}
+                setRestrictIp={setRestrictIp}
+                requireEmail={requireEmail}
+                setRequireEmail={setRequireEmail}
+                allowedEmails={allowedEmails}
+                setAllowedEmails={setAllowedEmails}
+                allowedDomain={allowedDomain}
+                setAllowedDomain={setAllowedDomain}
+                notifyAccess={notifyAccess}
+                setNotifyAccess={setNotifyAccess}
+                selectedFile={selectedFile}
+                setSelectedFile={setSelectedFile}
+                redirectUrl={redirectUrl}
+                setRedirectUrl={setRedirectUrl}
               />
             </div>
           )}
@@ -1317,7 +1387,10 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
               <FillRequest 
                 id={fillingRequestId} 
                 user={user}
-                onSuccess={() => { window.history.pushState({}, '', '/'); setScreen('home'); }} 
+                onSuccess={() => { 
+                  window.history.pushState({}, '', '/'); 
+                  setScreen(user ? 'dashboard' : 'home'); 
+                }} 
               />
             </div>
           )}
