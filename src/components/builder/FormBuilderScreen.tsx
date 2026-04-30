@@ -177,6 +177,7 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
               "theme": "default",
               "fields": [
                 {
+                  "id": "id_unico_curto",
                   "type": "text | textarea | radio | checkbox | dropdown | date | rating | scale | heading | section | image",
                   "label": "Pergunta aqui ou legenda da imagem/seção",
                   "required": true,
@@ -185,7 +186,7 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
                   "logic": [
                     {
                       "action": "show | hide | jump | terminate",
-                      "targetId": "ID do campo alvo (id1, id2...)",
+                      "targetId": "ID_DO_CAMPO_OU_SECAO_ALVO",
                       "conditionOperator": "equals | not_equals | contains",
                       "conditionValue": "valor para comparar"
                     }
@@ -193,9 +194,16 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
                 }
               ]
             }
-            IMPORTANTE: Para criar ramificações (ex: Carro vs Moto), adicione vários objetos no array 'logic'. 
-            Se uma 'section' for ocultada, todos os campos até a próxima seção também serão ocultados (cascata). Use isso para criar fluxos complexos.
-            Se o formulário tiver ramificações, você DEVE usar a lógica 'show' ou 'hide' nas seções correspondentes.` }]
+            REGRAS CRÍTICAS DE LÓGICA E RAMIFICAÇÃO:
+            1. SEMPRE atribua um 'id' semântico e único (ex: 'tipo_veiculo', 'sec_carro', 'field_ano') para TODOS os campos e seções no JSON.
+            2. Para criar fluxos de ramificação (ex: Se 'Carro' vai para uma parte, se 'Moto' vai para outra):
+               - Crie uma 'section' para cada ramificação.
+               - No campo de escolha, adicione um array 'logic' com regras 'show' para as seções alvo.
+               - Exemplo: logic: [{ "action": "show", "targetId": "sec_moto", "conditionOperator": "equals", "conditionValue": "Moto" }]
+            3. A lógica 'show' OCULTA o alvo por padrão, e só mostra se a condição for atendida.
+            4. Se uma 'section' for ocultada, TODOS os campos abaixo dela até a próxima seção visível também serão ocultados.
+            5. O campo alvo ('targetId') DEVE ser exatamente o 'id' que você definiu para o campo/seção alvo no mesmo JSON.
+            6. SEMPRE use IDs claros e evite IDs genéricos como 'id1', 'id2'. Use 'pergunta_sobre_algo'.` }]
           }
         ],
         config: {
