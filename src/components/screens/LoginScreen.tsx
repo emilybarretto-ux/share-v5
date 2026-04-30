@@ -57,7 +57,13 @@ export const LoginScreen = ({
             <div className="space-y-2">
               <div className="flex items-center justify-between ml-1">
                 <label className="text-sm font-semibold text-text-secondary">Senha</label>
-                <button className="text-xs font-bold text-accent hover:underline">Esqueceu a senha?</button>
+                <button 
+                  type="button"
+                  onClick={() => setScreen('forgot-password')}
+                  className="text-xs font-bold text-accent hover:underline"
+                >
+                  Esqueceu a senha?
+                </button>
               </div>
               <div className="relative">
                 <Lock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />

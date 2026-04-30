@@ -22,7 +22,7 @@ export const HomeScreen = ({ setScreen, user }: HomeScreenProps) => {
           <motion.h1 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-5xl md:text-8xl font-black text-text-primary leading-[0.9] tracking-tighter"
+            className="text-4xl sm:text-5xl md:text-8xl font-black text-text-primary leading-[0.9] tracking-tighter"
           >
             SUA INFORMAÇÃO, <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent to-indigo-400">SOB CONTROLE TOTAL.</span>
@@ -65,7 +65,7 @@ export const HomeScreen = ({ setScreen, user }: HomeScreenProps) => {
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16 space-y-4">
             <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-accent">O que oferecemos</h2>
-            <h3 className="text-4xl font-black text-text-primary tracking-tighter">FERRAMENTAS SIMPLES PARA SEGURANÇA MÁXIMA.</h3>
+            <h3 className="text-3xl sm:text-4xl font-black text-text-primary tracking-tighter">FERRAMENTAS SIMPLES PARA SEGURANÇA MÁXIMA.</h3>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -110,7 +110,7 @@ export const HomeScreen = ({ setScreen, user }: HomeScreenProps) => {
           </div>
           
           <div className="relative z-10 max-w-3xl">
-            <h2 className="text-4xl md:text-6xl font-black leading-tight tracking-tighter mb-8 italic uppercase text-white">
+            <h2 className="text-3xl sm:text-4xl md:text-6xl font-black leading-tight tracking-tighter mb-8 italic uppercase text-white break-words">
               Confidencialidade. <br /> Integridade. Disponibilidade.
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -132,12 +132,12 @@ export const HomeScreen = ({ setScreen, user }: HomeScreenProps) => {
         </div>
       </section>
 
-      <footer className="py-24 text-center space-y-8">
-        <h2 className="text-4xl md:text-5xl font-black text-text-primary tracking-tighter uppercase italic">Reduza riscos operacionais hoje</h2>
+      <footer className="py-24 text-center space-y-8 px-4">
+        <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-text-primary tracking-tighter uppercase italic">Reduza riscos operacionais hoje</h2>
         <p className="max-w-xl mx-auto text-text-secondary font-medium">Implemente governança no compartilhamento de dados e proteja os ativos mais valiosos da sua operação.</p>
         <button 
           onClick={() => setScreen('register')}
-          className="px-12 py-6 bg-accent text-white font-black rounded-2xl uppercase tracking-tighter text-xl shadow-2xl shadow-accent/30 hover:scale-105 active:scale-95 transition-all"
+          className="w-full max-w-xs px-12 py-6 bg-accent text-white font-black rounded-2xl uppercase tracking-tighter text-xl shadow-2xl shadow-accent/30 hover:scale-105 active:scale-95 transition-all mx-auto sm:w-auto"
         >
           Criar minha conta
         </button>

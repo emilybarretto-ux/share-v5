@@ -21,6 +21,8 @@ import { HowItWorksScreen } from './components/screens/HowItWorksScreen';
 import { SecurityScreen } from './components/screens/SecurityScreen';
 import { DeveloperPortal } from './components/screens/DeveloperPortal';
 import { PasswordGateScreen } from './components/screens/PasswordGateScreen';
+import { ForgotPasswordScreen } from './components/screens/ForgotPasswordScreen';
+import { ResetPasswordScreen } from './components/screens/ResetPasswordScreen';
 
 // Features
 import { ViewSecret } from './components/features/ViewSecret';
@@ -393,8 +395,12 @@ export default function App() {
       const pathRequest = path.startsWith('/request/') ? path.split('/')[2] : null;
 
       const isDev = path === '/developers' || path === '/docs';
+      const isReset = path === '/reset-password';
+      const isForgot = path === '/forgot-password';
 
       if (isDev) setScreen('developer-portal');
+      else if (isReset) setScreen('reset-password');
+      else if (isForgot) setScreen('forgot-password');
       else if (urlId || pathId) {
         if (pathId) {
           // Sync state with path if needed
@@ -1079,6 +1085,8 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
     screen === 'success' ||
     screen === 'request-success' ||
     screen === 'fill-success' ||
+    screen === 'forgot-password' ||
+    screen === 'reset-password' ||
     ['setup-2fa', 'verify-2fa'].includes(screen as any);
 
   return (
@@ -1145,11 +1153,11 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-4">
-                <button onClick={() => setScreen('login')} className="text-xs font-black uppercase tracking-widest text-text-secondary hover:text-text-primary">Entrar</button>
+              <div className="flex items-center gap-2 sm:gap-4">
+                <button onClick={() => setScreen('login')} className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-text-secondary hover:text-text-primary px-1">Entrar</button>
                 <button 
                   onClick={() => setScreen('register')} 
-                  className="px-6 py-2.5 bg-accent text-white text-xs font-black uppercase tracking-widest rounded-xl hover:scale-105 active:scale-95 transition-all shadow-xl shadow-accent/20"
+                  className="px-4 sm:px-6 py-2 sm:py-2.5 bg-accent text-white text-[10px] sm:text-xs font-black uppercase tracking-widest rounded-xl hover:scale-105 active:scale-95 transition-all shadow-xl shadow-accent/20"
                 >
                   Criar Conta
                 </button>
@@ -1201,6 +1209,18 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
                 loginPassword={loginPassword} setLoginPassword={setLoginPassword}
                 handleLogin={handleLogin} isLoggingIn={isLoggingIn} setScreen={setScreen as any}
               />
+            </div>
+          )}
+
+          {screen === 'forgot-password' && (
+            <div key="forgot-password">
+              <ForgotPasswordScreen onBack={() => setScreen('login')} />
+            </div>
+          )}
+
+          {screen === 'reset-password' && (
+            <div key="reset-password">
+              <ResetPasswordScreen onSuccess={() => setScreen('login')} />
             </div>
           )}
 

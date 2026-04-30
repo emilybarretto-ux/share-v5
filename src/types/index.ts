@@ -1,4 +1,4 @@
-export type Screen = 'home' | 'dashboard' | 'success' | 'verification' | 'password-gate' | 'login' | 'register' | 'how-it-works' | 'security' | 'create-request' | 'fill-request' | 'request-success' | 'fill-success' | 'view-secret' | 'form-builder' | 'view-form' | 'developer-portal' | 'create-secret';
+export type Screen = 'home' | 'dashboard' | 'success' | 'forgot-password' | 'reset-password' | 'verification' | 'password-gate' | 'login' | 'register' | 'how-it-works' | 'security' | 'create-request' | 'fill-request' | 'request-success' | 'fill-success' | 'view-secret' | 'form-builder' | 'view-form' | 'developer-portal' | 'create-secret';
 
 export interface SharedLink {
   id: string;
