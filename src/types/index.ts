@@ -41,7 +41,7 @@ export type FieldType =
   | 'grid-radio' | 'grid-checkbox'
   | 'date' | 'time' | 'datetime' | 'daterange'
   | 'rating' | 'range' | 'sortable' | 'file' | 'signature' | 'consent'
-  | 'heading' | 'section' | 'divider' | 'page-break' | 'hidden' | 'calculation';
+  | 'heading' | 'section' | 'divider' | 'page-break' | 'hidden' | 'calculation' | 'image';
 
 export interface FormField {
   id: string;
@@ -49,6 +49,7 @@ export interface FormField {
   label: string;
   placeholder?: string;
   description?: string;
+  imageUrl?: string;
   required: boolean;
   options?: string[];
   imageOptions?: Record<string, string>; // option text -> image URL

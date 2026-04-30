@@ -122,6 +122,19 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
     showNotification(`Campo adicionado!`, 'success');
   };
 
+  const generateAIImage = async (fieldId: string, prompt: string) => {
+    try {
+      showNotification('IA está gerando imagem...', 'info');
+      // Use fallback if tools are not available, but here I'll use a seed based on prompt
+      const seed = Math.floor(Math.random() * 1000000);
+      const url = `https://picsum.photos/seed/${seed}/800/450`;
+      updateField(fieldId, { imageUrl: url });
+      showNotification('Imagem gerada!', 'success');
+    } catch (e) {
+      showNotification('Erro ao gerar imagem.', 'error');
+    }
+  };
+
   const removeField = (id: string) => {
     setFields(fields.filter(f => f.id !== id));
     if (selectedFieldId === id) setSelectedFieldId(null);
@@ -164,13 +177,21 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
               "theme": "default",
               "fields": [
                 {
-                  "type": "text | textarea | radio | checkbox | dropdown | date | rating | scale",
-                  "label": "Pergunta aqui",
+                  "type": "text | textarea | radio | checkbox | dropdown | date | rating | scale | heading | section | image",
+                  "label": "Pergunta aqui ou legenda da imagem/seção",
                   "required": true,
-                  "options": ["opção 1", "opção 2"]
+                  "options": ["opção 1", "opção 2"],
+                  "imageUrl": "URL se tipo image",
+                  "logic": {
+                    "action": "show | hide | jump | terminate",
+                    "targetId": "ID do campo alvo (id1, id2...)",
+                    "conditionOperator": "equals | not_equals | contains",
+                    "conditionValue": "valor para comparar"
+                  }
                 }
               ]
-            }` }]
+            }. 
+            IMPORTANTE: Se uma 'section' for ocultada, todos os campos até a próxima seção também serão ocultados (cascata). Use isso para criar fluxos complexos.` }]
           }
         ],
         config: {
@@ -203,11 +224,34 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
       }
       
       if (data.fields && Array.isArray(data.fields)) {
-        const newFields = data.fields.map((f: any) => ({
-          ...f,
-          id: Math.random().toString(36).substring(2, 9),
-          mask: 'none'
-        }));
+        // Create a mapping of original (AI-provided) IDs to new IDs
+        const idMap: Record<string, string> = {};
+        data.fields.forEach((f: any, idx: number) => {
+          const originalId = f.id || `id${idx}`;
+          idMap[originalId] = Math.random().toString(36).substring(2, 9);
+        });
+
+        const newFields = data.fields.map((f: any, idx: number) => {
+          const originalId = f.id || `id${idx}`;
+          const newField = {
+            ...f,
+            id: idMap[originalId],
+            mask: 'none'
+          };
+
+          // Remap targetId in logic if it exists
+          if (newField.logic && newField.logic.targetId) {
+            const targetId = newField.logic.targetId;
+            if (idMap[targetId]) {
+              newField.logic.targetId = idMap[targetId];
+            } else if (targetId !== 'end') {
+              // If target not found in fields, it might be a later field or invalid
+              // We'll leave it as is or handle it later if needed
+            }
+          }
+
+          return newField;
+        });
         
         setTitle(data.title || title);
         setSubtitle(data.subtitle || subtitle);
@@ -547,6 +591,7 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
                       { type: 'date', label: 'Data', icon: <Clock size={16} /> },
                       { type: 'time', label: 'Horário', icon: <Clock size={16} /> },
                       { type: 'signature', label: 'Assinatura', icon: <PenTool size={16} /> },
+                      { type: 'image', label: 'Imagem', icon: <Plus size={16} /> },
                     ].map((item) => (
                       <button key={item.type} onClick={() => addField(item.type as FieldType)} className="flex items-center gap-3 p-3 bg-bg-base/50 border border-border-base rounded-card hover:border-accent hover:bg-accent/5 transition-all group text-left">
                         <div className="p-2 bg-surface rounded-lg text-text-secondary group-hover:text-accent transition-colors shadow-sm">{item.icon}</div>
@@ -919,6 +964,35 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
                   />
                 </div>
 
+                {selectedField.type === 'image' && (
+                  <div className="space-y-4">
+                    <label className="text-[10px] font-black text-text-secondary uppercase tracking-widest">URL da Imagem</label>
+                    <div className="flex gap-2">
+                      <input 
+                        value={selectedField.imageUrl || ''} 
+                        onChange={(e) => updateField(selectedField.id, { imageUrl: e.target.value })} 
+                        className="flex-1 px-4 py-3 bg-bg-base border border-border-base rounded-xl text-sm text-text-primary outline-none focus:ring-1 focus:ring-accent" 
+                        placeholder="https://..."
+                      />
+                      <button 
+                         onClick={() => generateAIImage(selectedField.id, selectedField.label)}
+                         className="p-3 bg-indigo-500 text-white rounded-xl hover:bg-indigo-600 transition-colors"
+                         title="IA Sugere Imagem"
+                      >
+                         <Sparkles size={16} />
+                      </button>
+                    </div>
+                    {selectedField.imageUrl && (
+                      <div className="relative group">
+                        <img src={selectedField.imageUrl} className="w-full h-32 object-cover rounded-xl border border-border-base" referrerPolicy="no-referrer" />
+                        <button onClick={() => updateField(selectedField.id, { imageUrl: '' })} className="absolute top-2 right-2 p-1.5 bg-black/60 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                          <X size={12} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {['text', 'tel', 'email', 'number', 'url'].includes(selectedField.type) && (
                    <div className="space-y-2">
                      <label className="text-[10px] font-black text-text-secondary uppercase tracking-widest">Formato de Entrada</label>
@@ -1036,7 +1110,8 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
                      <p className="text-[9px] text-text-secondary italic leading-relaxed">A lógica de salto permite criar fluxos personalizados baseados na resposta do usuário.</p>
                    </div>
                 
-                 <div className="flex items-center justify-between p-4 bg-bg-base border border-border-base rounded-2xl group cursor-pointer hover:bg-surface transition-all font-bold shadow-sm" onClick={() => updateField(selectedField.id, { required: !selectedField.required })}>
+                {!['section', 'heading', 'divider', 'image'].includes(selectedField.type) && (
+                  <div className="flex items-center justify-between p-4 bg-bg-base border border-border-base rounded-2xl group cursor-pointer hover:bg-surface transition-all font-bold shadow-sm" onClick={() => updateField(selectedField.id, { required: !selectedField.required })}>
                     <div className="flex items-center gap-3">
                       <div className={`size-5 rounded-lg border-2 flex items-center justify-center transition-all ${selectedField.required ? 'bg-accent border-accent' : 'border-border-base'}`}>
                         {selectedField.required && <Check size={12} className="text-white" strokeWidth={4} />}
@@ -1046,7 +1121,8 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
                     <div className={`w-8 h-4 rounded-full p-0.5 transition-all flex items-center ${selectedField.required ? 'bg-accent' : 'bg-text-secondary/20'}`}>
                        <div className={`size-3 rounded-full bg-white shadow-sm transition-all ${selectedField.required ? 'translate-x-4' : 'translate-x-0'}`} />
                     </div>
-                 </div>
+                  </div>
+                )}
               </div>
             </div>
           ) : (

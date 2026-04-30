@@ -680,10 +680,25 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
       case 'section':
       case 'heading':
         return (
-          <div className="py-2 space-y-3">
+          <div className="py-2 space-y-3 text-left">
              <div className="h-1.5 w-12 rounded-full" style={{ backgroundColor: fieldColor }} />
              <h3 className="text-xl md:text-2xl font-bold text-text-primary tracking-tight leading-none">{renderText(field.label)}</h3>
              {field.description && <p className="text-sm md:text-base text-text-secondary opacity-70 italic">{renderText(field.description)}</p>}
+          </div>
+        );
+      case 'image':
+        return (
+          <div className="space-y-4">
+            {field.imageUrl ? (
+              <div className="w-full overflow-hidden shadow-2xl" style={{ borderRadius: borderRadiusValue }}>
+                <img src={field.imageUrl} alt={field.label} className="w-full h-auto object-cover max-h-[500px]" referrerPolicy="no-referrer" />
+              </div>
+            ) : (
+              <div className="w-full h-40 bg-bg-base border-2 border-dashed border-border-base rounded-3xl flex items-center justify-center text-text-secondary opacity-30">
+                Sem imagem
+              </div>
+            )}
+            {field.label && <p className="text-sm md:text-base text-text-secondary italic text-center px-4">{renderText(field.label)}</p>}
           </div>
         );
       default:

@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { 
   GripVertical, Trash2, ChevronUp, ChevronDown, 
   Type, CheckCircle2, Star, PenTool, Send, CheckSquare,
-  FileText, Upload, Layout, Clock
+  FileText, Upload, Layout, Clock, Plus, GitBranch
 } from 'lucide-react';
 import { FormField } from '../../types';
 
@@ -41,6 +41,7 @@ export const SortableField = ({
       case 'time': return <Clock size={16} />;
       case 'signature': return <PenTool size={16} />;
       case 'section': return <Layout size={16} />;
+      case 'image': return <Plus size={16} />;
       default: return <Type size={16} />;
     }
   };
@@ -63,6 +64,7 @@ export const SortableField = ({
       case 'time': return 'Horário';
       case 'signature': return 'Assinatura';
       case 'section': return 'Nova Seção';
+      case 'image': return 'Imagem';
       default: return type;
     }
   };
@@ -118,8 +120,14 @@ export const SortableField = ({
                      {getIcon()}
                    </div>
                    <span className="text-xs font-black uppercase tracking-widest text-text-secondary/60">{translateType(field.type)}</span>
+                   {field.logic && (
+                     <div className="flex items-center gap-1.5 px-2 py-0.5 bg-indigo-500/10 text-indigo-500 rounded-full text-[9px] font-black uppercase tracking-tighter">
+                       <GitBranch size={10} />
+                       Lógica
+                     </div>
+                   )}
                 </div>
-                {field.required && <span className="text-[10px] font-bold text-red-500 uppercase tracking-tighter bg-red-500/10 px-2 py-0.5 rounded">Obrigatório</span>}
+                {!['section', 'heading', 'divider', 'image'].includes(field.type) && field.required && <span className="text-[10px] font-bold text-red-500 uppercase tracking-tighter bg-red-500/10 px-2 py-0.5 rounded">Obrigatório</span>}
               </div>
 
               <div className="space-y-1.5">
@@ -194,6 +202,17 @@ export const SortableField = ({
                     <span className="text-sm text-text-secondary/40">
                       {field.type === 'date' ? 'DD/MM/AAAA' : '00:00'}
                     </span>
+                  </div>
+                ) : field.type === 'image' ? (
+                  <div className="w-full aspect-video bg-bg-base border border-border-base rounded-xl overflow-hidden flex items-center justify-center">
+                    {field.imageUrl ? (
+                      <img src={field.imageUrl} alt={field.label} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    ) : (
+                      <div className="flex flex-col items-center gap-2 text-text-secondary/30 font-bold uppercase tracking-widest text-[10px]">
+                        <Plus size={24} />
+                        Sem Imagem
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="w-full h-12 bg-bg-base border border-border-base rounded-xl flex items-center px-4">
