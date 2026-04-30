@@ -822,7 +822,7 @@ export const DashboardScreen = ({
                        </div>
 
                        <div className="relative group">
-                          <div className="w-full bg-bg-base border-2 border-border-base rounded-2xl p-4 text-left font-mono text-[10px] text-text-secondary break-all pr-16 group-hover:border-accent/30 transition-colors">
+                          <div className="w-full bg-bg-base border-2 border-border-base rounded-2xl p-4 text-left font-mono text-[10px] md:text-xs text-text-secondary break-all pr-16 group-hover:border-accent/30 transition-colors">
                              {window.location.origin}/form/{sharingForm.id}
                           </div>
                           <button 
@@ -831,16 +831,16 @@ export const DashboardScreen = ({
                               setCopied(true);
                               setTimeout(() => setCopied(false), 2000);
                             }}
-                            className={`absolute right-2 top-1/2 -translate-y-1/2 p-2.5 rounded-xl text-white transition-all ${copied ? 'bg-success-base' : 'bg-accent hover:scale-105 active:scale-95'}`}
+                            className={`absolute right-2 top-1/2 -translate-y-1/2 p-3 md:p-2.5 rounded-xl text-white transition-all ${copied ? 'bg-success-base' : 'bg-accent hover:scale-105 active:scale-95'}`}
                           >
-                            {copied ? <Check size={16} /> : <Copy size={16} />}
+                            {copied ? <Check size={18} /> : <Copy size={18} />}
                           </button>
                        </div>
 
-                       <div className="flex gap-2">
+                       <div className="flex flex-col sm:flex-row gap-2">
                          <button 
                             onClick={() => window.open(`${window.location.origin}/form/${sharingForm.id}`, '_blank')}
-                            className="flex-1 py-3 bg-bg-base rounded-xl text-xs font-black uppercase tracking-widest text-text-primary border border-border-base hover:bg-bg-base/80 transition-all"
+                            className="w-full sm:flex-1 py-4 md:py-3 bg-bg-base rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest text-text-primary border border-border-base hover:bg-bg-base/80 transition-all font-sans"
                          >
                             Visualizar
                          </button>
@@ -853,7 +853,7 @@ export const DashboardScreen = ({
                                 handleCopy(url);
                               }
                             }}
-                            className="flex-1 py-3 bg-accent text-white rounded-xl text-xs font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-lg shadow-accent/20"
+                            className="w-full sm:flex-1 py-4 md:py-3 bg-accent text-white rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-lg shadow-accent/20 font-sans"
                          >
                             Compartilhar
                          </button>
