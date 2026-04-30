@@ -182,16 +182,20 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
                   "required": true,
                   "options": ["opção 1", "opção 2"],
                   "imageUrl": "URL se tipo image",
-                  "logic": {
-                    "action": "show | hide | jump | terminate",
-                    "targetId": "ID do campo alvo (id1, id2...)",
-                    "conditionOperator": "equals | not_equals | contains",
-                    "conditionValue": "valor para comparar"
-                  }
+                  "logic": [
+                    {
+                      "action": "show | hide | jump | terminate",
+                      "targetId": "ID do campo alvo (id1, id2...)",
+                      "conditionOperator": "equals | not_equals | contains",
+                      "conditionValue": "valor para comparar"
+                    }
+                  ]
                 }
               ]
-            }. 
-            IMPORTANTE: Se uma 'section' for ocultada, todos os campos até a próxima seção também serão ocultados (cascata). Use isso para criar fluxos complexos.` }]
+            }
+            IMPORTANTE: Para criar ramificações (ex: Carro vs Moto), adicione vários objetos no array 'logic'. 
+            Se uma 'section' for ocultada, todos os campos até a próxima seção também serão ocultados (cascata). Use isso para criar fluxos complexos.
+            Se o formulário tiver ramificações, você DEVE usar a lógica 'show' ou 'hide' nas seções correspondentes.` }]
           }
         ],
         config: {
@@ -239,15 +243,14 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
             mask: 'none'
           };
 
-          // Remap targetId in logic if it exists
-          if (newField.logic && newField.logic.targetId) {
-            const targetId = newField.logic.targetId;
-            if (idMap[targetId]) {
-              newField.logic.targetId = idMap[targetId];
-            } else if (targetId !== 'end') {
-              // If target not found in fields, it might be a later field or invalid
-              // We'll leave it as is or handle it later if needed
-            }
+          // Remap targetId in logic if it exists (now an array)
+          if (newField.logic && Array.isArray(newField.logic)) {
+            newField.logic = newField.logic.map((rule: any) => {
+              if (rule.targetId && idMap[rule.targetId]) {
+                return { ...rule, targetId: idMap[rule.targetId] };
+              }
+              return rule;
+            });
           }
 
           return newField;
@@ -1049,64 +1052,105 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
                        <h4 className="text-[10px] font-black uppercase tracking-widest">Lógica Condicional</h4>
                      </div>
                      
-                      <div className="p-4 bg-bg-base border border-border-base rounded-2xl space-y-4 shadow-sm">
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-black text-text-secondary uppercase tracking-widest">Se a Resposta:</label>
-                          <div className="grid grid-cols-2 gap-2">
-                            <select 
-                              value={selectedField.logic?.conditionOperator || 'equals'}
-                              onChange={(e) => updateField(selectedField.id, { logic: { ...selectedField.logic, action: selectedField.logic?.action || 'jump', conditionOperator: e.target.value as any } })}
-                              className="w-full px-2 py-2 text-[10px] border border-border-base rounded-xl focus:ring-1 focus:ring-accent outline-none bg-surface text-text-primary font-bold"
-                            >
-                              <option value="equals">Igual a</option>
-                              <option value="not_equals">Diferente de</option>
-                              <option value="greater">Maior que</option>
-                              <option value="greater_equal">Maior ou igual a</option>
-                              <option value="less">Menor que</option>
-                              <option value="less_equal">Menor ou igual a</option>
-                              <option value="contains">Contém</option>
-                            </select>
-                            <input 
-                              placeholder="Valor"
-                              value={selectedField.logic?.conditionValue || ''}
-                              onChange={(e) => updateField(selectedField.id, { logic: { ...selectedField.logic, action: selectedField.logic?.action || 'jump', conditionValue: e.target.value } })}
-                              className="w-full px-3 py-2 text-[10px] border border-border-base rounded-xl focus:ring-1 focus:ring-accent outline-none bg-surface text-text-primary"
-                            />
-                          </div>
-                        </div>
+                     <div className="space-y-3">
+                       {(selectedField.logic || []).map((rule, idx) => (
+                        <div key={idx} className="p-4 bg-bg-base border border-border-base rounded-2xl space-y-4 shadow-sm relative group">
+                          <button 
+                            onClick={() => {
+                              const newLogic = [...(selectedField.logic || [])];
+                              newLogic.splice(idx, 1);
+                              updateField(selectedField.id, { logic: newLogic.length > 0 ? newLogic : undefined });
+                            }}
+                            className="absolute top-2 right-2 p-1 text-text-secondary hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X size={12} />
+                          </button>
 
-                        <div className="space-y-2">
-                          <label className="text-[9px] font-black text-text-secondary uppercase tracking-widest">Então faça isso:</label>
-                          <div className="grid grid-cols-1 gap-2">
-                            <select 
-                              value={selectedField.logic?.action || 'jump'}
-                              onChange={(e) => updateField(selectedField.id, { logic: { ...selectedField.logic, action: e.target.value as any } })}
-                              className="w-full px-3 py-2 text-[10px] border border-border-base rounded-xl focus:ring-1 focus:ring-accent outline-none bg-surface text-text-primary font-black"
-                            >
-                              <option value="jump">Pular Para...</option>
-                              <option value="hide">Ocultar Pergunta...</option>
-                              <option value="show">Mostrar Pergunta...</option>
-                              <option value="terminate">Finalizar Formulário</option>
-                            </select>
-
-                            {selectedField.logic?.action !== 'terminate' && (
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-black text-text-secondary uppercase tracking-widest">Se a Resposta:</label>
+                            <div className="grid grid-cols-2 gap-2">
                               <select 
-                                value={selectedField.logic?.targetId || ''}
-                                onChange={(e) => updateField(selectedField.id, { logic: { ...selectedField.logic, targetId: e.target.value } })}
+                                value={rule.conditionOperator || 'equals'}
+                                onChange={(e) => {
+                                  const newLogic = [...(selectedField.logic || [])];
+                                  newLogic[idx] = { ...rule, conditionOperator: e.target.value as any };
+                                  updateField(selectedField.id, { logic: newLogic });
+                                }}
+                                className="w-full px-2 py-2 text-[10px] border border-border-base rounded-xl focus:ring-1 focus:ring-accent outline-none bg-surface text-text-primary font-bold"
+                              >
+                                <option value="equals">Igual a</option>
+                                <option value="not_equals">Diferente de</option>
+                                <option value="greater">Maior que</option>
+                                <option value="greater_equal">Maior ou igual a</option>
+                                <option value="less">Menor que</option>
+                                <option value="less_equal">Menor ou igual a</option>
+                                <option value="contains">Contém</option>
+                              </select>
+                              <input 
+                                placeholder="Valor"
+                                value={rule.conditionValue || ''}
+                                onChange={(e) => {
+                                  const newLogic = [...(selectedField.logic || [])];
+                                  newLogic[idx] = { ...rule, conditionValue: e.target.value };
+                                  updateField(selectedField.id, { logic: newLogic });
+                                }}
+                                className="w-full px-3 py-2 text-[10px] border border-border-base rounded-xl focus:ring-1 focus:ring-accent outline-none bg-surface text-text-primary"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className="text-[9px] font-black text-text-secondary uppercase tracking-widest">Então faça isso:</label>
+                            <div className="grid grid-cols-1 gap-2">
+                              <select 
+                                value={rule.action || 'jump'}
+                                onChange={(e) => {
+                                  const newLogic = [...(selectedField.logic || [])];
+                                  newLogic[idx] = { ...rule, action: e.target.value as any };
+                                  updateField(selectedField.id, { logic: newLogic });
+                                }}
                                 className="w-full px-3 py-2 text-[10px] border border-border-base rounded-xl focus:ring-1 focus:ring-accent outline-none bg-surface text-text-primary font-black"
                               >
-                                <option value="">Selecione o destino</option>
-                                {selectedField.logic?.action === 'jump' && <option value="end">Terminar Formulário</option>}
-                                <optgroup label={selectedField.logic?.action === 'jump' ? "Pular para:" : "Ocultar / Mostrar:"}>
-                                  {fields.filter(f => f.id !== selectedField.id).map(f => (
-                                    <option key={f.id} value={f.id}>{f.label.substring(0, 30)}</option>
-                                  ))}
-                                </optgroup>
+                                <option value="jump">Pular Para...</option>
+                                <option value="hide">Ocultar Pergunta...</option>
+                                <option value="show">Mostrar Pergunta...</option>
+                                <option value="terminate">Finalizar Formulário</option>
                               </select>
-                            )}
+
+                              {rule.action !== 'terminate' && (
+                                <select 
+                                  value={rule.targetId || ''}
+                                  onChange={(e) => {
+                                    const newLogic = [...(selectedField.logic || [])];
+                                    newLogic[idx] = { ...rule, targetId: e.target.value };
+                                    updateField(selectedField.id, { logic: newLogic });
+                                  }}
+                                  className="w-full px-3 py-2 text-[10px] border border-border-base rounded-xl focus:ring-1 focus:ring-accent outline-none bg-surface text-text-primary font-black"
+                                >
+                                  <option value="">Selecione o destino</option>
+                                  {rule.action === 'jump' && <option value="end">Terminar Formulário</option>}
+                                  <optgroup label={rule.action === 'jump' ? "Pular para:" : "Ocultar / Mostrar:"}>
+                                    {fields.filter(f => f.id !== selectedField.id).map(f => (
+                                      <option key={f.id} value={f.id}>{f.label.substring(0, 30)}</option>
+                                    ))}
+                                  </optgroup>
+                                </select>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
+                       ))}
+                       
+                       <button 
+                        onClick={() => {
+                          const newRule = { action: 'show', targetId: '', conditionOperator: 'equals', conditionValue: '' };
+                          updateField(selectedField.id, { logic: [...(selectedField.logic || []), newRule as any] });
+                        }}
+                        className="w-full py-2 bg-accent/5 border border-dashed border-accent text-accent text-[9px] font-black uppercase rounded-xl hover:bg-accent/10 transition-all"
+                       >
+                         + Adicionar Regra Lógica
+                       </button>
+                     </div>
                      <p className="text-[9px] text-text-secondary italic leading-relaxed">A lógica de salto permite criar fluxos personalizados baseados na resposta do usuário.</p>
                    </div>
                 

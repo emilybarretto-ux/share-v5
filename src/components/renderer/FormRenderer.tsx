@@ -140,12 +140,12 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
   const [errors, setErrors] = useState<Record<string, string | null>>({});
 
   // Helper para verificar condições de lógica
-  const checkCondition = (field: FormField) => {
-    if (!field.logic?.conditionValue) return false;
+  const checkCondition = (field: FormField, rule: any) => {
+    if (!rule.conditionValue) return false;
     
     const value = formData[field.id];
-    const conditionValue = field.logic.conditionValue;
-    const operator = field.logic.conditionOperator || 'equals';
+    const conditionValue = rule.conditionValue;
+    const operator = rule.conditionOperator || 'equals';
     
     // Convert both to string for basic comparison
     const valStr = value?.toString() || '';
@@ -178,12 +178,14 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
 
     // First pass: Global visibility rules (hide/show)
     for (const field of fields) {
-      if (field.logic) {
-        const isMet = checkCondition(field);
-        if (field.logic.action === 'hide' && isMet) {
-          if (field.logic.targetId) hiddenIds.add(field.logic.targetId);
-        } else if (field.logic.action === 'show' && !isMet) {
-          if (field.logic.targetId) hiddenIds.add(field.logic.targetId);
+      if (field.logic && Array.isArray(field.logic)) {
+        for (const rule of field.logic) {
+          const isMet = checkCondition(field, rule);
+          if (rule.action === 'hide' && isMet) {
+            if (rule.targetId) hiddenIds.add(rule.targetId);
+          } else if (rule.action === 'show' && !isMet) {
+            if (rule.targetId) hiddenIds.add(rule.targetId);
+          }
         }
       }
     }
@@ -221,13 +223,17 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
       visible.push(field);
 
       // Check for outgoing flow logic
-      if (field.logic) {
-        const isMet = checkCondition(field);
-        if (isMet) {
-          if (field.logic.action === 'terminate' || field.logic.targetId === 'end') {
-            isTerminated = true;
-          } else if (field.logic.action === 'jump' && field.logic.targetId) {
-            skipUntil = field.logic.targetId;
+      if (field.logic && Array.isArray(field.logic)) {
+        for (const rule of field.logic) {
+          const isMet = checkCondition(field, rule);
+          if (isMet) {
+            if (rule.action === 'terminate' || rule.targetId === 'end') {
+              isTerminated = true;
+              break;
+            } else if (rule.action === 'jump' && rule.targetId) {
+              skipUntil = rule.targetId;
+              break;
+            }
           }
         }
       }

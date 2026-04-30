@@ -59,12 +59,12 @@ export interface FormField {
   defaultValue?: any;
   customColor?: string;
   mask?: 'none' | 'cpf' | 'cnpj' | 'tel' | 'cep' | 'email';
-  logic?: {
+  logic?: Array<{
     action: 'jump' | 'hide' | 'show' | 'terminate';
     targetId: string;
     conditionOperator?: 'equals' | 'not_equals' | 'greater' | 'less' | 'greater_equal' | 'less_equal' | 'contains';
     conditionValue: string;
-  };
+  }>;
 }
 
 export interface DynamicForm {
