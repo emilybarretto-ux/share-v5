@@ -741,288 +741,179 @@ print(response.json())`;
             )}
 
             {activeTab === 'docs' && (
-              <motion.div key="docs" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-12">
-                <div className="space-y-4">
-                  <h2 className="text-3xl font-black text-white">Referência da API</h2>
-                  <p className="text-slate-400">Explore e teste os endpoints do Bold Share diretamente aqui.</p>
-                  
-                  <div className="p-5 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <Lock size={20} className="text-indigo-400" />
-                      <div>
-                        <p className="text-[10px] font-black uppercase text-indigo-400 tracking-widest">Bearer Token Ativo</p>
-                        <code className="text-white font-mono text-xs truncate max-w-[200px] block">
-                          {testToken ? testToken : 'Nenhum token gerado'}
-                        </code>
+              <motion.div key="docs" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-16">
+                {/* Intro Section */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+                  <div className="space-y-6">
+                    <h2 className="text-4xl font-black text-white tracking-tight">API Reference</h2>
+                    <p className="text-slate-400 leading-relaxed">
+                      A API do Bold Share é organizada em torno de REST. Nossa API possui URLs previsíveis e orientadas a recursos, 
+                      aceita corpos de solicitação codificados em JSON e retorna respostas codificadas em JSON.
+                    </p>
+                    <div className="flex flex-wrap gap-3">
+                      <div className="px-3 py-1 bg-white/5 rounded-full border border-white/10 flex items-center gap-2">
+                        <div className="size-2 bg-emerald-500 rounded-full" />
+                        <span className="text-[10px] font-black text-white uppercase tracking-widest">v1.0 (Stable)</span>
+                      </div>
+                      <div className="px-3 py-1 bg-white/5 rounded-full border border-white/10 flex items-center gap-2">
+                        <Lock size={12} className="text-indigo-400" />
+                        <span className="text-[10px] font-black text-white uppercase tracking-widest">OAuth 2.0 / Bearer</span>
                       </div>
                     </div>
-                    <button 
-                      onClick={() => setActiveTab('playground')}
-                      className="text-xs font-bold text-indigo-400 hover:text-white px-4 py-2 border border-indigo-400/20 rounded-xl hover:bg-indigo-400/10"
-                    >
-                      Gerar Token no Playground
-                    </button>
+                  </div>
+                  <div className="bg-slate-900 border border-white/5 rounded-3xl p-8 space-y-6 shadow-2xl relative overflow-hidden">
+                    <div className="absolute -right-10 -bottom-10 opacity-5">
+                       <Zap size={200} />
+                    </div>
+                    <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">Base URL</h4>
+                    <div className="flex items-center gap-3 bg-black/40 p-4 rounded-2xl border border-indigo-500/20 group">
+                      <code className="text-indigo-400 font-mono text-sm">{window.location.origin}/api/v1</code>
+                      <button onClick={() => handleCopy(`${window.location.origin}/api/v1`, 'base-url')} className="p-2 opacity-0 group-hover:opacity-100 transition-opacity text-slate-500 hover:text-white">
+                        {copied === 'base-url' ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                      </button>
+                    </div>
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  {endpoints.map((ep) => (
-                    <div key={ep.id} className="border border-white/5 rounded-2xl overflow-hidden bg-white/[0.02]">
-                      <button 
-                        onClick={() => {
-                          setExpandedEndpoint(expandedEndpoint === ep.id ? null : ep.id);
-                          
-                          // Initialize body only if it's currently empty or default, to preserve user edits
-                          if (ep.body && (!requestBody || requestBody === '{}')) {
-                            const initialBody: any = {};
-                            Object.keys(ep.body).forEach(k => {
-                              const prop = (ep.body as any)[k];
-                              if (prop.example !== undefined) {
-                                initialBody[k] = prop.example;
-                              } else {
-                                // Default values based on type
-                                switch (prop.type) {
-                                  case 'number': initialBody[k] = 0; break;
-                                  case 'boolean': initialBody[k] = false; break;
-                                  case 'array': initialBody[k] = []; break;
-                                  default: initialBody[k] = '';
-                                }
-                              }
-                            });
-                            setRequestBody(JSON.stringify(initialBody, null, 2));
-                          }
-                        }}
-                        className={`w-full flex items-center gap-4 p-4 text-left transition-colors ${
-                          expandedEndpoint === ep.id ? 'bg-white/5' : 'hover:bg-white/[0.05]'
-                        }`}
-                      >
-                        <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase w-20 text-center ${
-                          ep.method === 'GET' ? 'bg-blue-500/20 text-blue-400' :
-                          ep.method === 'POST' ? 'bg-emerald-500/20 text-emerald-400' :
-                          'bg-slate-500/20 text-slate-400'
-                        }`}>
-                          {ep.method}
-                        </span>
-                        <code className="text-sm font-mono text-white flex-1">{ep.path}</code>
-                        <span className="text-slate-500 text-sm hidden md:inline">{ep.title}</span>
-                        <ChevronRight className={`text-slate-500 transition-transform ${expandedEndpoint === ep.id ? 'rotate-90' : ''}`} size={16} />
-                      </button>
+                {/* Authentication Section */}
+                <div className="space-y-8">
+                  <div className="flex items-center gap-4">
+                    <div className="size-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400">
+                      <Shield size={20} />
+                    </div>
+                    <h3 className="text-xl font-black text-white uppercase tracking-widest">Autenticação</h3>
+                  </div>
+                  <div className="bg-white/[0.02] border border-white/5 rounded-[2rem] p-8 space-y-6">
+                    <p className="text-sm text-slate-400 leading-relaxed max-w-2xl">
+                      Todas as requisições de API devem ser autenticadas usando seu <span className="text-white font-bold">Client Secret</span> trocada por um Token de Sessão (Playground) ou via Header direto para endpoints públicos.
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                       <div className="space-y-4">
+                          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Header Recomendado</p>
+                          <div className="bg-slate-950 p-6 rounded-2xl border border-white/5 font-mono text-xs space-y-2">
+                             <p className="text-indigo-400">Authorization: <span className="text-white font-bold">Bearer &lt;SEU_TOKEN&gt;</span></p>
+                             <p className="text-indigo-400">Content-Type: <span className="text-white font-bold">application/json</span></p>
+                          </div>
+                       </div>
+                       <div className="bg-white/[0.03] p-6 rounded-2xl border border-white/5 flex flex-col justify-center">
+                          <p className="text-xs text-slate-400 font-medium italic">
+                            "Segurança não é uma opção, é a fundação do Bold Share. Nunca exponha seu Client Secret em código front-end."
+                          </p>
+                       </div>
+                    </div>
+                  </div>
+                </div>
 
-                      <AnimatePresence>
-                        {expandedEndpoint === ep.id && (
-                          <motion.div 
-                            initial={{ height: 0, opacity: 0 }} 
-                            animate={{ height: 'auto', opacity: 1 }} 
-                            exit={{ height: 0, opacity: 0 }}
+                {/* Endpoints Table View (More Objective) */}
+                <div className="space-y-8">
+                  <div className="flex items-center gap-4">
+                    <div className="size-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400">
+                      <Cpu size={20} />
+                    </div>
+                    <h3 className="text-xl font-black text-white uppercase tracking-widest">Endpoints Disponíveis</h3>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    {endpoints.map((ep) => (
+                      <div key={ep.id} className="group border border-white/5 rounded-2xl overflow-hidden bg-white/[0.02] hover:bg-white/[0.04] transition-all">
+                        {/* Summary Line */}
+                        <div className="flex items-center gap-4 p-5">
+                          <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase w-20 text-center ${
+                            ep.method === 'GET' ? 'bg-blue-500/20 text-blue-400' :
+                            ep.method === 'POST' ? 'bg-emerald-500/20 text-emerald-400' :
+                            'bg-slate-500/20 text-slate-400'
+                          }`}>
+                            {ep.method}
+                          </span>
+                          <code className="text-sm font-mono text-indigo-300 font-bold flex-1">{ep.path}</code>
+                          <span className="text-slate-500 text-xs font-bold uppercase tracking-widest hidden md:inline">{ep.title}</span>
+                          <button 
+                            onClick={() => {
+                              setExpandedEndpoint(expandedEndpoint === ep.id ? null : ep.id);
+                              if (ep.body) setRequestBody(JSON.stringify(ep.body, null, 2));
+                            }}
+                            className="bg-accent/10 hover:bg-accent text-accent hover:text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all"
                           >
-                            <div className="p-6 border-t border-white/5 space-y-6">
-                              <p className="text-sm text-slate-400 leading-relaxed">{ep.description}</p>
-                              
-                              <div className="grid grid-cols-1 lg:grid-cols-11 gap-8">
-                                {/* Coluna de Parâmetros e Headers (Esquerda) */}
-                                <div className="lg:col-span-5 space-y-6">
-                                  {(ep.headers || ep.auth) && (
-                                    <div className="space-y-3">
-                                      <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Headers</h5>
-                                      <div className="space-y-2">
-                                        <div className="flex flex-col gap-1">
-                                          <div className="bg-black/20 p-2.5 rounded-xl border border-white/5 opacity-50 flex items-center justify-between">
-                                            <code className="text-xs text-indigo-400">Content-Type</code>
-                                            <code className="text-[10px] text-white">application/json</code>
-                                          </div>
-                                        </div>
-                                        {ep.auth && (
-                                          <div className="bg-black/20 p-2.5 rounded-xl border border-accent/20 flex items-center justify-between">
-                                            <code className="text-xs text-indigo-400">Authorization</code>
-                                            <code className="text-[10px] text-white truncate max-w-[150px]">Bearer {testToken ? '••••' + testToken.slice(-5) : 'Token ausente'}</code>
-                                          </div>
-                                        )}
-                                        {ep.headers && Object.entries(ep.headers).map(([key, val]: [string, any]) => (
-                                          <div key={key} className="space-y-1">
-                                            <div className="flex items-center gap-2">
-                                              <span className="text-[10px] font-mono text-indigo-400">{key}</span>
-                                              {val.required && <span className="text-[7px] font-black text-red-500 uppercase">Req</span>}
-                                            </div>
-                                            <input 
-                                              type="text" 
-                                              placeholder={val.description}
-                                              onChange={(e) => setRequestHeaders(prev => ({ ...prev, [key]: e.target.value }))}
-                                              className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-accent/40"
-                                            />
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
+                            {expandedEndpoint === ep.id ? 'Fechar Docs' : 'Ver Detalhes'}
+                          </button>
+                        </div>
 
-                                  {(ep.params || ep.query) && (
-                                    <div className="space-y-3">
-                                      <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Parâmetros</h5>
-                                      <div className="grid grid-cols-1 gap-3">
-                                        {[...Object.entries(ep.params || {}), ...Object.entries(ep.query || {})].map(([key, val]: [string, any]) => (
-                                          <div key={key} className="space-y-1">
-                                            <div className="flex items-center gap-2">
-                                              <span className="text-[10px] font-mono text-indigo-400">{key}</span>
-                                              <span className="text-[8px] text-slate-600">({val.type})</span>
-                                            </div>
-                                            <input 
-                                              type="text" 
-                                              placeholder={val.example ? `Ex: ${val.example}` : val.description}
-                                              onChange={(e) => setRequestParams(prev => ({ ...prev, [key]: e.target.value }))}
-                                              className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-accent/40"
-                                            />
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {ep.body && (
+                        <AnimatePresence>
+                          {expandedEndpoint === ep.id && (
+                            <motion.div 
+                              initial={{ height: 0, opacity: 0 }} 
+                              animate={{ height: 'auto', opacity: 1 }} 
+                              exit={{ height: 0, opacity: 0 }}
+                              className="border-t border-white/5 bg-black/20"
+                            >
+                              <div className="p-8 space-y-10">
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                                  <div className="space-y-8">
                                     <div className="space-y-4">
-                                      <div className="space-y-3">
-                                        <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Documentação do Body (Schema)</h5>
-                                        <div className="bg-black/20 rounded-2xl p-4 border border-white/5 max-h-48 overflow-y-auto scrollbar-thin">
-                                          {Object.entries(ep.body).map(([key, val]: [string, any]) => (
-                                            <div key={key} className="flex flex-col gap-1 pb-3 mb-3 border-b border-white/5 last:border-0 last:pb-0 last:mb-0">
-                                              <div className="flex items-center gap-2">
-                                                <span className="text-xs font-mono text-emerald-400 font-bold">{key}</span>
-                                                {val.required ? (
-                                                  <span className="text-[7px] font-black text-red-500 bg-red-500/10 px-1.5 py-0.5 rounded-full uppercase">Obrigatório</span>
-                                                ) : (
-                                                  <span className="text-[7px] font-black text-slate-500 bg-white/5 px-1.5 py-0.5 rounded-full uppercase">Opcional</span>
-                                                )}
-                                                <span className="text-[9px] text-slate-500 font-mono">({val.type})</span>
-                                              </div>
-                                              <p className="text-[10px] text-slate-400 leading-tight">{val.description}</p>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </div>
+                                       <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Descrição Técnica</h5>
+                                       <p className="text-sm text-slate-300 leading-relaxed">{ep.description}</p>
+                                    </div>
 
-                                      <div className="space-y-3">
-                                        <div className="flex items-center justify-between">
-                                          <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Request Body (JSON Editor)</h5>
-                                          <div className="flex items-center gap-2">
-                                            {!isJsonValid && (
-                                              <span className="text-[8px] font-black text-red-500 uppercase animate-pulse">JSON Inválido</span>
-                                            )}
-                                            <button 
-                                              onClick={formatJson}
-                                              className="text-[9px] font-black text-accent hover:text-white uppercase px-2 py-1 bg-accent/10 rounded-md transition-colors"
-                                            >
-                                              Beautify / Formatar
-                                            </button>
+                                    {ep.body && (
+                                       <div className="space-y-4">
+                                          <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Schema do Objeto (JSON Body)</h5>
+                                          <div className="space-y-2">
+                                             {Object.entries(ep.body).map(([key, val]: [string, any]) => (
+                                                <div key={key} className="flex items-start gap-4 p-3 bg-white/5 rounded-xl border border-white/5">
+                                                   <div className="flex-1">
+                                                      <div className="flex items-center gap-2 mb-1">
+                                                         <code className="text-xs text-emerald-400 font-bold">{key}</code>
+                                                         <span className="text-[9px] text-slate-500 font-mono">({val.type})</span>
+                                                         {val.required && <span className="text-[7px] text-red-500 font-black uppercase bg-red-500/10 px-1.5 py-0.5 rounded-full">Required</span>}
+                                                      </div>
+                                                      <p className="text-[11px] text-slate-400">{val.description}</p>
+                                                   </div>
+                                                </div>
+                                             ))}
                                           </div>
-                                        </div>
-                                        <textarea 
-                                          value={requestBody}
-                                          onChange={(e) => setRequestBody(e.target.value)}
-                                          className={`w-full h-40 bg-black/40 border ${isJsonValid ? 'border-white/10' : 'border-red-500/50'} rounded-2xl p-4 text-xs font-mono text-emerald-400 outline-none focus:ring-1 ${isJsonValid ? 'focus:ring-accent' : 'focus:ring-red-500'}`}
-                                        />
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  <button 
-                                    onClick={() => handleTestEndpoint(ep)}
-                                    disabled={isTesting || (ep.auth && !testToken)}
-                                    className="w-full py-4 bg-accent text-white font-bold rounded-2xl shadow-lg shadow-accent/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-3"
-                                  >
-                                    {isTesting ? <Zap className="animate-spin" size={18} /> : <Send size={18} />}
-                                    {isTesting ? 'Processando...' : 'Executar Teste'}
-                                  </button>
-                                </div>
-
-                                {/* Coluna de Snippets e Resposta (Direita) */}
-                                <div className="lg:col-span-6 space-y-6">
-                                  <div className="space-y-3">
-                                    <div className="flex items-center justify-between">
-                                      <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Snippet de Código</h5>
-                                      <div className="flex bg-white/5 p-1 rounded-lg">
-                                        {(['js', 'curl', 'python'] as const).map(lang => (
-                                          <button 
-                                            key={lang}
-                                            onClick={() => setSnippetLanguage(lang)}
-                                            className={`px-3 py-1 rounded-md text-[9px] font-black uppercase transition-all ${
-                                              snippetLanguage === lang ? 'bg-accent text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'
-                                            }`}
-                                          >
-                                            {lang}
-                                          </button>
-                                        ))}
-                                      </div>
-                                    </div>
-                                    <div className="relative group">
-                                      <pre className="bg-slate-900 border border-white/5 rounded-2xl p-5 font-mono text-[10px] text-indigo-300 h-48 overflow-auto leading-relaxed scrollbar-thin">
-                                        <code>{generateSnippet(ep)}</code>
-                                      </pre>
-                                      <button 
-                                        onClick={() => handleCopy(generateSnippet(ep) || '', 'snippet-'+ep.id)}
-                                        className="absolute right-4 top-4 p-2 bg-white/5 hover:bg-white/10 rounded-lg text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                                      >
-                                        {copied === 'snippet-'+ep.id ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
-                                      </button>
-                                    </div>
+                                       </div>
+                                    )}
                                   </div>
 
-                                  <div className="space-y-3 flex-1 flex flex-col">
-                                    <div className="flex items-center justify-between">
-                                      <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Resposta do Servidor</h5>
-                                      {testResult && (
-                                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${testResult.isError ? 'bg-red-500/10 text-red-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
-                                          Status: {testResult.status}
-                                        </span>
-                                      )}
-                                    </div>
-                                    <div className="bg-black/40 border border-white/5 rounded-2xl h-64 overflow-hidden flex flex-col font-mono text-[11px] shadow-inner relative group">
-                                      <div className="flex-1 p-5 overflow-auto scrollbar-thin text-slate-300">
-                                        {testResult ? (
-                                           <pre className="whitespace-pre-wrap">{JSON.stringify(testResult.data, null, 2)}</pre>
-                                        ) : (
-                                          <div className="h-full flex flex-col items-center justify-center text-slate-700 opacity-50">
-                                            <Cpu size={32} className="mb-2" />
-                                            <p className="text-[9px] uppercase tracking-widest font-black text-center">Execute um teste <br/>para ver os dados</p>
-                                          </div>
-                                        )}
-                                      </div>
-                                      {testResult && (
-                                        <button 
-                                          onClick={() => handleCopy(JSON.stringify(testResult.data, null, 2), 'res-'+ep.id)}
-                                          className="absolute right-4 top-4 p-2 bg-white/5 hover:bg-white/10 rounded-lg text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                                        >
-                                          {copied === 'res-'+ep.id ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
-                                        </button>
-                                      )}
-                                    </div>
+                                  <div className="space-y-6">
+                                     <div className="space-y-3">
+                                        <div className="flex items-center justify-between">
+                                           <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Exemplo de Integração</h5>
+                                           <div className="flex bg-white/10 p-1 rounded-lg">
+                                             {['js', 'curl', 'python'].map(l => (
+                                               <button 
+                                                 key={l}
+                                                 onClick={() => setSnippetLanguage(l as any)}
+                                                 className={`px-3 py-1 rounded-md text-[9px] font-black uppercase transition-all ${snippetLanguage === l ? 'bg-accent text-white' : 'text-slate-500'}`}
+                                               >
+                                                 {l}
+                                               </button>
+                                             ))}
+                                           </div>
+                                        </div>
+                                        <div className="bg-slate-900 border border-white/10 rounded-2xl overflow-hidden">
+                                           <pre className="p-6 font-mono text-[11px] text-indigo-300 leading-relaxed overflow-x-auto">
+                                              <code>{generateSnippet(ep)}</code>
+                                           </pre>
+                                        </div>
+                                     </div>
+                                     
+                                     <button 
+                                        onClick={() => setActiveTab('playground')}
+                                        className="w-full py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-xs font-black text-white hover:text-accent transition-all flex items-center justify-center gap-3"
+                                     >
+                                        <Zap size={16} />
+                                        Testar no Playground Interativo
+                                     </button>
                                   </div>
                                 </div>
                               </div>
-
-                              {/* Error/Responses Documentation */}
-                              {ep.responses && (
-                                <div className="space-y-3 pt-4 border-t border-white/5">
-                                  <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Possíveis Respostas (Status HTTP)</h5>
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                    {Object.entries(ep.responses).map(([code, desc]: [string, any]) => (
-                                      <div key={code} className="flex items-center gap-4 px-4 py-3 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/[0.08] transition-colors">
-                                        <div className={`size-8 rounded-lg flex items-center justify-center text-[10px] font-black shrink-0 ${
-                                          code.startsWith('2') ? 'bg-emerald-500/10 text-emerald-400' : 
-                                          code === '401' ? 'bg-amber-500/10 text-amber-400' : 'bg-red-500/10 text-red-400'
-                                        }`}>
-                                          {code}
-                                        </div>
-                                        <span className="text-xs text-slate-400 font-medium">{desc}</span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  ))}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </motion.div>
             )}

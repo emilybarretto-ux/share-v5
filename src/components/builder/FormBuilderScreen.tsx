@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Plus, Settings, Save, Eye, Trash2, 
-  ChevronLeft, Layout, Palette, Send, Type, Smartphone, Monitor,
-  CheckCircle2, Star, PenTool, ArrowRight, GitBranch,
-  CheckSquare, X, Upload, FileText, ChevronDown, GripVertical, Clock, Check
+  ChevronLeft, Layout, Palette, Send, Type, Smartphone, Monitor, RefreshCcw,
+  CheckCircle2, Star, PenTool, ArrowRight, GitBranch, Sparkles, Wand2,
+  CheckSquare, X, Upload, FileText, ChevronDown, GripVertical, Clock, Check,
+  Bot, Zap, MessageSquare
 } from 'lucide-react';
+import { GoogleGenAI, Type as GeminiType } from "@google/genai";
 import { FormField, FieldType } from '../../types';
 import { useNotification } from '../shared/NotificationProvider';
 import { SortableField } from './SortableField';
@@ -39,6 +41,11 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
   const [isPublishing, setIsPublishing] = useState(false);
   const [isUploadingHeader, setIsUploadingHeader] = useState(false);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  
+  // AI Generation State
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [showAIModal, setShowAIModal] = useState(false);
   
   // Advanced Features State
   const [redirectUrl, setRedirectUrl] = useState('');
@@ -122,6 +129,114 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
 
   const updateField = (id: string, updates: Partial<FormField>) => {
     setFields(fields.map(f => f.id === id ? { ...f, ...updates } : f));
+  };
+
+  const handleGenerateWithAI = async () => {
+    if (!aiPrompt.trim()) {
+      showNotification('Descreva o que você precisa no formulário.', 'info');
+      return;
+    }
+
+    try {
+      setIsGeneratingAI(true);
+      showNotification('IA está projetando seu formulário...', 'info');
+
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        throw new Error('Chave da API Gemini não configurada. Por favor, adicione GEMINI_API_KEY nas configurações.');
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
+      console.log('Iniciando geração com IA...', { model: 'gemini-3-flash-preview' });
+      
+      const generationPromise = ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: `Crie um formulário estruturado para: "${aiPrompt.trim()}". 
+            O formulário deve ser profissional e completo.
+            
+            Retorne APENAS um JSON válido seguindo este formato:
+            {
+              "title": "Título sugerido",
+              "subtitle": "Descrição sugerida",
+              "theme": "default",
+              "fields": [
+                {
+                  "type": "text | textarea | radio | checkbox | dropdown | date | rating | scale",
+                  "label": "Pergunta aqui",
+                  "required": true,
+                  "options": ["opção 1", "opção 2"]
+                }
+              ]
+            }` }]
+          }
+        ],
+        config: {
+          responseMimeType: "application/json",
+        }
+      });
+
+      // Add a 30-second timeout to prevent infinite hanging
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('A conexão com a IA demorou muito ou falhou. Verifique sua conexão e tente novamente.')), 30000)
+      );
+
+      const response: any = await Promise.race([generationPromise, timeoutPromise]);
+      console.log('Resposta da IA recebida.');
+
+      const text = response.text || '';
+
+      if (!text) {
+        throw new Error('A IA não retornou um conteúdo válido.');
+      }
+
+      // Robust JSON cleaning
+      const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
+      let data;
+      try {
+        data = JSON.parse(cleanJson);
+      } catch (parseError) {
+        console.error('Falha ao analisar JSON da IA:', text);
+        throw new Error('A resposta da IA não está em um formato válido. Tente reformular seu pedido.');
+      }
+      
+      if (data.fields && Array.isArray(data.fields)) {
+        const newFields = data.fields.map((f: any) => ({
+          ...f,
+          id: Math.random().toString(36).substring(2, 9),
+          mask: 'none'
+        }));
+        
+        setTitle(data.title || title);
+        setSubtitle(data.subtitle || subtitle);
+        setFields(newFields);
+        if (data.theme && ['default', 'dark', 'minimal', 'enterprise', 'vibrant', 'glass'].includes(data.theme)) {
+          setThemePreset(data.theme as any);
+        }
+        
+        showNotification('Formulário gerado com sucesso!', 'success');
+        setShowAIModal(false);
+      }
+    } catch (error: any) {
+      console.error('AI Generation Error:', error);
+      let errorMessage = 'Erro ao gerar com IA. Tente novamente.';
+      
+      if (error.message?.includes('API key not valid') || error.message?.includes('INVALID_ARGUMENT')) {
+        errorMessage = 'Chave de API Gemini inválida ou não configurada corretamente.';
+      } else if (error.message?.includes('quota') || error.message?.includes('reached')) {
+        errorMessage = 'Limite de cota atingido. Tente novamente em alguns instantes.';
+      } else if (error.message?.includes('NOT_FOUND') || error.message?.includes('entity was not found')) {
+        errorMessage = 'O modelo de IA solicitado não está disponível no momento.';
+      } else if (error.message) {
+        errorMessage = `Erro: ${error.message}`;
+      }
+      
+      showNotification(errorMessage, 'error');
+    } finally {
+      setIsGeneratingAI(false);
+    }
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, type: 'header' | 'logo') => {
@@ -242,14 +357,15 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
     }
   };
 
-  const previewThemeStyles = {
+  const themes = {
     default: { bg: 'bg-bg-base/50', card: 'bg-surface border-border-base' },
     dark: { bg: 'bg-slate-950/90', card: 'bg-slate-900 border-slate-700' },
     minimal: { bg: 'bg-neutral-50', card: 'bg-white border-slate-100 shadow-sm' },
     enterprise: { bg: 'bg-[#f1f5f9]', card: 'bg-white border-slate-200 shadow-sm' },
     vibrant: { bg: 'bg-pink-50/50', card: 'bg-white border-pink-100 shadow-lg shadow-pink-500/5' },
     glass: { bg: 'bg-indigo-950/80', card: 'bg-white/10 backdrop-blur-xl border-white/20' }
-  }[themePreset || 'default'];
+  };
+  const previewThemeStyles = themes[themePreset as keyof typeof themes] || themes.default;
 
   if (isPreview) {
     return (
@@ -373,6 +489,32 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
           <div className="flex-1 overflow-y-auto px-4 pb-6 scrollbar-thin">
             {activeTab === 'build' ? (
               <div className="space-y-6">
+                {/* AI Assistant Section */}
+                <div className="mt-4 p-4 bg-indigo-500/5 border border-indigo-500/20 rounded-2xl space-y-3">
+                  <div className="flex items-center gap-2 text-indigo-500">
+                    <Sparkles size={16} />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Assistente IA</span>
+                  </div>
+                  <p className="text-[10px] text-text-secondary leading-relaxed">
+                    Descreva o seu objetivo e deixe a IA construir toda a estrutura para você.
+                  </p>
+                  <div className="relative">
+                    <textarea 
+                      value={aiPrompt}
+                      onChange={(e) => setAiPrompt(e.target.value)}
+                      placeholder="Ex: Pesquisa de satisfação para uma cafeteria moderna..."
+                      className="w-full p-3 bg-bg-base border border-border-base rounded-xl text-[10px] text-text-primary outline-none focus:ring-1 focus:ring-indigo-500 min-h-[80px] resize-none"
+                    />
+                    <button 
+                      onClick={handleGenerateWithAI}
+                      disabled={isGeneratingAI || !aiPrompt.trim()}
+                      className="absolute bottom-2 right-2 p-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-all disabled:opacity-50 disabled:scale-95 active:scale-90"
+                    >
+                      {isGeneratingAI ? <RefreshCcw size={14} className="animate-spin" /> : <Wand2 size={14} />}
+                    </button>
+                  </div>
+                </div>
+
                 <div className="space-y-3">
                   <h3 className="text-[10px] font-black text-text-secondary uppercase tracking-widest ml-1">Cabeçalho & Logo</h3>
                   <div className="space-y-4 p-1">
@@ -676,38 +818,86 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
                 </div>
              </div>
 
-             <div className="space-y-4 pb-24">
-               {fields.map((field, index) => (
-                 <SortableField 
-                   key={field.id} field={field} index={index}
-                   isSelected={selectedFieldId === field.id}
-                   borderRadius={borderRadius}
-                   onSelect={() => setSelectedFieldId(field.id)}
-                   onRemove={removeField}
-                   onDragStart={() => setDraggedIndex(index)}
-                   onDragEnd={() => setDraggedIndex(null)}
-                   onDragOver={(e) => handleDragOver(e, index)}
-                   renderText={renderText}
-                 />
-               ))}
-               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
-                 <button 
-                   onClick={() => addField('text')}
-                   className="py-6 border-4 border-dashed border-border-base rounded-3xl flex flex-col items-center gap-3 text-text-secondary hover:border-accent hover:text-accent hover:bg-accent/5 transition-all group shadow-sm bg-surface"
-                 >
-                   <div className="p-3 bg-bg-base rounded-2xl group-hover:bg-accent group-hover:text-white transition-all"><Plus size={24} /></div>
-                   <span className="text-xs font-black uppercase tracking-widest">Adicionar Pergunta</span>
-                 </button>
+              <div className="space-y-4 pb-24">
+                {fields.length === 0 && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="py-12 px-6 bg-surface border-2 border-dashed border-border-base rounded-[2.5rem] flex flex-col items-center text-center gap-6"
+                  >
+                    <div className="size-16 bg-indigo-500/10 text-indigo-500 rounded-full flex items-center justify-center animate-bounce">
+                      <Zap size={32} />
+                    </div>
+                    <div className="max-w-xs">
+                      <h3 className="text-xl font-black text-text-primary mb-2 italic">Seu formulário começa aqui.</h3>
+                      <p className="text-sm text-text-secondary">
+                        Adicione campos manualmente ou use nossa <strong>Inteligência Artificial</strong> para começar em segundos.
+                      </p>
+                    </div>
+                    
+                    <div className="flex flex-col w-full gap-2 px-4 shadow-sm">
+                      <div className="relative">
+                        <input 
+                          value={aiPrompt}
+                          onChange={(e) => setAiPrompt(e.target.value)}
+                          placeholder="O que este formulário deve fazer?"
+                          className="w-full p-4 pr-16 bg-bg-base border border-border-base rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                        />
+                        <button 
+                          onClick={handleGenerateWithAI}
+                          disabled={isGeneratingAI || !aiPrompt.trim()}
+                          className="absolute right-2 top-2 bottom-2 px-4 bg-indigo-500 text-white rounded-xl font-bold text-xs hover:bg-indigo-600 transition-all flex items-center gap-2 active:scale-95 disabled:opacity-50"
+                        >
+                          {isGeneratingAI ? 'Gerando...' : 'Mágica'}
+                          <Wand2 size={14} />
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 justify-center mt-2">
+                        <span className="text-[10px] text-text-secondary font-black uppercase tracking-widest">Sugestões:</span>
+                        {['Feedback de Produto', 'RSVP Corporativo', 'Recrutamento'].map(s => (
+                          <button 
+                            key={s}
+                            onClick={() => setAiPrompt(s)}
+                            className="px-2 py-1 bg-bg-base border border-border-base rounded-lg text-[9px] font-bold text-text-secondary hover:border-indigo-500 hover:text-indigo-500 transition-all"
+                          >
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+                {fields.map((field, index) => (
+                  <SortableField 
+                    key={field.id} field={field} index={index}
+                    isSelected={selectedFieldId === field.id}
+                    borderRadius={borderRadius}
+                    onSelect={() => setSelectedFieldId(field.id)}
+                    onRemove={removeField}
+                    onDragStart={() => setDraggedIndex(index)}
+                    onDragEnd={() => setDraggedIndex(null)}
+                    onDragOver={(e) => handleDragOver(e, index)}
+                    renderText={renderText}
+                  />
+                ))}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+                  <button 
+                    onClick={() => addField('text')}
+                    className="py-6 border-4 border-dashed border-border-base rounded-3xl flex flex-col items-center gap-3 text-text-secondary hover:border-accent hover:text-accent hover:bg-accent/5 transition-all group shadow-sm bg-surface"
+                  >
+                    <div className="p-3 bg-bg-base rounded-2xl group-hover:bg-accent group-hover:text-white transition-all"><Plus size={24} /></div>
+                    <span className="text-xs font-black uppercase tracking-widest">Adicionar Pergunta</span>
+                  </button>
 
-                 <button 
-                   onClick={() => addField('section')}
-                   className="py-6 border-4 border-dashed border-border-base rounded-3xl flex flex-col items-center gap-3 text-text-secondary hover:border-indigo-500 hover:text-indigo-500 hover:bg-indigo-50 transition-all group shadow-sm bg-surface"
-                 >
-                   <div className="p-3 bg-bg-base rounded-2xl group-hover:bg-indigo-500 group-hover:text-white transition-all"><Layout size={24} /></div>
-                   <span className="text-xs font-black uppercase tracking-widest">Nova Seção</span>
-                 </button>
-               </div>
-             </div>
+                  <button 
+                    onClick={() => addField('section')}
+                    className="py-6 border-4 border-dashed border-border-base rounded-3xl flex flex-col items-center gap-3 text-text-secondary hover:border-indigo-500 hover:text-indigo-500 hover:bg-indigo-50 transition-all group shadow-sm bg-surface"
+                  >
+                    <div className="p-3 bg-bg-base rounded-2xl group-hover:bg-indigo-500 group-hover:text-white transition-all"><Layout size={24} /></div>
+                    <span className="text-xs font-black uppercase tracking-widest">Nova Seção</span>
+                  </button>
+                </div>
+              </div>
           </div>
         </main>
 

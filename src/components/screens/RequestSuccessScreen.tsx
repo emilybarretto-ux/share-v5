@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Check, Copy, Link as LinkIcon, ArrowRight } from 'lucide-react';
+import { Check, Copy, Link as LinkIcon, ArrowRight, QrCode } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import { Screen } from '../../types';
 
 interface RequestSuccessScreenProps {
@@ -54,6 +55,13 @@ export const RequestSuccessScreen = ({
           {copied ? <Check size={24} /> : <Copy size={24} />}
           <span>{copied ? 'Link Copiado!' : 'Copiar Link de Solicitação'}</span>
         </button>
+
+        <div className="flex flex-col items-center gap-4 pt-6 border-t border-slate-100 dark:border-slate-800">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ou escaneie para compartilhar rápido</p>
+          <div className="p-4 bg-white rounded-3xl shadow-inner border border-slate-100">
+            <QRCodeSVG value={link} size={120} level="H" />
+          </div>
+        </div>
       </div>
 
       <div className="mt-12 flex flex-col items-center gap-6">

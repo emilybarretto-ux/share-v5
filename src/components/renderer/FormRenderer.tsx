@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { 
-  CheckCircle2, ChevronRight, 
+  CheckCircle2, ChevronRight, ArrowRight,
   Star, PenTool, ShieldCheck, Mail,
   Upload, Clock, Calendar, ChevronDown, AlertCircle
 } from 'lucide-react';
@@ -296,6 +296,41 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
       handleSubmit();
     }
   };
+
+  // Atalhos de Teclado (Estilo Typeform)
+  useEffect(() => {
+    if (!isStepMode || isSubmitted || currentStep === -1) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Enter avança
+      if (e.key === 'Enter' && !e.shiftKey) {
+        // Se for textarea, permite nova linha com shift+enter, mas enter sozinho avança
+        const activeElement = document.activeElement;
+        if (activeElement?.tagName === 'TEXTAREA') return;
+        
+        e.preventDefault();
+        handleNext();
+      }
+      
+      // Atalhos para rádio/checkbox (A, B, C...)
+      if (!['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName || '')) {
+        const field = visibleFields[currentStep];
+        if (field?.type === 'radio' && field.options) {
+          const index = e.key.toLowerCase().charCodeAt(0) - 97; // a=0, b=1...
+          if (index >= 0 && index < field.options.length) {
+            e.preventDefault();
+            const opt = field.options[index];
+            updateData(field.id, opt);
+            // Auto-avanço para rádio
+            setTimeout(handleNext, 400);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentStep, isStepMode, isSubmitted, visibleFields, formData]);
 
   const handleSubmit = async () => {
     // Final validation check for all visible fields
@@ -682,8 +717,8 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
         </div>
       )}
       
-      <div className="max-w-3xl mx-auto space-y-6">
-        {settings.headerImage && (
+      <div className={`max-w-3xl mx-auto ${isStepMode && currentStep >= 0 ? 'min-h-[80vh] flex flex-col justify-center' : 'space-y-6'}`}>
+        {settings.headerImage && !isStepMode && (
           <div className="w-full h-40 md:h-48 overflow-hidden rounded-2xl shadow-sm">
             <img 
               src={settings.headerImage} 
@@ -694,100 +729,109 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
           </div>
         )}
 
-        <header 
-          className={`border-t-[10px] overflow-hidden transition-all shadow-sm ${themeStyles.card}`} 
-          style={{ 
-            borderRadius: settings.borderRadius === 'none' ? '0' : '0.5rem',
-            borderTopColor: settings.primaryColor
-          }}
-        >
-          <div className="p-6 md:p-8 space-y-6">
-            {settings.logo && (
-              <div className="mb-2">
-                <img src={settings.logo} alt="Logo" className="h-10 w-auto object-contain" referrerPolicy="no-referrer" />
+        {(!isStepMode || currentStep === -1) && (
+          <header 
+            className={`border-t-[10px] overflow-hidden transition-all shadow-sm ${themeStyles.card}`} 
+            style={{ 
+              borderRadius: settings.borderRadius === 'none' ? '0' : '0.5rem',
+              borderTopColor: settings.primaryColor
+            }}
+          >
+            <div className="p-6 md:p-8 space-y-6">
+              {settings.logo && (
+                <div className="mb-2">
+                  <img src={settings.logo} alt="Logo" className="h-10 w-auto object-contain" referrerPolicy="no-referrer" />
+                </div>
+              )}
+              
+              <div className="space-y-4 text-left">
+                <h1 className="text-4xl md:text-5xl font-bold tracking-tight transition-all" style={{ color: settings.titleColor || undefined }}>
+                  {renderText(form.title)}
+                </h1>
+                {form.description && (
+                  <p className="text-lg font-medium opacity-80" style={{ color: settings.subtitleColor || undefined }}>
+                    {renderText(form.description)}
+                  </p>
+                )
+                }
               </div>
-            )}
-            
-            <div className="space-y-4 text-left">
-              <h1 className={`${(isStepMode && currentStep >= 0) ? 'text-2xl' : 'text-4xl md:text-5xl'} font-bold tracking-tight transition-all`} style={{ color: settings.titleColor || undefined }}>
-                {renderText(form.title)}
-              </h1>
-              {form.description && (!isStepMode || currentStep === -1) && (
-                <p className="text-lg font-medium opacity-80" style={{ color: settings.subtitleColor || undefined }}>
-                  {renderText(form.description)}
-                </p>
+
+              {isStepMode && currentStep === -1 && (
+                <div className="pt-4 flex flex-col items-start gap-4">
+                  <button 
+                    onClick={() => setCurrentStep(0)}
+                    className="group px-10 py-5 text-white font-black rounded-2xl shadow-2xl hover:shadow-accent/40 active:scale-95 transition-all text-xl flex items-center gap-3"
+                    style={{ backgroundColor: settings.primaryColor }}
+                  >
+                    Começar agora
+                    <ChevronRight size={24} className="group-hover:translate-x-1 transition-transform" />
+                  </button>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 ml-2">Pressione ENTER</p>
+                </div>
+              )}
+
+              {(!isStepMode || currentStep === -1) && (
+                <div className="text-[10px] font-bold text-red-500 uppercase tracking-wider pt-2">* Indica uma pergunta obrigatória</div>
               )}
             </div>
+          </header>
+        )}
 
-            {isStepMode && currentStep === -1 && (
-              <div className="pt-4">
-                <button 
-                  onClick={() => setCurrentStep(0)}
-                  className="px-8 py-3 text-white font-bold rounded shadow-md hover:shadow-lg active:scale-95 transition-all text-base"
-                  style={{ backgroundColor: settings.primaryColor }}
-                >
-                  Começar agora
-                </button>
-              </div>
-            )}
-
-            {(!isStepMode || currentStep === -1) && (
-              <div className="text-[10px] font-bold text-red-500 uppercase tracking-wider pt-2">* Indica uma pergunta obrigatória</div>
-            )}
-          </div>
-        </header>
-
-        <div className="space-y-4 pb-24">
+        <div className={`space-y-4 ${isStepMode && currentStep >= 0 ? '' : 'pb-24'}`}>
           {isStepMode ? (
             currentStep >= 0 && currentStep < visibleFields.length && (
               <motion.div
                 key={visibleFields[currentStep].id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={`p-6 md:p-8 border shadow-sm space-y-6 transition-all ${themeStyles.card}`}
-                style={{ borderRadius: settings.borderRadius === 'none' ? '0' : '0.5rem' }}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className={`transition-all space-y-10 py-12 md:py-20`}
               >
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between pb-3">
-                     <span className="text-[10px] font-bold uppercase tracking-widest opacity-40">
-                       {visibleFields[currentStep].type === 'section' ? 'Seção' : `Questão ${currentStep + 1} de ${visibleFields.length}`}
+                <div className="space-y-12">
+                  <div className="flex items-center gap-4">
+                     <span className="text-sm font-black uppercase tracking-widest text-accent" style={{ color: settings.primaryColor }}>
+                       {currentStep + 1} <ArrowRight size={14} className="inline mx-1" />
                      </span>
                      {visibleFields[currentStep].required && (
-                       <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest">Obrigatório</span>
+                       <span className="text-[9px] font-black bg-red-500/10 text-red-500 px-2 py-0.5 rounded uppercase tracking-widest">Obrigatório</span>
                      )}
                   </div>
                   
                   {visibleFields[currentStep].type !== 'section' && visibleFields[currentStep].type !== 'heading' && (
-                    <div className="space-y-4">
-                      <div className="flex items-start gap-1">
-                        <h2 className="text-2xl font-semibold text-[#202124] dark:text-white leading-tight">{renderText(visibleFields[currentStep].label)}</h2>
-                        {visibleFields[currentStep].required && <span className="text-red-500 font-normal text-2xl">*</span>}
+                    <div className="space-y-6">
+                      <div className="flex items-start gap-2">
+                        <h2 className="text-3xl md:text-4xl font-bold leading-tight tracking-tight">{renderText(visibleFields[currentStep].label)}</h2>
                       </div>
-                      {visibleFields[currentStep].description && <p className="text-base opacity-60 italic">{renderText(visibleFields[currentStep].description)}</p>}
+                      {visibleFields[currentStep].description && <p className="text-xl opacity-60 font-medium italic">{renderText(visibleFields[currentStep].description)}</p>}
                     </div>
                   )}
 
-                  <div className="mt-4">
+                  <div className="mt-8 max-w-xl">
                     {renderField(visibleFields[currentStep])}
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 pt-6 border-t border-slate-100 dark:border-white/5 mt-6">
-                  {currentStep > 0 && (
-                    <button 
-                      onClick={() => setCurrentStep(currentStep - 1)} 
-                      className="px-6 py-2 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 font-bold rounded transition-all text-sm text-slate-600 dark:text-slate-300"
-                    >
-                      Voltar
-                    </button>
-                  )}
+                <div className="flex items-center gap-6 pt-12">
                   <button 
                     onClick={handleNext} 
-                    className="px-8 py-2.5 text-white font-bold rounded shadow-md hover:shadow-lg active:scale-[0.98] transition-all text-base"
+                    className="group px-10 py-5 text-white font-black rounded-2xl shadow-2xl hover:shadow-accent/40 active:scale-[0.98] transition-all text-xl flex items-center gap-3"
                     style={{ backgroundColor: visibleFields[currentStep].customColor || settings.primaryColor }}
                   >
-                    {currentStep === visibleFields.length - 1 ? 'Enviar' : 'Próxima'}
+                    {currentStep === visibleFields.length - 1 ? 'Enviar' : 'OK'}
+                    <CheckCircle2 size={24} className="group-hover:scale-110 transition-transform" />
                   </button>
+                  
+                  <div className="flex flex-col gap-1">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40">Pressione ENTER</p>
+                    {currentStep > 0 && (
+                       <button 
+                         onClick={() => setCurrentStep(currentStep - 1)} 
+                         className="text-[10px] font-black uppercase tracking-widest hover:text-accent transition-colors text-left"
+                       >
+                         Voltar
+                       </button>
+                    )}
+                  </div>
                 </div>
               </motion.div>
             )

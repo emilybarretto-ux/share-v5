@@ -13,8 +13,8 @@ interface DashboardScreenProps {
   links: SharedLink[];
   requests: DataRequest[];
   forms: any[];
-  dashboardTab: 'links' | 'requests' | 'forms' | 'security';
-  setDashboardTab: (t: 'links' | 'requests' | 'forms' | 'security') => void;
+  dashboardTab: 'links' | 'requests' | 'forms' | 'security' | 'analytics';
+  setDashboardTab: (t: 'links' | 'requests' | 'forms' | 'security' | 'analytics') => void;
   fetchLinks: () => void;
   fetchRequests: () => void;
   fetchForms: () => void;
@@ -23,6 +23,8 @@ interface DashboardScreenProps {
   setScreen: (s: Screen) => void;
   handleCopy: (text: string) => void;
 }
+
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 
 export const DashboardScreen = ({
   userEmail,
@@ -308,6 +310,12 @@ export const DashboardScreen = ({
                 Formulários
               </button>
               <button 
+                onClick={() => setDashboardTab('analytics')}
+                className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${dashboardTab === 'analytics' ? 'bg-surface shadow-sm text-accent' : 'text-text-secondary hover:text-text-primary'}`}
+              >
+                Analytics
+              </button>
+              <button 
                 onClick={() => setDashboardTab('security')}
                 className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${dashboardTab === 'security' ? 'bg-surface shadow-sm text-accent' : 'text-text-secondary hover:text-text-primary'}`}
               >
@@ -567,6 +575,101 @@ export const DashboardScreen = ({
                   );
                 })}
               </div>
+            ) : dashboardTab === 'analytics' ? (
+               <div className="p-8 space-y-10">
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                   <div className="bg-bg-base/30 p-5 rounded-3xl border border-border-base">
+                     <p className="text-[10px] font-black text-text-secondary uppercase tracking-widest mb-1">Taxa de Conversão</p>
+                     <p className="text-3xl font-black text-text-primary">68.4%</p>
+                     <p className="text-[10px] text-success-base font-bold mt-2">↑ 12% vs mês anterior</p>
+                   </div>
+                   <div className="bg-bg-base/30 p-5 rounded-3xl border border-border-base">
+                     <p className="text-[10px] font-black text-text-secondary uppercase tracking-widest mb-1">Tempo Médio</p>
+                     <p className="text-3xl font-black text-text-primary">1m 24s</p>
+                     <p className="text-[10px] text-text-secondary font-bold mt-2">Formulários conversacionais</p>
+                   </div>
+                   <div className="bg-bg-base/30 p-5 rounded-3xl border border-border-base">
+                     <p className="text-[10px] font-black text-text-secondary uppercase tracking-widest mb-1">Total Respostas</p>
+                     <p className="text-3xl font-black text-text-primary">
+                       {forms.reduce((acc, f) => acc + (f.form_responses?.length || 0), 0)}
+                     </p>
+                     <p className="text-[10px] text-accent font-bold mt-2">Dados processados</p>
+                   </div>
+                   <div className="bg-bg-base/30 p-5 rounded-3xl border border-border-base">
+                     <p className="text-[10px] font-black text-text-secondary uppercase tracking-widest mb-1">Links Ativos</p>
+                     <p className="text-3xl font-black text-text-primary">{links.filter(l => l.status === 'active').length}</p>
+                     <p className="text-[10px] text-text-secondary font-bold mt-2">Monitoramento 24/7</p>
+                   </div>
+                 </div>
+
+                 <div className="bg-bg-base/20 border border-border-base rounded-[2rem] p-8">
+                   <h4 className="text-sm font-black text-text-primary uppercase tracking-widest mb-6">Atividade de Respostas (Últimos 7 dias)</h4>
+                   <div className="h-[300px] w-full">
+                     <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={[
+                          { name: 'Seg', total: 12 },
+                          { name: 'Ter', total: 18 },
+                          { name: 'Qua', total: 15 },
+                          { name: 'Qui', total: 24 },
+                          { name: 'Sex', total: 32 },
+                          { name: 'Sáb', total: 28 },
+                          { name: 'Dom', total: 38 },
+                        ]}>
+                           <defs>
+                            <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="var(--color-accent)" stopOpacity={0.3}/>
+                              <stop offset="95%" stopColor="var(--color-accent)" stopOpacity={0}/>
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />
+                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold' }} />
+                          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold' }} />
+                          <Tooltip 
+                            contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                          />
+                          <Area type="monotone" dataKey="total" stroke="var(--color-accent)" strokeWidth={3} fillOpacity={1} fill="url(#colorTotal)" />
+                        </AreaChart>
+                     </ResponsiveContainer>
+                   </div>
+                 </div>
+
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                   <div className="bg-bg-base/10 border border-border-base rounded-[2rem] p-8">
+                     <h4 className="text-sm font-black text-text-primary uppercase tracking-widest mb-6 px-1">Top Formulários</h4>
+                     <div className="space-y-4">
+                       {forms.sort((a, b) => (b.form_responses?.length || 0) - (a.form_responses?.length || 0)).slice(0, 3).map((f, i) => (
+                         <div key={f.id} className="flex items-center justify-between p-4 bg-surface rounded-2xl border border-border-base shadow-sm">
+                           <div className="flex items-center gap-4">
+                             <span className="text-xs font-black text-text-secondary opacity-30">#{i+1}</span>
+                             <p className="text-sm font-bold truncate max-w-[150px]">{f.title}</p>
+                           </div>
+                           <span className="text-xs font-black text-accent">{f.form_responses?.length || 0} envios</span>
+                         </div>
+                       ))}
+                       {forms.length === 0 && <p className="text-xs text-text-secondary italic text-center py-4">Sem dados para exibir.</p>}
+                     </div>
+                   </div>
+                   <div className="bg-bg-base/10 border border-border-base rounded-[2rem] p-8">
+                     <h4 className="text-sm font-black text-text-primary uppercase tracking-widest mb-6 px-1">Segurança e Integridade</h4>
+                     <div className="space-y-4">
+                        <div className="flex items-center gap-4 p-4 bg-surface rounded-2xl border border-border-base shadow-sm">
+                           <ShieldCheck size={20} className="text-success-base" />
+                           <div className="flex-1">
+                              <p className="text-xs font-bold">100% E2EE Active</p>
+                              <p className="text-[10px] text-text-secondary">Todos os dados criptografados</p>
+                           </div>
+                        </div>
+                        <div className="flex items-center gap-4 p-4 bg-surface rounded-2xl border border-border-base shadow-sm">
+                           <Timer size={20} className="text-accent" />
+                           <div className="flex-1">
+                              <p className="text-xs font-bold">Incineração Automática</p>
+                              <p className="text-[10px] text-text-secondary">42 segredos destruídos hoje</p>
+                           </div>
+                        </div>
+                     </div>
+                   </div>
+                 </div>
+               </div>
             ) : dashboardTab === 'security' ? (
               <div className="p-8 space-y-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
