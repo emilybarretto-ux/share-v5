@@ -32,8 +32,8 @@ export const ResetPasswordScreen = ({ onSuccess }: ResetPasswordScreenProps) => 
 
     setIsLoading(true);
     try {
-      // Se já sabemos que precisa de MFA, primeiro verificamos o código
-      if (needsMfa) {
+      // Se já temos que precisa de MFA e o usuário forneceu o código
+      if (needsMfa && mfaCode) {
         if (mfaCode.length !== 6) {
           showNotification('Digite o código de 6 dígitos.', 'error');
           setIsLoading(false);
@@ -61,7 +61,7 @@ export const ResetPasswordScreen = ({ onSuccess }: ResetPasswordScreenProps) => 
 
         if (verifyError) throw verifyError;
         
-        // Se chegou aqui, verificou o MFA, agora tenta atualizar a senha de novo
+        console.log('✅ [Auth] MFA verificado com sucesso. Prosseguindo com a troca de senha.');
       }
 
       const { error } = await supabase.auth.updateUser({
@@ -72,7 +72,7 @@ export const ResetPasswordScreen = ({ onSuccess }: ResetPasswordScreenProps) => 
         // Se o erro for de AAL2 (necessita MFA), ativamos o modo MFA
         if (error.message.includes('AAL2 session is required')) {
           setNeedsMfa(true);
-          showNotification('Sua conta possui MFA. Digite o código do seu autenticador para continuar.', 'warning');
+          showNotification('Sua conta possui MFA. Digite o código do seu autenticador para confirmar.', 'warning');
           setIsLoading(false);
           return;
         }
@@ -80,7 +80,8 @@ export const ResetPasswordScreen = ({ onSuccess }: ResetPasswordScreenProps) => 
       }
 
       sessionStorage.removeItem('supabase_recovery_mode');
-      showNotification('Senha redefinida com sucesso!', 'success');
+      await supabase.auth.signOut();
+      showNotification('Senha redefinida com sucesso! Faça login com suas novas credenciais.', 'success');
       onSuccess();
     } catch (error: any) {
       showNotification(error.message || 'Erro ao redefinir senha.', 'error');
@@ -114,69 +115,64 @@ export const ResetPasswordScreen = ({ onSuccess }: ResetPasswordScreenProps) => 
           <div className="absolute top-0 left-0 w-full h-1.5 bg-accent" />
           
           <form onSubmit={handleUpdatePassword} className="space-y-6">
-            {!needsMfa ? (
-              <>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-text-secondary uppercase tracking-[0.2em] ml-1">Nova Senha</label>
-                  <div className="relative">
-                    <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary" />
-                    <input 
-                      type={showPassword ? "text" : "password"} 
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="Mínimo 6 caracteres" 
-                      className="w-full pl-12 pr-12 py-4 bg-bg-base border border-border-base rounded-2xl focus:ring-2 focus:ring-accent outline-none text-text-primary transition-all font-medium text-sm"
-                      required
-                    />
-                    <button 
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-text-secondary hover:text-accent transition-colors"
-                    >
-                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
-                  </div>
+            <div className={`space-y-6 ${needsMfa ? 'opacity-60 pointer-events-none' : ''}`}>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-text-secondary uppercase tracking-[0.2em] ml-1">Nova Senha</label>
+                <div className="relative">
+                  <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary" />
+                  <input 
+                    type={showPassword ? "text" : "password"} 
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Mínimo 6 caracteres" 
+                    className="w-full pl-12 pr-12 py-4 bg-bg-base border border-border-base rounded-2xl focus:ring-2 focus:ring-accent outline-none text-text-primary transition-all font-medium text-sm"
+                    required
+                  />
+                  <button 
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-text-secondary hover:text-accent transition-colors"
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
                 </div>
+              </div>
 
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-text-secondary uppercase tracking-[0.2em] ml-1">Confirmar Senha</label>
-                  <div className="relative">
-                    <ShieldCheck size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary" />
-                    <input 
-                      type="password" 
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Repita a nova senha" 
-                      className="w-full pl-12 pr-4 py-4 bg-bg-base border border-border-base rounded-2xl focus:ring-2 focus:ring-accent outline-none text-text-primary transition-all font-medium text-sm"
-                      required
-                    />
-                  </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-text-secondary uppercase tracking-[0.2em] ml-1">Confirmar Senha</label>
+                <div className="relative">
+                  <ShieldCheck size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary" />
+                  <input 
+                    type="password" 
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Repita a nova senha" 
+                    className="w-full pl-12 pr-4 py-4 bg-bg-base border border-border-base rounded-2xl focus:ring-2 focus:ring-accent outline-none text-text-primary transition-all font-medium text-sm"
+                    required
+                  />
                 </div>
-              </>
-            ) : (
-              <div className="space-y-4">
-                <div className="flex justify-center space-x-2">
-                  <div className="relative w-full">
-                    <ShieldCheck size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary" />
+              </div>
+            </div>
+
+            {needsMfa && (
+              <div className="space-y-4 pt-4 border-t border-border-base border-dashed mt-6 animate-in fade-in slide-in-from-top-4">
+                <div className="space-y-2 text-center">
+                  <label className="text-[10px] font-black text-accent uppercase tracking-[0.2em]">Código do Autenticador</label>
+                  <div className="relative w-full max-w-[240px] mx-auto">
+                    <ShieldCheck size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-accent" />
                     <input
                       type="text"
                       maxLength={6}
                       value={mfaCode}
                       onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ''))}
-                      placeholder="Código MFA"
-                      className="w-full pl-12 pr-4 py-4 bg-bg-base border border-border-base rounded-2xl focus:ring-2 focus:ring-accent outline-none text-text-primary transition-all font-medium text-center text-2xl tracking-[0.5em]"
+                      placeholder="000000"
+                      className="w-full pl-12 pr-4 py-4 bg-accent/5 border-2 border-accent/20 rounded-2xl focus:ring-2 focus:ring-accent outline-none text-text-primary transition-all font-black text-center text-2xl tracking-[0.5em]"
                       required
                       autoFocus
                     />
                   </div>
+                  <p className="text-[10px] font-medium text-text-secondary">Confirme sua identidade para salvar a nova senha.</p>
                 </div>
-                <button 
-                  type="button" 
-                  onClick={() => setNeedsMfa(false)}
-                  className="w-full text-[10px] font-bold text-text-secondary uppercase tracking-widest hover:text-accent transition-colors"
-                >
-                  Voltar para alterar senha
-                </button>
               </div>
             )}
 
