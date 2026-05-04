@@ -36,6 +36,7 @@ export const ResetPasswordScreen = ({ onSuccess }: ResetPasswordScreenProps) => 
 
       if (error) throw error;
 
+      sessionStorage.removeItem('supabase_recovery_mode');
       showNotification('Senha redefinida com sucesso!', 'success');
       onSuccess();
     } catch (error: any) {

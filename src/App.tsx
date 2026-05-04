@@ -425,12 +425,15 @@ export default function App() {
       try {
         const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
         
-        // Detect recovery mode from hash even if event hasn't fired
+        // Detect recovery mode from hash or session storage even if event hasn't fired
         const hash = window.location.hash;
-        const isRecovery = hash.includes('type=recovery') || hash.includes('access_token=');
+        const isRecovery = hash.includes('type=recovery') || 
+                          hash.includes('access_token=') ||
+                          sessionStorage.getItem('supabase_recovery_mode') === 'true';
         
         if (isRecovery) {
           console.log('🔄 [Auth] Modo de recuperação detectado.');
+          sessionStorage.setItem('supabase_recovery_mode', 'true');
           setScreen('reset-password');
           setLoading(false);
           isInitializingRef.current = false;
@@ -459,7 +462,7 @@ export default function App() {
         // Se o usuário está apenas visualizando um conteúdo, não forçamos 2FA/MFA da conta dele
         const urlParams = new URLSearchParams(window.location.search);
         const isPublicId = urlParams.has('id') || urlParams.has('request') || urlParams.has('form') || urlParams.has('uid');
-        const isPublicScreen = ['view-secret', 'fill-request', 'view-form'].includes(screenRef.current) || isPublicId;
+        const isPublicScreen = ['view-secret', 'fill-request', 'view-form', 'reset-password'].includes(screenRef.current) || isPublicId;
 
         if (isPublicScreen) {
           console.log('🔓 [App] Usuário em tela pública. Ignorando verificações de MFA da conta.');
@@ -488,7 +491,7 @@ export default function App() {
           // Se o nível atual é aal1 OU se já passou 2 horas da última verificação
           // NÃO redirecionamos para 2FA se o usuário estiver visualizando um segredo ou preenchendo uma solicitação/formulário
           const params = new URLSearchParams(window.location.search);
-          const isViewingScreen = ['view-secret', 'fill-request', 'view-form'].includes(screenRef.current) || params.has('id') || params.has('uid');
+          const isViewingScreen = ['view-secret', 'fill-request', 'view-form', 'reset-password'].includes(screenRef.current) || params.has('id') || params.has('uid');
           
           if ((mfaData?.currentLevel === 'aal1' || needsVerification) && !isViewingScreen) {
             setScreen('verify-2fa' as any);
@@ -603,8 +606,10 @@ export default function App() {
         }
         initializeAuth();
       } else if (event === 'PASSWORD_RECOVERY') {
+        sessionStorage.setItem('supabase_recovery_mode', 'true');
         setScreen('reset-password');
       } else if (event === 'SIGNED_OUT' || (event as any) === 'USER_DELETED') {
+        sessionStorage.removeItem('supabase_recovery_mode');
         setUser(null);
         setLinks([]);
         setRequests([]);
