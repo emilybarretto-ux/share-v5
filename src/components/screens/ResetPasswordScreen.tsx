@@ -76,7 +76,7 @@ export const ResetPasswordScreen = ({ onSuccess }: ResetPasswordScreenProps) => 
         // Se o erro for de AAL2 (necessita MFA), ativamos o modo MFA
         if (error.message.includes('AAL2') || error.message.includes('session is required')) {
           setNeedsMfa(true);
-          showNotification('Sua conta possui MFA. Digite seu código para confirmar a troca.', 'warning');
+          showNotification('Sua conta possui MFA. Digite seu código para confirmar a troca.', 'info');
           setIsLoading(false);
           return;
         }

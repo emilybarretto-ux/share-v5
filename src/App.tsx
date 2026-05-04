@@ -473,10 +473,14 @@ export default function App() {
         const { data: mfaData, error: mfaError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
         if (mfaError) throw mfaError;
         
-        // --- LÓGICA DE PERSISTÊNCIA E TEMPO (2 HORAS) ---
+        // --- LÓGICA DE PERSISTÊNCIA E TEMPO ---
         const lastVerifiedStr = localStorage.getItem(`mfa_verified_at_${currentUser.id}`);
         const lastVerified = lastVerifiedStr ? parseInt(lastVerifiedStr) : 0;
-        const needsVerification = (Date.now() - lastVerified) > (2 * 60 * 60 * 1000); // 2 horas
+        const now = Date.now();
+        const timeSinceLastVerified = now - lastVerified;
+        
+        const needsVerification = timeSinceLastVerified > (2 * 60 * 60 * 1000); // 2 horas
+        const recentlyVerified = timeSinceLastVerified < (5 * 60 * 1000); // 5 minutos (bypass)
 
         const { data: factorsData, error: factorsError } = await supabase.auth.mfa.listFactors();
         if (factorsError) throw factorsError;
@@ -493,7 +497,7 @@ export default function App() {
           const params = new URLSearchParams(window.location.search);
           const isViewingScreen = ['view-secret', 'fill-request', 'view-form', 'reset-password'].includes(screenRef.current) || params.has('id') || params.has('uid');
           
-          if ((mfaData?.currentLevel === 'aal1' || needsVerification) && !isViewingScreen) {
+          if (((mfaData?.currentLevel === 'aal1' && !recentlyVerified) || needsVerification) && !isViewingScreen) {
             setScreen('verify-2fa' as any);
             setLoading(false);
             return;
