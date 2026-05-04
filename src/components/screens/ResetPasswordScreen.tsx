@@ -42,7 +42,11 @@ export const ResetPasswordScreen = ({ onSuccess }: ResetPasswordScreenProps) => 
       showNotification('Senha alterada com sucesso! Entre agora com sua nova senha.', 'success');
       onSuccess();
     } catch (error: any) {
-      showNotification(error.message || 'Erro ao redefinir senha.', 'error');
+      if (error.message?.includes('AAL2') || error.message?.includes('session is required')) {
+        showNotification('Sua conta exige MFA. Ative "Allow password resets to bypass MFA" no painel do Supabase para permitir a troca sem o código agora.', 'warning');
+      } else {
+        showNotification(error.message || 'Erro ao redefinir senha.', 'error');
+      }
     } finally {
       setIsLoading(false);
     }
