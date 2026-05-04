@@ -13,8 +13,6 @@ export const ResetPasswordScreen = ({ onSuccess }: ResetPasswordScreenProps) => 
   const [confirmPassword, setConfirmPassword] = React.useState('');
   const [showPassword, setShowPassword] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(false);
-  const [mfaCode, setMfaCode] = React.useState('');
-  const [needsMfa, setNeedsMfa] = React.useState(false);
   const { showNotification } = useNotification();
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
@@ -32,56 +30,16 @@ export const ResetPasswordScreen = ({ onSuccess }: ResetPasswordScreenProps) => 
 
     setIsLoading(true);
     try {
-      // Se já temos que precisa de MFA e o usuário forneceu o código
-      if (needsMfa && mfaCode) {
-        if (mfaCode.length !== 6) {
-          showNotification('Digite o código de 6 dígitos.', 'error');
-          setIsLoading(false);
-          return;
-        }
-
-        const { data: factors } = await supabase.auth.mfa.listFactors();
-        const totpFactor = factors?.all.find(f => f.factor_type === 'totp' && f.status === 'verified');
-
-        if (!totpFactor) {
-          throw new Error('Fator de autenticação não encontrado.');
-        }
-
-        const { error: challengeError, data: challengeData } = await supabase.auth.mfa.challenge({
-          factorId: totpFactor.id
-        });
-
-        if (challengeError) throw challengeError;
-
-        const { error: verifyError } = await supabase.auth.mfa.verify({
-          factorId: totpFactor.id,
-          challengeId: challengeData.id,
-          code: mfaCode
-        });
-
-        if (verifyError) throw verifyError;
-        
-        console.log('✅ [Auth] MFA verificado com sucesso. Prosseguindo com a troca de senha.');
-      }
-
       const { error } = await supabase.auth.updateUser({
         password: newPassword
       });
 
-      if (error) {
-        // Se o erro for de AAL2 (necessita MFA), ativamos o modo MFA
-        if (error.message.includes('AAL2 session is required')) {
-          setNeedsMfa(true);
-          showNotification('Sua conta possui MFA. Digite o código do seu autenticador para confirmar.', 'warning');
-          setIsLoading(false);
-          return;
-        }
-        throw error;
-      }
+      if (error) throw error;
 
       sessionStorage.removeItem('supabase_recovery_mode');
+      // Forçamos o logout para que o usuário tenha que fazer login com a nova senha
       await supabase.auth.signOut();
-      showNotification('Senha redefinida com sucesso! Faça login com suas novas credenciais.', 'success');
+      showNotification('Senha alterada com sucesso! Entre agora com sua nova senha.', 'success');
       onSuccess();
     } catch (error: any) {
       showNotification(error.message || 'Erro ao redefinir senha.', 'error');
@@ -101,21 +59,15 @@ export const ResetPasswordScreen = ({ onSuccess }: ResetPasswordScreenProps) => 
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-accent text-white shadow-xl shadow-accent/20 mb-2">
             <Lock size={32} />
           </div>
-          <h1 className="text-3xl font-black text-text-primary italic uppercase tracking-tight">
-            {needsMfa ? 'Verificação MFA' : 'Nova Senha'}
-          </h1>
-          <p className="text-text-secondary text-sm px-4">
-            {needsMfa 
-              ? 'Digite o código de 6 dígitos gerado pelo seu aplicativo autenticador para confirmar a troca da senha.'
-              : 'Defina sua nova credencial de acesso. Use uma combinação forte para sua segurança.'}
-          </p>
+          <h1 className="text-3xl font-black text-text-primary italic uppercase tracking-tight">Nova Senha</h1>
+          <p className="text-text-secondary text-sm px-4">Defina sua nova credencial de acesso. Use uma combinação forte para sua segurança.</p>
         </div>
 
         <div className="bg-surface p-8 rounded-[2.5rem] border border-border-base shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-1.5 bg-accent" />
           
           <form onSubmit={handleUpdatePassword} className="space-y-6">
-            <div className={`space-y-6 ${needsMfa ? 'opacity-60 pointer-events-none' : ''}`}>
+            <div className="space-y-6">
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-text-secondary uppercase tracking-[0.2em] ml-1">Nova Senha</label>
                 <div className="relative">
@@ -154,28 +106,6 @@ export const ResetPasswordScreen = ({ onSuccess }: ResetPasswordScreenProps) => 
               </div>
             </div>
 
-            {needsMfa && (
-              <div className="space-y-4 pt-4 border-t border-border-base border-dashed mt-6 animate-in fade-in slide-in-from-top-4">
-                <div className="space-y-2 text-center">
-                  <label className="text-[10px] font-black text-accent uppercase tracking-[0.2em]">Código do Autenticador</label>
-                  <div className="relative w-full max-w-[240px] mx-auto">
-                    <ShieldCheck size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-accent" />
-                    <input
-                      type="text"
-                      maxLength={6}
-                      value={mfaCode}
-                      onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ''))}
-                      placeholder="000000"
-                      className="w-full pl-12 pr-4 py-4 bg-accent/5 border-2 border-accent/20 rounded-2xl focus:ring-2 focus:ring-accent outline-none text-text-primary transition-all font-black text-center text-2xl tracking-[0.5em]"
-                      required
-                      autoFocus
-                    />
-                  </div>
-                  <p className="text-[10px] font-medium text-text-secondary">Confirme sua identidade para salvar a nova senha.</p>
-                </div>
-              </div>
-            )}
-
             <button 
               type="submit"
               disabled={isLoading}
@@ -185,7 +115,7 @@ export const ResetPasswordScreen = ({ onSuccess }: ResetPasswordScreenProps) => 
                 <div className="size-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <>
-                  {needsMfa ? 'Verificar e Salvar' : 'Redefinir e Entrar'}
+                  Redefinir e Entrar
                   <ArrowRight size={16} />
                 </>
               )}
@@ -194,6 +124,5 @@ export const ResetPasswordScreen = ({ onSuccess }: ResetPasswordScreenProps) => 
         </div>
       </div>
     </motion.div>
-
   );
 };
