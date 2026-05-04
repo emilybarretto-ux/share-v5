@@ -412,6 +412,20 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
     }
   };
 
+  const resetForm = () => {
+    if (confirm('Tem certeza que deseja limpar todo o rascunho e recomeçar do zero?')) {
+      setFields([]);
+      setTitle('Título');
+      setSubtitle('Subtítulo aqui');
+      setHeaderImage('');
+      setLogoUrl('');
+      setThemePreset('default');
+      setRedirectUrl('');
+      localStorage.removeItem('form_builder_draft');
+      showNotification('Rascunho reiniciado.', 'info');
+    }
+  };
+
   const themes = {
     default: { bg: 'bg-bg-base/50', card: 'bg-surface border-border-base' },
     dark: { bg: 'bg-slate-950/90', card: 'bg-slate-900 border-slate-700' },
@@ -583,7 +597,15 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
                 </div>
 
                 <div className="space-y-3">
-                  <h3 className="text-[10px] font-black text-text-secondary uppercase tracking-widest ml-1">Cabeçalho & Logo</h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-[10px] font-black text-text-secondary uppercase tracking-widest ml-1">Cabeçalho & Logo</h3>
+                    <button 
+                      onClick={resetForm}
+                      className="text-[9px] font-black text-red-500 uppercase tracking-widest hover:underline"
+                    >
+                      Reiniciar Rascunho
+                    </button>
+                  </div>
                   <div className="space-y-4 p-1">
                     <div className="space-y-1">
                       <label className="text-[9px] font-bold text-text-secondary uppercase flex items-center gap-2">Subtítulo (Dica: Use **...** para negrito)</label>

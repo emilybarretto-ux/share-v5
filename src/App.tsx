@@ -587,6 +587,8 @@ export default function App() {
           setForms([]);
         }
         initializeAuth();
+      } else if (event === 'PASSWORD_RECOVERY') {
+        setScreen('reset-password');
       } else if (event === 'SIGNED_OUT' || (event as any) === 'USER_DELETED') {
         setUser(null);
         setLinks([]);
@@ -693,6 +695,7 @@ export default function App() {
     setMfaCode('');
     
     // Limpar estados do dashboard para não vazar pro próximo usuário
+    localStorage.removeItem('form_builder_draft');
     setLinks([]);
     setRequests([]);
     setForms([]);
