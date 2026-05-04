@@ -13,6 +13,8 @@ export const ResetPasswordScreen = ({ onSuccess }: ResetPasswordScreenProps) => 
   const [confirmPassword, setConfirmPassword] = React.useState('');
   const [showPassword, setShowPassword] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(false);
+  const [mfaCode, setMfaCode] = React.useState('');
+  const [needsMfa, setNeedsMfa] = React.useState(false);
   const { showNotification } = useNotification();
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
@@ -30,11 +32,52 @@ export const ResetPasswordScreen = ({ onSuccess }: ResetPasswordScreenProps) => 
 
     setIsLoading(true);
     try {
+      // Se já sabemos que precisa de MFA, primeiro verificamos o código
+      if (needsMfa) {
+        if (mfaCode.length !== 6) {
+          showNotification('Digite o código de 6 dígitos.', 'error');
+          setIsLoading(false);
+          return;
+        }
+
+        const { data: factors } = await supabase.auth.mfa.listFactors();
+        const totpFactor = factors?.all.find(f => f.factor_type === 'totp' && f.status === 'verified');
+
+        if (!totpFactor) {
+          throw new Error('Fator de autenticação não encontrado.');
+        }
+
+        const { error: challengeError, data: challengeData } = await supabase.auth.mfa.challenge({
+          factorId: totpFactor.id
+        });
+
+        if (challengeError) throw challengeError;
+
+        const { error: verifyError } = await supabase.auth.mfa.verify({
+          factorId: totpFactor.id,
+          challengeId: challengeData.id,
+          code: mfaCode
+        });
+
+        if (verifyError) throw verifyError;
+        
+        // Se chegou aqui, verificou o MFA, agora tenta atualizar a senha de novo
+      }
+
       const { error } = await supabase.auth.updateUser({
         password: newPassword
       });
 
-      if (error) throw error;
+      if (error) {
+        // Se o erro for de AAL2 (necessita MFA), ativamos o modo MFA
+        if (error.message.includes('AAL2 session is required')) {
+          setNeedsMfa(true);
+          showNotification('Sua conta possui MFA. Digite o código do seu autenticador para continuar.', 'warning');
+          setIsLoading(false);
+          return;
+        }
+        throw error;
+      }
 
       sessionStorage.removeItem('supabase_recovery_mode');
       showNotification('Senha redefinida com sucesso!', 'success');
@@ -57,50 +100,85 @@ export const ResetPasswordScreen = ({ onSuccess }: ResetPasswordScreenProps) => 
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-accent text-white shadow-xl shadow-accent/20 mb-2">
             <Lock size={32} />
           </div>
-          <h1 className="text-3xl font-black text-text-primary italic uppercase tracking-tight">Nova Senha</h1>
-          <p className="text-text-secondary text-sm px-4">Defina sua nova credencial de acesso. Use uma combinação forte para sua segurança.</p>
+          <h1 className="text-3xl font-black text-text-primary italic uppercase tracking-tight">
+            {needsMfa ? 'Verificação MFA' : 'Nova Senha'}
+          </h1>
+          <p className="text-text-secondary text-sm px-4">
+            {needsMfa 
+              ? 'Digite o código de 6 dígitos gerado pelo seu aplicativo autenticador para confirmar a troca da senha.'
+              : 'Defina sua nova credencial de acesso. Use uma combinação forte para sua segurança.'}
+          </p>
         </div>
 
         <div className="bg-surface p-8 rounded-[2.5rem] border border-border-base shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-1.5 bg-accent" />
           
           <form onSubmit={handleUpdatePassword} className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-text-secondary uppercase tracking-[0.2em] ml-1">Nova Senha</label>
-              <div className="relative">
-                <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary" />
-                <input 
-                  type={showPassword ? "text" : "password"} 
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Mínimo 6 caracteres" 
-                  className="w-full pl-12 pr-12 py-4 bg-bg-base border border-border-base rounded-2xl focus:ring-2 focus:ring-accent outline-none text-text-primary transition-all font-medium text-sm"
-                  required
-                />
+            {!needsMfa ? (
+              <>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-text-secondary uppercase tracking-[0.2em] ml-1">Nova Senha</label>
+                  <div className="relative">
+                    <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary" />
+                    <input 
+                      type={showPassword ? "text" : "password"} 
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Mínimo 6 caracteres" 
+                      className="w-full pl-12 pr-12 py-4 bg-bg-base border border-border-base rounded-2xl focus:ring-2 focus:ring-accent outline-none text-text-primary transition-all font-medium text-sm"
+                      required
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-text-secondary hover:text-accent transition-colors"
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-text-secondary uppercase tracking-[0.2em] ml-1">Confirmar Senha</label>
+                  <div className="relative">
+                    <ShieldCheck size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary" />
+                    <input 
+                      type="password" 
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Repita a nova senha" 
+                      className="w-full pl-12 pr-4 py-4 bg-bg-base border border-border-base rounded-2xl focus:ring-2 focus:ring-accent outline-none text-text-primary transition-all font-medium text-sm"
+                      required
+                    />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex justify-center space-x-2">
+                  <div className="relative w-full">
+                    <ShieldCheck size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary" />
+                    <input
+                      type="text"
+                      maxLength={6}
+                      value={mfaCode}
+                      onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ''))}
+                      placeholder="Código MFA"
+                      className="w-full pl-12 pr-4 py-4 bg-bg-base border border-border-base rounded-2xl focus:ring-2 focus:ring-accent outline-none text-text-primary transition-all font-medium text-center text-2xl tracking-[0.5em]"
+                      required
+                      autoFocus
+                    />
+                  </div>
+                </div>
                 <button 
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-text-secondary hover:text-accent transition-colors"
+                  type="button" 
+                  onClick={() => setNeedsMfa(false)}
+                  className="w-full text-[10px] font-bold text-text-secondary uppercase tracking-widest hover:text-accent transition-colors"
                 >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  Voltar para alterar senha
                 </button>
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-text-secondary uppercase tracking-[0.2em] ml-1">Confirmar Senha</label>
-              <div className="relative">
-                <ShieldCheck size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary" />
-                <input 
-                  type="password" 
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Repita a nova senha" 
-                  className="w-full pl-12 pr-4 py-4 bg-bg-base border border-border-base rounded-2xl focus:ring-2 focus:ring-accent outline-none text-text-primary transition-all font-medium text-sm"
-                  required
-                />
-              </div>
-            </div>
+            )}
 
             <button 
               type="submit"
@@ -111,7 +189,7 @@ export const ResetPasswordScreen = ({ onSuccess }: ResetPasswordScreenProps) => 
                 <div className="size-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <>
-                  Redefinir e Entrar
+                  {needsMfa ? 'Verificar e Salvar' : 'Redefinir e Entrar'}
                   <ArrowRight size={16} />
                 </>
               )}
@@ -120,5 +198,6 @@ export const ResetPasswordScreen = ({ onSuccess }: ResetPasswordScreenProps) => 
         </div>
       </div>
     </motion.div>
+
   );
 };
