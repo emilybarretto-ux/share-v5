@@ -503,9 +503,9 @@ export default function App() {
             return;
           }
           
-          // Se está tudo certo (aal2 e dentro do tempo), vai pro dashboard se estiver em telas de entrada
-          const authEntryScreens = ['home', 'login', 'register'];
-          if (mfaData?.currentLevel === 'aal2' && !needsVerification) {
+          // Se está tudo certo (aal2 OU verificado recentemente e dentro do tempo)
+          const authEntryScreens = ['home', 'login', 'register', 'reset-password'];
+          if ((mfaData?.currentLevel === 'aal2' || recentlyVerified) && !needsVerification) {
             const redirectParams = localStorage.getItem('redirect_after_auth');
             if (redirectParams) {
               localStorage.removeItem('redirect_after_auth');
@@ -514,13 +514,19 @@ export default function App() {
               if (params.get('id')) setScreen('view-secret');
               else if (params.get('request')) setScreen('fill-request');
               else if (params.get('form')) setScreen('view-form');
+              setLoading(false);
               return;
             }
 
             if (authEntryScreens.includes(screenRef.current)) {
               setScreen('dashboard');
             }
+            setLoading(false);
+            return;
           }
+          
+          // Se chegou aqui com um fator verificado mas não é nível aal2 nem recente, garante desligar o loading
+          setLoading(false);
         } 
         // 2. Se NÃO TEM nenhum fator verificado (Configuração Inicial ou Incompleta)
         else {
