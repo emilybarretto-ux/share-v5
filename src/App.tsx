@@ -385,6 +385,8 @@ export default function App() {
   useEffect(() => {
     const handleUrlParams = () => {
       const params = new URLSearchParams(window.location.search);
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      
       const urlId = params.get('id');
       const urlRequest = params.get('request');
       const urlForm = params.get('form');
@@ -395,12 +397,13 @@ export default function App() {
       const pathRequest = path.startsWith('/request/') ? path.split('/')[2] : null;
 
       const isDev = path === '/developers' || path === '/docs';
-      const isReset = path === '/reset-password';
-      const isForgot = path === '/forgot-password';
+      const isResetPath = path === '/reset-password';
+      const isForgotPath = path === '/forgot-password';
+      const isRecoveryHash = hashParams.get('type') === 'recovery';
 
       if (isDev) setScreen('developer-portal');
-      else if (isReset) setScreen('reset-password');
-      else if (isForgot) setScreen('forgot-password');
+      else if (isResetPath || isRecoveryHash) setScreen('reset-password');
+      else if (isForgotPath) setScreen('forgot-password');
       else if (urlId || pathId) {
         if (pathId) {
           // Sync state with path if needed
@@ -422,6 +425,12 @@ export default function App() {
       try {
         const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
         
+        // Detect recovery mode from hash even if event hasn't fired
+        const hash = window.location.hash;
+        if (hash.includes('type=recovery') || hash.includes('access_token=')) {
+          setScreen('reset-password');
+        }
+
         if (userError) {
           // Se for erro de sessão ausente, apenas tratamos como deslogado
           if (userError.message?.includes('session missing') || userError.status === 401) {
