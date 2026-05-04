@@ -1243,7 +1243,11 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
 
           {screen === 'reset-password' && (
             <div key="reset-password">
-              <ResetPasswordScreen onSuccess={() => setScreen('login')} />
+              <ResetPasswordScreen onSuccess={() => {
+                // Ao redefinir com sucesso, o Supabase mantém a sessão. 
+                // Se o usuário já verificou o MFA durante o reset, ele pode entrar direto.
+                setScreen('dashboard');
+              }} />
             </div>
           )}
 
