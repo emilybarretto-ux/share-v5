@@ -242,6 +242,7 @@ export default function App() {
   const [referenceName, setReferenceName] = useState('');
   const [isCreatingSecret, setIsCreatingSecret] = useState(false);
   const [errorSql, setErrorSql] = useState<string | null>(null);
+  const [refreshAuth, setRefreshAuth] = useState(0);
   const [restrictIp, setRestrictIp] = useState(false);
   const [requireEmail, setRequireEmail] = useState(false);
   const [allowedEmails, setAllowedEmails] = useState<string[]>([]);
@@ -431,6 +432,10 @@ export default function App() {
                           hash.includes('access_token=') ||
                           sessionStorage.getItem('supabase_recovery_mode') === 'true';
         
+        if (currentUser) {
+          setUser(currentUser);
+        }
+
         if (isRecovery) {
           console.log('🔄 [Auth] Modo de recuperação detectado.');
           sessionStorage.setItem('supabase_recovery_mode', 'true');
@@ -634,7 +639,7 @@ export default function App() {
       subscription.unsubscribe();
       window.removeEventListener('popstate', handleUrlParams);
     };
-  }, []);
+  }, [refreshAuth]);
 
   // Fetch Dashboard Data
   useEffect(() => {
@@ -1254,9 +1259,8 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
           {screen === 'reset-password' && (
             <div key="reset-password">
               <ResetPasswordScreen onSuccess={() => {
-                // Ao redefinir com sucesso, o Supabase mantém a sessão. 
-                // Se o usuário já verificou o MFA durante o reset, ele pode entrar direto.
-                setScreen('dashboard');
+                setRefreshAuth(prev => prev + 1);
+                setScreen('login');
               }} />
             </div>
           )}

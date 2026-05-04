@@ -84,7 +84,13 @@ export const ResetPasswordScreen = ({ onSuccess }: ResetPasswordScreenProps) => 
       }
 
       sessionStorage.removeItem('supabase_recovery_mode');
-      showNotification('Senha redefinida com sucesso!', 'success');
+      // Limpa a URL para evitar que o App.tsx detecte modo de recuperação novamente
+      window.history.pushState({}, '', window.location.pathname);
+      
+      // Deslogamos para que o usuário possa fazer o login manual com a nova senha
+      await supabase.auth.signOut();
+
+      showNotification('Senha redefinida com sucesso! Entre agora com sua nova senha.', 'success');
       onSuccess();
     } catch (error: any) {
       showNotification(error.message || 'Erro ao redefinir senha.', 'error');
