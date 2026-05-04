@@ -23,8 +23,11 @@ export const ForgotPasswordScreen = ({ onBack }: ForgotPasswordScreenProps) => {
 
     setIsLoading(true);
     try {
+      // Usando o domínio oficial da Vercel para garantir o redirecionamento correto
+      const redirectUrl = 'https://share-v5-pv2l.vercel.app/';
+      
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: redirectUrl,
       });
 
       if (error) throw error;

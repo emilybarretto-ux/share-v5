@@ -427,8 +427,14 @@ export default function App() {
         
         // Detect recovery mode from hash even if event hasn't fired
         const hash = window.location.hash;
-        if (hash.includes('type=recovery') || hash.includes('access_token=')) {
+        const isRecovery = hash.includes('type=recovery') || hash.includes('access_token=');
+        
+        if (isRecovery) {
+          console.log('🔄 [Auth] Modo de recuperação detectado.');
           setScreen('reset-password');
+          setLoading(false);
+          isInitializingRef.current = false;
+          return;
         }
 
         if (userError) {
