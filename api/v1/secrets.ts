@@ -25,7 +25,7 @@ const verifyToken = (authHeader: string | undefined | string[]) => {
     return decoded;
   } catch (err: any) {
     console.error('Erro na verificação do JWT:', err.message);
-    return { error: `JWT Error: ${err.message}` };
+    return { error: `Erro de JWT: ${err.message}` };
   }
 };
 

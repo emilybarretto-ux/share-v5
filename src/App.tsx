@@ -1147,7 +1147,7 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
             </div>
             
             <div className="hidden md:flex items-center gap-10 ml-10">
-              <button onClick={() => setScreen('home')} className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:translate-y-[-1px] ${screen === 'home' ? 'text-accent' : 'text-text-secondary hover:text-accent'}`}>Home</button>
+              <button onClick={() => setScreen('home')} className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:translate-y-[-1px] ${screen === 'home' ? 'text-accent' : 'text-text-secondary hover:text-accent'}`}>Início</button>
               <button onClick={() => setScreen('create-secret')} className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:translate-y-[-1px] ${screen === 'create-secret' ? 'text-accent' : 'text-text-secondary hover:text-accent'}`}>Criar Link</button>
               
               {user ? (

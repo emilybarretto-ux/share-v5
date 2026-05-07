@@ -1,5 +1,5 @@
 import React from 'react';
-import { Terminal, Copy, Check, ChevronRight, Key, Shield, Smartphone, ArrowLeft, ArrowRight, Send, Zap, Book, Lock, Code, Trash2, Eye, Plus, ExternalLink, Cpu } from 'lucide-react';
+import { Terminal, Copy, Check, ChevronRight, Key, Shield, ShieldCheck, ShieldQuestion, Smartphone, ArrowLeft, ArrowRight, Send, Zap, Book, Lock, Code, Trash2, Eye, Plus, ExternalLink, Cpu } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
 import { useNotification } from '../shared/NotificationProvider';
@@ -87,7 +87,7 @@ export const DeveloperPortal = ({ setScreen }: { setScreen: (s: any) => void }) 
   };
 
   const sections = [
-    { id: 'introduction', title: 'Home', icon: <Cpu size={18} /> },
+    { id: 'introduction', title: 'Início', icon: <Cpu size={18} /> },
     { id: 'apps', title: 'Minhas Credenciais', icon: <Key size={18} /> },
     { id: 'playground', title: 'API Playground', icon: <Zap size={18} /> },
     { id: 'docs', title: 'Documentação API', icon: <Book size={18} /> },
@@ -98,11 +98,12 @@ export const DeveloperPortal = ({ setScreen }: { setScreen: (s: any) => void }) 
   const [testToken, setTestToken] = React.useState('');
   const [testResult, setTestResult] = React.useState<any>(null);
   const [isTesting, setIsTesting] = React.useState(false);
+  const [activeEndpointId, setActiveEndpointId] = React.useState<string | null>(null);
   const [snippetLanguage, setSnippetLanguage] = React.useState<'curl' | 'js' | 'python'>('js');
   const [expandedEndpoint, setExpandedEndpoint] = React.useState<string | null>(null);
   const [requestHeaders, setRequestHeaders] = React.useState<Record<string, string>>({});
   const [requestParams, setRequestParams] = React.useState<Record<string, string>>({});
-  const [requestBody, setRequestBody] = React.useState<string>('{}');
+  const [requestBody, setRequestBody] = React.useState<string>('');
   const [isJsonValid, setIsJsonValid] = React.useState(true);
 
   React.useEffect(() => {
@@ -165,6 +166,8 @@ print(response.json())`;
     }
   };
 
+  // Removido o preenchimento automático de credenciais para que o usuário as insira manualmente
+  
   const testGetToken = async () => {
     setIsTesting(true);
     setTestResult(null);
@@ -217,8 +220,8 @@ print(response.json())`;
       description: 'Gera um token JWT válido por 24h usando suas credenciais de Client ID e Client Secret.',
       auth: false,
       body: {
-        clientId: { type: 'string', required: true, description: 'Seu ID de cliente gerado no portal', example: 'cl_...' },
-        clientSecret: { type: 'string', required: true, description: 'Sua chave secreta (mantenha em segurança)', example: 'sk_...' }
+        clientId: { type: 'string', required: true, description: 'Seu ID de cliente gerado no portal' },
+        clientSecret: { type: 'string', required: true, description: 'Sua chave secreta (mantenha em segurança)' }
       },
       responses: {
         200: 'Token gerado com sucesso.',
@@ -368,18 +371,31 @@ print(response.json())`;
       // Replace path params
       if (endpoint.params) {
         Object.keys(requestParams).forEach(key => {
-          url = url.replace(`:${key}`, requestParams[key]);
+          if (endpoint.params[key]) {
+             url = url.replace(`:${key}`, requestParams[key] || `:${key}`);
+          }
         });
       }
+      
       // Add query params
       const query = new URLSearchParams();
       if (endpoint.query) {
         Object.keys(requestParams).forEach(key => {
-          if (endpoint.query[key]) query.append(key, requestParams[key]);
+          if (endpoint.query[key] && requestParams[key]) {
+            query.append(key, requestParams[key]);
+          }
         });
       }
       const queryString = query.toString();
       if (queryString) url += `?${queryString}`;
+
+      const apiUrl = `${window.location.origin}${url}`;
+      console.group('🚀 API PLAYGROUND DEBUG');
+      console.log('Endpoint:', endpoint.title);
+      console.log('Full URL:', apiUrl);
+      console.log('Method:', endpoint.method);
+      console.log('Headers:', { ...requestHeaders, Authorization: testToken ? 'Bearer [HIDDEN]' : 'None' });
+      console.groupEnd();
 
       const options: RequestInit = {
         method: endpoint.method,
@@ -389,11 +405,6 @@ print(response.json())`;
         }
       };
 
-      // Add headers from input
-      Object.keys(requestHeaders).forEach(key => {
-        if (requestHeaders[key]) (options.headers as any)[key] = requestHeaders[key];
-      });
-
       if (endpoint.auth && testToken) {
         (options.headers as any)['Authorization'] = `Bearer ${testToken}`;
       }
@@ -402,7 +413,8 @@ print(response.json())`;
         options.body = requestBody;
       }
 
-      const response = await fetch(url, options);
+      const response = await fetch(apiUrl, options);
+      const isFromNode = response.headers.get('x-processed-by') === 'Bold-Share-API';
       const contentType = response.headers.get('content-type');
       let data;
       
@@ -419,7 +431,8 @@ print(response.json())`;
       setTestResult({
         status: response.status + ' ' + response.statusText,
         data,
-        isError: !response.ok
+        isError: !response.ok,
+        isFromNode
       });
       
       if (response.ok) {
@@ -431,7 +444,7 @@ print(response.json())`;
         showNotification('Erro na requisição: ' + (data.error || response.statusText), 'error');
       }
     } catch (err: any) {
-      setTestResult({ status: 'Network Error', error: err.message, isError: true });
+      setTestResult({ status: 'Erro de Rede', error: err.message, isError: true });
     } finally {
       setIsTesting(false);
     }
@@ -473,7 +486,7 @@ print(response.json())`;
               setScreen('home');
               window.history.pushState({}, '', '/');
             }} className="text-sm font-bold text-slate-400 hover:text-white transition-colors flex items-center gap-2">
-              <ArrowLeft size={16} /> App Principal
+              <ArrowLeft size={16} /> Voltar ao Início
             </button>
           </div>
         </div>
@@ -503,7 +516,7 @@ print(response.json())`;
               <span className="text-[10px] font-black uppercase">Segurança</span>
             </div>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Trate o seu <code className="text-accent">client_secret</code> como uma senha. Nunca o exponha no lado do cliente (browser).
+              Trate o seu <code className="text-accent">client_secret</code> como uma senha. Nunca o exponha no lado do cliente (navegador).
             </p>
           </div>
         </aside>
@@ -546,7 +559,7 @@ print(response.json())`;
                 </div>
 
                 <div className="mt-12 space-y-6">
-                   <h5 className="text-sm font-black text-slate-500 uppercase tracking-widest">Quick Start em 3 passos</h5>
+                   <h5 className="text-sm font-black text-slate-500 uppercase tracking-widest">Início rápido em 3 passos</h5>
                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       {[
                         { step: '01', title: 'Crie um App', desc: 'Gere suas credenciais na aba "Minhas Credenciais".' },
@@ -640,98 +653,283 @@ print(response.json())`;
 
             {activeTab === 'playground' && (
               <motion.div key="playground" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-                <div className="space-y-2">
-                   <h2 className="text-3xl font-black text-white">Console de Autenticação</h2>
-                   <p className="text-slate-500 text-sm">Gere tokens de acesso para usar em suas requisições.</p>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <h2 className="text-3xl font-black text-white">API Playground</h2>
+                    <p className="text-slate-500 text-sm">
+                      {activeEndpointId 
+                        ? `Testando: ${endpoints.find(e => e.id === activeEndpointId)?.title}` 
+                        : 'Configure sua autenticação para testar os endpoints.'}
+                    </p>
+                  </div>
+                  {activeEndpointId && (
+                    <button 
+                      onClick={() => setActiveEndpointId(null)}
+                      className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase text-slate-400 hover:text-white transition-all border border-white/5"
+                    >
+                      Limpar Endpoint Selecionado
+                    </button>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-6 bg-white/5 p-8 rounded-3xl border border-white/10 h-fit">
-                    <h4 className="text-lg font-bold text-white flex items-center gap-2">
-                      <Lock size={20} className="text-accent" />
-                      Token de Acesso (JWT)
-                    </h4>
-                    <p className="text-xs text-slate-500">Insira suas credenciais abaixo para obter um token de portador (Bearer Token).</p>
-                    
-                    <div className="space-y-4">
-                      <div>
-                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Client ID</label>
-                        <input 
-                          type="text"
-                          value={testClientId}
-                          onChange={(e) => setTestClientId(e.target.value)}
-                          className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm text-white font-mono outline-none focus:ring-1 focus:ring-accent"
-                          placeholder="cl_p4wcalcspx"
-                        />
+                  <div className="space-y-6">
+                    {/* Autenticação Section */}
+                    <div className={`bg-white/5 p-8 rounded-3xl border border-white/10 transition-all ${testToken ? 'opacity-50 hover:opacity-100 grayscale-[0.5] hover:grayscale-0' : ''}`}>
+                      <h4 className="text-lg font-bold text-white flex items-center gap-2 mb-2">
+                        <Lock size={20} className="text-accent" />
+                        Autenticação
+                      </h4>
+                      <p className="text-xs text-slate-500 mb-6">Gere um token JWT para autorizar suas chamadas de API.</p>
+                      
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2 font-mono">Client ID</label>
+                            <input 
+                              type="text"
+                              value={testClientId}
+                              onChange={(e) => setTestClientId(e.target.value)}
+                              className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm text-white font-mono outline-none focus:ring-1 focus:ring-accent"
+                              placeholder=""
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2 font-mono">Client Secret</label>
+                            <input 
+                              type="password"
+                              value={testClientSecret}
+                              onChange={(e) => setTestClientSecret(e.target.value)}
+                              className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm text-white font-mono outline-none focus:ring-1 focus:ring-accent"
+                              placeholder=""
+                            />
+                          </div>
+                        </div>
+                        <button 
+                          onClick={testGetToken}
+                          disabled={isTesting || !testClientId || !testClientSecret}
+                          className="w-full py-4 bg-accent text-white font-bold rounded-2xl shadow-lg shadow-accent/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                          {isTesting ? <div className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Zap size={18} />}
+                          {testToken ? 'Gerar Novo Token (Renovar)' : 'Gerar access_token'}
+                        </button>
                       </div>
-                      <div>
-                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Client Secret</label>
-                        <input 
-                          type="password"
-                          value={testClientSecret}
-                          onChange={(e) => setTestClientSecret(e.target.value)}
-                          className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm text-white font-mono outline-none focus:ring-1 focus:ring-accent"
-                          placeholder="sk_..."
-                        />
-                      </div>
-                      <button 
-                        onClick={testGetToken}
-                        disabled={isTesting || !testClientId || !testClientSecret}
-                        className="w-full py-4 bg-accent text-white font-bold rounded-2xl shadow-lg shadow-accent/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
-                      >
-                        {isTesting ? 'Validando...' : 'Gerar Token (POST /auth/token)'}
-                      </button>
                     </div>
+
+                    {/* Endpoint Simulation if selected */}
+                    {activeEndpointId && (
+                      <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="bg-white/5 p-8 rounded-3xl border border-accent/20 space-y-6">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-lg font-bold text-white flex items-center gap-2">
+                            <Send size={20} className="text-emerald-400" />
+                            Parâmetros da Requisição
+                          </h4>
+                          <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 text-[9px] font-black uppercase rounded-lg border border-emerald-500/20">
+                            {endpoints.find(e => e.id === activeEndpointId)?.method}
+                          </span>
+                        </div>
+
+                        <div className="space-y-6">
+                           <div className="bg-black/40 p-4 rounded-xl border border-white/5">
+                              <code className="text-xs text-indigo-400 font-mono italic break-all">
+                                {endpoints.find(e => e.id === activeEndpointId)?.path}
+                              </code>
+                           </div>
+
+                           {/* Path Params & Query Params */}
+                           {(endpoints.find(e => e.id === activeEndpointId)?.params || endpoints.find(e => e.id === activeEndpointId)?.query || endpoints.find(e => e.id === activeEndpointId)?.headers) && (
+                             <div className="space-y-4 pt-2">
+                               <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-white/5 pb-2">Parâmetros e Cabeçalhos</h5>
+                               <div className="grid grid-cols-1 gap-4">
+                                 {endpoints.find(e => e.id === activeEndpointId)?.params && Object.entries(endpoints.find(e => e.id === activeEndpointId)!.params).map(([key, info]: any) => (
+                                   <div key={key}>
+                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Path: :{key}</label>
+                                     <input 
+                                       type="text"
+                                       value={requestParams[key] || ''}
+                                       onChange={(e) => setRequestParams(prev => ({ ...prev, [key]: e.target.value }))}
+                                       className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm text-white font-mono outline-none focus:ring-1 focus:ring-accent"
+                                       placeholder={info.description}
+                                     />
+                                   </div>
+                                 ))}
+                                 {endpoints.find(e => e.id === activeEndpointId)?.query && Object.entries(endpoints.find(e => e.id === activeEndpointId)!.query).map(([key, info]: any) => (
+                                   <div key={key}>
+                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Query: ?{key}</label>
+                                     <input 
+                                       type="text"
+                                       value={requestParams[key] || ''}
+                                       onChange={(e) => setRequestParams(prev => ({ ...prev, [key]: e.target.value }))}
+                                       className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm text-white font-mono outline-none focus:ring-1 focus:ring-accent"
+                                       placeholder={info.description}
+                                     />
+                                   </div>
+                                 ))}
+                                 {endpoints.find(e => e.id === activeEndpointId)?.headers && Object.entries(endpoints.find(e => e.id === activeEndpointId)!.headers).map(([key, info]: any) => (
+                                   <div key={key}>
+                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Header: {key}</label>
+                                     <input 
+                                       type="text"
+                                       value={requestHeaders[key] || ''}
+                                       onChange={(e) => setRequestHeaders(prev => ({ ...prev, [key]: e.target.value }))}
+                                       className="w-full bg-black/40 border border-indigo-500/30 rounded-xl p-3 text-sm text-white font-mono outline-none focus:ring-1 focus:ring-indigo-400"
+                                       placeholder={info.description}
+                                     />
+                                   </div>
+                                 ))}
+                               </div>
+                             </div>
+                           )}
+
+                           {/* Request Body (for POST/PUT) */}
+                           {['POST', 'PUT', 'PATCH'].includes(endpoints.find(e => e.id === activeEndpointId)?.method || '') && (
+                             <div className="space-y-4 pt-2">
+                               <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                                 <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Corpo da Requisição (JSON)</h5>
+                                 <button 
+                                   onClick={formatJson}
+                                   className="text-[9px] font-black text-accent hover:text-white uppercase transition-colors"
+                                 >
+                                   Formatar JSON
+                                 </button>
+                               </div>
+                               <div className="relative">
+                                 <textarea 
+                                   value={requestBody}
+                                   onChange={(e) => setRequestBody(e.target.value)}
+                                   className={`w-full h-48 bg-black/40 border ${isJsonValid ? 'border-white/10' : 'border-red-500/50'} rounded-xl p-4 text-xs text-white font-mono outline-none focus:ring-1 focus:ring-accent transition-all`}
+                                   placeholder="{}"
+                                 />
+                                 {!isJsonValid && (
+                                   <div className="absolute bottom-3 right-3 flex items-center gap-1.5 text-red-500 text-[9px] font-black uppercase bg-red-500/10 px-2 py-1 rounded">
+                                     <Shield size={10} /> JSON Inválido
+                                   </div>
+                                 )}
+                               </div>
+                             </div>
+                           )}
+
+                           {!testToken && (
+                             <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 text-red-500">
+                               <Shield size={16} />
+                               <span className="text-[10px] font-bold uppercase tracking-tight">Token de autenticação obrigatório.</span>
+                             </div>
+                           )}
+
+                           <button 
+                             onClick={() => handleTestEndpoint(endpoints.find(e => e.id === activeEndpointId))}
+                             disabled={isTesting || (endpoints.find(e => e.id === activeEndpointId)?.auth && !testToken) || !isJsonValid}
+                             className="w-full py-5 bg-emerald-500 text-white font-bold rounded-2xl shadow-lg shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                           >
+                             {isTesting ? <div className="size-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <ChevronRight size={20} />}
+                             Executar Requisição de Teste
+                           </button>
+                        </div>
+                      </motion.div>
+                    )}
                   </div>
 
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-black text-slate-500 uppercase tracking-widest">Estado da Sessão API</h4>
-                      {testToken && (
-                        <span className="text-[10px] font-black text-emerald-400 uppercase bg-emerald-400/10 px-2 py-0.5 rounded-full">Autenticado</span>
-                      )}
+                      <h4 className="text-sm font-black text-slate-500 uppercase tracking-widest">Resultado da API</h4>
+                      <div className="flex gap-2">
+                        {testToken && (
+                          <span className="text-[10px] font-black text-emerald-400 uppercase bg-emerald-400/10 px-2 py-0.5 rounded-full border border-emerald-400/20 flex items-center gap-1">
+                            <Check size={10} /> Bearer Ok
+                          </span>
+                        )}
+                        {testResult && (
+                          <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border flex items-center gap-1 ${testResult.isFromNode ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20' : 'text-amber-400 bg-amber-400/10 border-amber-400/20'}`}>
+                            {testResult.isFromNode ? <Check size={10} /> : <Shield size={10} />}
+                            {testResult.isFromNode ? 'Bold API' : 'Proxy/WAF'}
+                          </span>
+                        )}
+                        {testResult && (
+                          <button onClick={() => setTestResult(null)} className="text-[10px] font-black text-slate-500 hover:text-white uppercase">Limpar</button>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="bg-slate-900 border border-white/10 rounded-3xl p-6 h-full min-h-[300px] overflow-auto font-mono text-xs relative group">
+                    <div className="bg-slate-900 border border-white/10 rounded-3xl h-full min-h-[400px] flex flex-col overflow-hidden relative group">
                       {testResult ? (
-                        <div className="space-y-4">
+                        <div className="flex-1 flex flex-col p-6 space-y-4 overflow-hidden">
                           <div className={`flex items-center justify-between ${testResult.isError ? 'text-red-400' : 'text-emerald-400'}`}>
-                            <span className="font-bold">RESULTADO:</span>
-                            <span className="text-[10px] bg-white/5 px-2 py-1 rounded">{testResult.status}</span>
+                            <div className="flex items-center gap-2">
+                              <div className={`size-2 rounded-full ${testResult.isError ? 'bg-red-400' : 'bg-emerald-400'} animate-pulse`} />
+                              <span className="font-black text-[10px] uppercase">Status</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                               {testResult.isError && (
+                                 <span className="text-[9px] font-bold text-red-500/80 bg-red-500/5 px-2 py-0.5 rounded border border-red-500/10">
+                                   {testResult.status.includes('403') ? 'Acesso Negado' : 
+                                    testResult.status.includes('401') ? 'Não Autorizado' : 
+                                    testResult.status.includes('404') ? 'Não Encontrado' : 'Erro na Requisição'}
+                                 </span>
+                               )}
+                               <span className="text-[10px] font-mono bg-white/5 px-2 py-1 rounded border border-white/5">{testResult.status}</span>
+                            </div>
                           </div>
-                          <div className="relative">
-                            <pre className="text-slate-300 bg-black/40 p-4 rounded-xl whitespace-pre-wrap break-all border border-white/5">
+
+                          {testResult.isError && (
+                            <div className="p-4 bg-red-500/5 border border-red-500/10 rounded-xl space-y-2">
+                              <p className="text-[10px] text-red-400 font-bold uppercase flex items-center gap-1.5">
+                                <Shield size={12} /> Diagnóstico de Erro
+                              </p>
+                              <p className="text-[11px] text-slate-400 leading-relaxed">
+                                {testResult.status.includes('403') ? 'Acesso Negado: Verifique se este segredo possui uma senha. Se sim, informe-a no header X-Secret-Password.' : 
+                                 testResult.status.includes('401') ? 'Não Autorizado: Seu token pode estar expirado ou o Client ID/Secret estão incorretos. Tente gerar um novo token.' : 
+                                 testResult.status.includes('404') ? 'Não Encontrado: O recurso solicitado não existe ou você não tem permissão para acessá-lo diretamente.' : 
+                                 'Ocorreu um erro inesperado. Verifique os parâmetros e tente novamente.'}
+                              </p>
+                              {!testResult.isFromNode && (
+                                <p className="text-[9px] text-amber-500 font-mono pt-1">
+                                   * Esta resposta foi interceptada por um Proxy/WAF antes de chegar na Bold API.
+                                </p>
+                              )}
+                            </div>
+                          )}
+
+                          <div className="flex-1 relative overflow-auto custom-scrollbar">
+                            <pre className="text-slate-300 bg-black/40 p-6 rounded-2xl whitespace-pre-wrap break-all border border-white/5 font-mono text-xs leading-relaxed">
                               {JSON.stringify(testResult.data || { error: testResult.error }, null, 2)}
                             </pre>
-                            {testToken && (
-                              <button 
-                                onClick={() => handleCopy(testToken, 'token-copy')}
-                                className="absolute right-3 top-3 p-2 bg-white/10 hover:bg-white/20 rounded-lg text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                              >
-                                {copied === 'token-copy' ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
-                              </button>
-                            )}
+                            <button 
+                              onClick={() => handleCopy(JSON.stringify(testResult.data, null, 2), 'res-copy')}
+                              className="absolute right-4 top-4 p-2.5 bg-white/10 hover:bg-white/20 rounded-xl text-white opacity-0 group-hover:opacity-100 transition-opacity border border-white/10"
+                            >
+                              {copied === 'res-copy' ? <Check size={16} className="text-green-400" /> : <Copy size={16} />}
+                            </button>
                           </div>
                           
-                          {!testResult.isError && testToken && (
-                            <div className="mt-8 p-4 bg-accent/10 border border-accent/20 rounded-2xl">
-                              <p className="text-accent text-[10px] font-black uppercase mb-1">Próximo Passo</p>
-                              <p className="text-slate-300 text-[11px] leading-relaxed mb-3">
-                                Seu token foi salvo localmente. Vá para a aba de Documentação para testar seus recursos.
-                              </p>
+                          {!testResult.isError && testToken && activeTab === 'playground' && (
+                            <motion.div 
+                              initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
+                              className="p-5 bg-accent/10 border border-accent/20 rounded-2xl flex items-center justify-between gap-4"
+                            >
+                              <div>
+                                <p className="text-accent text-[10px] font-black uppercase mb-1 flex items-center gap-1"><Zap size={10} /> Teste Concluído</p>
+                                <p className="text-slate-400 text-[11px] leading-tight">Implemente este endpoint no seu app.</p>
+                              </div>
                               <button 
                                 onClick={() => setActiveTab('docs')}
-                                className="text-[10px] font-black text-white bg-accent px-3 py-1.5 rounded-lg flex items-center gap-2 hover:bg-accent/80"
+                                className="text-[10px] font-black text-white bg-accent px-4 py-2.5 rounded-xl flex items-center gap-2 hover:bg-accent/80 transition-colors shadow-lg shadow-accent/20 shrink-0"
                               >
-                                Ir para Endpoints <ArrowRight size={12} />
+                                Ver Docs <ArrowRight size={14} />
                               </button>
-                            </div>
+                            </motion.div>
                           )}
                         </div>
                       ) : (
-                        <div className="h-full flex flex-col items-center justify-center text-slate-600 text-center space-y-4 py-20">
-                          <Terminal size={48} className="opacity-10" />
-                          <p>Aguardando autenticação...<br/>Seus dados de sessão aparecerão aqui.</p>
+                        <div className="flex-1 flex flex-col items-center justify-center text-slate-600 text-center space-y-6 py-20 px-8">
+                          <div className="size-20 bg-white/[0.02] rounded-[2rem] flex items-center justify-center border border-white/5">
+                            <Terminal size={40} className="opacity-20" />
+                          </div>
+                          <div className="space-y-2">
+                             <p className="font-bold text-white/50">Terminal Interativo</p>
+                             <p className="text-xs text-slate-500 max-w-[240px] leading-relaxed">
+                               {activeEndpointId ? 'O resultado da requisição de teste aparecerá aqui.' : 'Aguardando ação... Autentique-se ou escolha um recurso para testar.'}
+                             </p>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -759,18 +957,32 @@ print(response.json())`;
                         <Lock size={12} className="text-indigo-400" />
                         <span className="text-[10px] font-black text-white uppercase tracking-widest">OAuth 2.0 / Bearer</span>
                       </div>
+                      <div className="px-3 py-1 bg-white/5 rounded-full border border-white/10 flex items-center gap-2">
+                        <Shield size={12} className="text-emerald-400" />
+                        <span className="text-[10px] font-black text-white uppercase tracking-widest">TLS 1.3 / Encrypted</span>
+                      </div>
                     </div>
                   </div>
-                  <div className="bg-slate-900 border border-white/5 rounded-3xl p-8 space-y-6 shadow-2xl relative overflow-hidden">
-                    <div className="absolute -right-10 -bottom-10 opacity-5">
-                       <Zap size={200} />
+                  <div className="space-y-4">
+                    <div className="bg-slate-900 border border-white/5 rounded-3xl p-6 space-y-4 shadow-2xl relative overflow-hidden">
+                      <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">Base URL</h4>
+                      <div className="flex items-center gap-3 bg-black/40 p-4 rounded-2xl border border-indigo-500/20 group">
+                        <code className="text-indigo-400 font-mono text-sm">{window.location.origin}/api/v1</code>
+                        <button onClick={() => handleCopy(`${window.location.origin}/api/v1`, 'base-url')} className="p-2 opacity-0 group-hover:opacity-100 transition-opacity text-slate-500 hover:text-white">
+                          {copied === 'base-url' ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                        </button>
+                      </div>
                     </div>
-                    <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">Base URL</h4>
-                    <div className="flex items-center gap-3 bg-black/40 p-4 rounded-2xl border border-indigo-500/20 group">
-                      <code className="text-indigo-400 font-mono text-sm">{window.location.origin}/api/v1</code>
-                      <button onClick={() => handleCopy(`${window.location.origin}/api/v1`, 'base-url')} className="p-2 opacity-0 group-hover:opacity-100 transition-opacity text-slate-500 hover:text-white">
-                        {copied === 'base-url' ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
-                      </button>
+                    <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-3xl p-6 flex gap-4">
+                       <div className="size-10 bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-500 shrink-0">
+                          <ShieldCheck size={20} />
+                       </div>
+                       <div>
+                          <h6 className="text-sm font-bold text-white mb-1">Criptografia em Trânsito</h6>
+                          <p className="text-xs text-slate-400 leading-tight">
+                            Todas as requisições, incluindo senhas e tokens, são protegidas por SSL/TLS 1.3, garantindo que nada seja interceptado.
+                          </p>
+                       </div>
                     </div>
                   </div>
                 </div>
@@ -899,7 +1111,10 @@ print(response.json())`;
                                      </div>
                                      
                                      <button 
-                                        onClick={() => setActiveTab('playground')}
+                                        onClick={() => {
+                                          setActiveTab('playground');
+                                          setActiveEndpointId(ep.id);
+                                        }}
                                         className="w-full py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-xs font-black text-white hover:text-accent transition-all flex items-center justify-center gap-3"
                                      >
                                         <Zap size={16} />

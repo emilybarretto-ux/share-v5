@@ -46,12 +46,16 @@ async function startServer() {
 
   // Log de requisições para depuração
   app.use((req, res, next) => {
-    console.log(`[DEBUG SERVER] ${req.method} ${req.url}`);
+    if (req.url.startsWith('/api/')) {
+      console.log(`[API REQUEST] ${req.method} ${req.url}`);
+      // Adicionar um header customizado para identificar que passou pelo nosso servidor
+      res.setHeader('X-Processed-By', 'Bold-Share-API');
+    }
     next();
   });
 
   app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', message: 'API is alive', version: '1.0.0' });
+    res.json({ status: 'ok', message: 'API está ativa', version: '1.0.0' });
   });
 
   // ==========================================
@@ -63,7 +67,7 @@ async function startServer() {
     return async (req: any, res: any, next: any) => {
       const authHeader = req.headers.authorization;
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({ error: 'Token não fornecido ou inválido' });
+        return res.status(401).json({ error: 'Token não fornecido ou formato de Authorization inválido (use Bearer <token>)' });
       }
 
       const token = authHeader.split(' ')[1];
@@ -71,13 +75,21 @@ async function startServer() {
         const decoded: any = jwt.verify(token, JWT_SECRET);
         req.apiClient = decoded;
 
-        if (requiredScope && !decoded.scopes?.includes(requiredScope)) {
-          return res.status(403).json({ error: `Escopo insuficiente: ${requiredScope} é necessário` });
+        // Se o escopo for omitido no token (legado), tentamos ser permissivos ou buscar no banco
+        const userScopes = Array.isArray(decoded.scopes) ? decoded.scopes : [];
+
+        if (requiredScope && !userScopes.includes(requiredScope)) {
+          return res.status(403).json({ 
+            error: `Escopo insuficiente: o privilégio ${requiredScope} é necessário`, 
+            escopos_atuais: userScopes,
+            escopo_necessario: requiredScope
+          });
         }
 
         next();
       } catch (err: any) {
-        return res.status(401).json({ error: 'Token inválido ou expirado' });
+        console.error(`[AUTH ERROR] ${err.message}`);
+        return res.status(401).json({ error: 'Token inválido, expirado ou malformado', detalhes: err.message });
       }
     };
   };
@@ -131,7 +143,7 @@ async function startServer() {
         scopes: client.scopes
       });
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      res.status(500).json({ error: 'Erro ao gerar token: ' + err.message });
     }
   });
 
@@ -199,7 +211,7 @@ async function startServer() {
       if (error) throw error;
       res.json(data);
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      res.status(500).json({ error: 'Erro ao listar segredos: ' + err.message });
     }
   });
 
@@ -282,7 +294,7 @@ async function startServer() {
         share_url: `${origin}/?id=${result.id}`
       });
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      res.status(500).json({ error: 'Erro ao criar segredo: ' + err.message });
     }
   });
 
@@ -331,12 +343,13 @@ async function startServer() {
         share_url: `${origin}/?request=${result.id}`
       });
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      res.status(500).json({ error: 'Erro ao criar solicitação: ' + err.message });
     }
   });
 
   // GET: Obter segredo específico (CRUD - Read)
   app.get('/api/v1/secrets/:id', verifyAPIToken('secrets:read'), async (req: any, res) => {
+    console.log(`[API] GET secret ID: ${req.params.id} for user: ${req.apiClient?.userId}`);
     const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
     const supabase = createClient(supabaseUrl, serviceKey);
@@ -349,7 +362,11 @@ async function startServer() {
         .eq('user_id', req.apiClient.userId)
         .single();
 
-      if (error || !data) return res.status(404).json({ error: 'Segredo não encontrado' });
+      if (error || !data) {
+        console.warn(`[API WARN] Segredo ${req.params.id} não encontrado para usuário ${req.apiClient.userId}`);
+        if (error) console.error(`[SUPABASE ERROR] ${error.message}`);
+        return res.status(404).json({ error: 'Segredo não encontrado ou você não tem permissão para acessá-lo diretamente.' });
+      }
 
       // SEGURANÇA: Se houver senha, verificar se foi fornecida via HEADER (recomendado)
       const providedPassword = req.headers['x-secret-password'];
@@ -365,8 +382,8 @@ async function startServer() {
         const { content, password, ...metadata } = data;
         return res.status(403).json({ 
           error: 'Este segredo é protegido por senha.', 
-          requires_password: true,
-          metadata 
+          requer_senha: true,
+          metadados: metadata 
         });
       }
 
@@ -379,7 +396,7 @@ async function startServer() {
       const { password: _, ...finalData } = data;
       res.json(finalData);
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      res.status(500).json({ error: 'Erro ao buscar segredo: ' + err.message });
     }
   });
 
@@ -427,7 +444,7 @@ async function startServer() {
       if (error || !data.length) return res.status(404).json({ error: 'Segredo não encontrado ou sem permissão' });
       res.json(data[0]);
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      res.status(500).json({ error: 'Erro interno ao atualizar: ' + err.message });
     }
   });
 
@@ -447,7 +464,7 @@ async function startServer() {
       if (error) throw error;
       res.json({ message: 'Segredo excluído com sucesso' });
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      res.status(500).json({ error: 'Erro ao excluir: ' + err.message });
     }
   });
 
@@ -468,7 +485,7 @@ async function startServer() {
         .eq('id', id)
         .single();
 
-      if (fetchError || !secret) return res.status(404).json({ error: 'Não encontrado' });
+      if (fetchError || !secret) return res.status(404).json({ error: 'Segredo não encontrado' });
 
       const maxViews = secret.max_views !== null ? Number(secret.max_views) : null;
       const isOneTime = maxViews === 1;
@@ -533,7 +550,7 @@ async function startServer() {
 
       return res.json({ success: true, incinerated: action === 'burn' });
     } catch (err: any) {
-      return res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: 'Erro ao processar evento: ' + err.message });
     }
   });
 
@@ -583,11 +600,11 @@ async function startServer() {
           
           return res.status(403).json({ 
             error: `Erro de Segurança RLS no Supabase.`,
-            details: error.message,
-            diagnosis: isActuallyAnon 
+            detalhes: error.message,
+            diagnostico: isActuallyAnon 
               ? 'A chave SUPABASE_SERVICE_ROLE_KEY configurada é IGUAL à chave anon pública. Você deve usar a chave "service_role" secreta encontrada no painel API do Supabase.'
               : 'O banco de dados negou a gravação. Isso acontece quando as políticas de RLS estão ativas mas não há permissão para inserir.',
-            solution: 'Copie e cole o comando SQL abaixo no SQL Editor do seu Supabase para liberar o acesso:',
+            solucao: 'Copie e cole o comando SQL abaixo no SQL Editor do seu Supabase para liberar o acesso:',
             sql: `
 -- COMANDO PARA CORRIGIR PERMISSÕES RLS --
 ALTER TABLE public.secrets DISABLE ROW LEVEL SECURITY;
@@ -608,8 +625,17 @@ ALTER TABLE public.requests DISABLE ROW LEVEL SECURITY;
       }
     } catch (error: any) {
       console.error('[SERVER ERROR]:', error);
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: 'Erro ao processar criação: ' + error.message });
     }
+  });
+
+  // Proteção contra rotas de API inexistentes (evita cair no middleware do Vite/HTML)
+  app.all('/api/*', (req, res) => {
+    res.status(404).json({ 
+      error: 'Endpoint da API não encontrado', 
+      method: req.method,
+      path: req.url 
+    });
   });
 
   // Vite integration
