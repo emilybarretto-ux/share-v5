@@ -99,3 +99,9 @@ export interface FormSubmission {
   data: Record<string, any>;
   responder_ip?: string;
 }
+
+export interface ChatMessage {
+  role: 'user' | 'model' | 'system';
+  content: string;
+  timestamp: number;
+}

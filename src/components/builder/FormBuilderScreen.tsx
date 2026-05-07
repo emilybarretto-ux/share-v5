@@ -8,7 +8,7 @@ import {
   Bot, Zap, MessageSquare
 } from 'lucide-react';
 import { GoogleGenAI, Type as GeminiType } from "@google/genai";
-import { FormField, FieldType } from '../../types';
+import { FormField, FieldType, ChatMessage } from '../../types';
 import { useNotification } from '../shared/NotificationProvider';
 import { SortableField } from './SortableField';
 import { FormRenderer } from '../renderer/FormRenderer';
@@ -29,6 +29,7 @@ const renderText = (text: string) => {
 import { FormSuccessScreen } from '../screens/FormSuccessScreen';
 
 export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => void, onPreview: (form: any) => void, key?: string }) => {
+  const [editMode, setEditMode] = useState<'manual' | 'ai'>('ai');
   const [fields, setFields] = useState<FormField[]>([]);
   const [lastPublishedId, setLastPublishedId] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -50,6 +51,13 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [showAIModal, setShowAIModal] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const chatEndRef = React.useRef<HTMLDivElement>(null);
+
+  // Auto-scroll chat
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
   
   // Advanced Features State
   const [redirectUrl, setRedirectUrl] = useState('');
@@ -148,151 +156,141 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
     setFields(fields.map(f => f.id === id ? { ...f, ...updates } : f));
   };
 
-  const handleGenerateWithAI = async () => {
-    if (!aiPrompt.trim()) {
+  const handleGenerateWithAI = async (promptOverride?: string) => {
+    const promptToSend = typeof promptOverride === 'string' ? promptOverride : aiPrompt;
+    if (!promptToSend || typeof promptToSend !== 'string' || !promptToSend.trim()) {
       showNotification('Descreva o que você precisa no formulário.', 'info');
       return;
     }
 
     try {
       setIsGeneratingAI(true);
-      showNotification('IA está projetando seu formulário...', 'info');
+      
+      // Add user message to chat
+      const userMessage: ChatMessage = {
+        role: 'user',
+        content: promptToSend,
+        timestamp: Date.now()
+      };
+      setChatMessages(prev => [...prev, userMessage]);
+      setAiPrompt('');
 
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) {
-        throw new Error('Chave da API Gemini não configurada. Por favor, adicione GEMINI_API_KEY nas configurações.');
+        throw new Error('Chave da API Gemini não configurada.');
       }
 
       const ai = new GoogleGenAI({ apiKey });
-      console.log('Iniciando geração com IA...', { model: 'gemini-3-flash-preview' });
       
-      const generationPromise = ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: `Crie um formulário estruturado para: "${aiPrompt.trim()}". 
-            O formulário deve ser profissional e completo.
-            
-            Retorne APENAS um JSON válido seguindo este formato:
-            {
-              "title": "Título sugerido",
-              "subtitle": "Descrição sugerida",
-              "theme": "default",
-              "fields": [
-                {
-                  "id": "id_unico_curto",
-                  "type": "text | textarea | radio | checkbox | dropdown | date | rating | scale | heading | section | image",
-                  "label": "Pergunta aqui ou legenda da imagem/seção",
-                  "required": true,
-                  "options": ["opção 1", "opção 2"],
-                  "imageUrl": "URL se tipo image",
-                  "logic": [
-                    {
-                      "action": "show | hide | jump | terminate",
-                      "targetId": "ID_DO_CAMPO_OU_SECAO_ALVO",
-                      "conditionOperator": "equals | not_equals | contains",
-                      "conditionValue": "valor para comparar"
-                    }
-                  ]
-                }
-              ]
-            }
-            REGRAS CRÍTICAS DE LÓGICA E RAMIFICAÇÃO:
-            1. SEMPRE atribua um 'id' semântico e único (ex: 'tipo_veiculo', 'sec_carro', 'field_ano') para TODOS os campos e seções no JSON.
-            2. Para criar fluxos de ramificação (ex: Se 'Carro' vai para uma parte, se 'Moto' vai para outra):
-               - Crie uma 'section' para cada ramificação.
-               - No campo de escolha, adicione um array 'logic' com regras 'show' para as seções alvo.
-               - Exemplo: logic: [{ "action": "show", "targetId": "sec_moto", "conditionOperator": "equals", "conditionValue": "Moto" }]
-            3. A lógica 'show' OCULTA o alvo por padrão, e só mostra se a condição for atendida.
-            4. Se uma 'section' for ocultada, TODOS os campos abaixo dela até a próxima seção visível também serão ocultados.
-            5. O campo alvo ('targetId') DEVE ser exatamente o 'id' que você definiu para o campo/seção alvo no mesmo JSON.
-            6. SEMPRE use IDs claros e evite IDs genéricos como 'id1', 'id2'. Use 'pergunta_sobre_algo'.` }]
-          }
-        ],
+      // Build context of current form
+      const currentFormContext = {
+        title,
+        subtitle,
+        theme: themePreset,
+        fields: fields.map(f => ({
+          type: f.type,
+          label: f.label,
+          required: f.required,
+          options: f.options,
+          id: f.id,
+          logic: f.logic
+        }))
+      };
+
+      const systemInstruction = `Você é um especialista em UX e design de formulários. 
+      Sua tarefa é criar ou ATUALIZAR um formulário baseado no desejo do usuário.
+      O formulário atual é: ${JSON.stringify(currentFormContext)}
+
+      REGRAS:
+      1. Se o usuário pedir algo novo, crie a estrutura do zero ou adicione ao que já existe.
+      2. Se o usuário pedir alterações ("mude a cor", "adicione um campo de telefone", "remova o campo X"), aplique as mudanças no JSON.
+      3. SEMPRE retorne um JSON completo e válido no formato especificado.
+      4. Use IDs semânticos e únicos. Importante: se você criar Seções ('section'), use-as para agrupar campos logiacamente.
+      5. Lógica: "show" oculta o alvo por padrão. Alvo ('targetId') deve ser o ID de outro campo.
+      6. Se o usuário apenas conversar, responda amigavelmente mas SEMPRE inclua o JSON do formulário (atualizado ou mantido) no final da sua resposta.
+
+      Formato JSON esperado:
+      {
+        "responseText": "Explicação do que você fez ou resposta ao usuário",
+        "form": {
+          "title": "Título",
+          "subtitle": "Subtítulo",
+          "theme": "default | dark | minimal | enterprise | vibrant | glass",
+          "fields": [
+             {
+               "id": "id_unico",
+               "type": "text | textarea | radio | checkbox | dropdown | date | rating | scale | heading | section | image",
+               "label": "Pergunta",
+               "required": true,
+               "options": [],
+               "logic": []
+             }
+          ]
+        }
+      }`;
+
+      // Prepare contents with history
+      const contents = chatMessages.slice(-5).map(m => ({
+        role: m.role === 'user' ? 'user' : 'model',
+        parts: [{ text: m.content }]
+      }));
+      contents.push({
+        role: 'user',
+        parts: [{ text: promptToSend }]
+      });
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview", 
+        contents,
         config: {
+          systemInstruction,
           responseMimeType: "application/json",
         }
       });
 
-      // Add a 30-second timeout to prevent infinite hanging
-      const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('A conexão com a IA demorou muito ou falhou. Verifique sua conexão e tente novamente.')), 30000)
-      );
-
-      const response: any = await Promise.race([generationPromise, timeoutPromise]);
-      console.log('Resposta da IA recebida.');
-
-      const text = response.text || '';
-
-      if (!text) {
-        throw new Error('A IA não retornou um conteúdo válido.');
-      }
-
-      // Robust JSON cleaning
-      const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
+      const resultText = response.text || '';
       let data;
       try {
-        data = JSON.parse(cleanJson);
-      } catch (parseError) {
-        console.error('Falha ao analisar JSON da IA:', text);
-        throw new Error('A resposta da IA não está em um formato válido. Tente reformular seu pedido.');
+        data = JSON.parse(resultText);
+      } catch (e) {
+        console.error('Failed to parse AI JSON', resultText);
+        throw new Error('Erro ao processar resposta da IA.');
       }
-      
-      if (data.fields && Array.isArray(data.fields)) {
-        // Create a mapping of original (AI-provided) IDs to new IDs
-        const idMap: Record<string, string> = {};
-        data.fields.forEach((f: any, idx: number) => {
-          const originalId = f.id || `id${idx}`;
-          idMap[originalId] = Math.random().toString(36).substring(2, 9);
-        });
 
-        const newFields = data.fields.map((f: any, idx: number) => {
-          const originalId = f.id || `id${idx}`;
-          const newField = {
-            ...f,
-            id: idMap[originalId],
-            mask: 'none'
-          };
+      // Add AI response to chat
+      const aiMessage: ChatMessage = {
+        role: 'model',
+        content: data.responseText || 'Aqui está a atualização solicitada.',
+        timestamp: Date.now()
+      };
+      setChatMessages(prev => [...prev, aiMessage]);
 
-          // Remap targetId in logic if it exists (now an array)
-          if (newField.logic && Array.isArray(newField.logic)) {
-            newField.logic = newField.logic.map((rule: any) => {
-              if (rule.targetId && idMap[rule.targetId]) {
-                return { ...rule, targetId: idMap[rule.targetId] };
-              }
-              return rule;
-            });
-          }
-
-          return newField;
-        });
+      if (data.form) {
+        const formData = data.form;
         
-        setTitle(data.title || title);
-        setSubtitle(data.subtitle || subtitle);
-        setFields(newFields);
-        if (data.theme && ['default', 'dark', 'minimal', 'enterprise', 'vibrant', 'glass'].includes(data.theme)) {
-          setThemePreset(data.theme as any);
+        if (formData.fields) {
+          const newFields = formData.fields.map((f: any) => {
+            const existing = fields.find(ef => ef.label === f.label && ef.type === f.type);
+            return {
+              ...f,
+              id: existing?.id || f.id || Math.random().toString(36).substring(2, 9),
+              mask: f.mask || 'none'
+            };
+          });
+
+          setFields(newFields);
         }
         
-        showNotification('Formulário gerado com sucesso!', 'success');
-        setShowAIModal(false);
+        if (formData.title) setTitle(formData.title);
+        if (formData.subtitle) setSubtitle(formData.subtitle);
+        if (formData.theme) setThemePreset(formData.theme);
       }
+
+      showNotification('IA atualizou seu formulário!', 'success');
+
     } catch (error: any) {
-      console.error('AI Generation Error:', error);
-      let errorMessage = 'Erro ao gerar com IA. Tente novamente.';
-      
-      if (error.message?.includes('API key not valid') || error.message?.includes('INVALID_ARGUMENT')) {
-        errorMessage = 'Chave de API Gemini inválida ou não configurada corretamente.';
-      } else if (error.message?.includes('quota') || error.message?.includes('reached')) {
-        errorMessage = 'Limite de cota atingido. Tente novamente em alguns instantes.';
-      } else if (error.message?.includes('NOT_FOUND') || error.message?.includes('entity was not found')) {
-        errorMessage = 'O modelo de IA solicitado não está disponível no momento.';
-      } else if (error.message) {
-        errorMessage = `Erro: ${error.message}`;
-      }
-      
-      showNotification(errorMessage, 'error');
+      console.error('AI Error:', error);
+      showNotification(error.message || 'Erro na comunicação com a IA.', 'error');
     } finally {
       setIsGeneratingAI(false);
     }
@@ -536,9 +534,26 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
           />
         </div>
 
-        <div className="hidden md:flex items-center bg-bg-base p-1 rounded-xl border border-border-base">
-          <button onClick={() => setViewMode('desktop')} className={`p-2 rounded-lg transition-all ${viewMode === 'desktop' ? 'bg-surface text-accent shadow-sm' : 'text-text-secondary'}`}><Monitor size={18} /></button>
-          <button onClick={() => setViewMode('mobile')} className={`p-2 rounded-lg transition-all ${viewMode === 'mobile' ? 'bg-surface text-accent shadow-sm' : 'text-text-secondary'}`}><Smartphone size={18} /></button>
+        <div className="flex items-center gap-6">
+          <div className="flex p-1 bg-bg-base border border-border-base rounded-xl">
+            <button
+              onClick={() => setEditMode('ai')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${editMode === 'ai' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'text-text-secondary hover:text-text-primary'}`}
+            >
+              <Bot size={14} /> Modo Chat
+            </button>
+            <button
+              onClick={() => setEditMode('manual')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${editMode === 'manual' ? 'bg-white text-accent shadow-sm border border-border-base/50' : 'text-text-secondary hover:text-text-primary'}`}
+            >
+              <Settings size={14} /> Manual
+            </button>
+          </div>
+
+          <div className="hidden md:flex items-center bg-bg-base p-1 rounded-xl border border-border-base">
+            <button onClick={() => setViewMode('desktop')} className={`p-2 rounded-lg transition-all ${viewMode === 'desktop' ? 'bg-surface text-accent shadow-sm' : 'text-text-secondary'}`}><Monitor size={18} /></button>
+            <button onClick={() => setViewMode('mobile')} className={`p-2 rounded-lg transition-all ${viewMode === 'mobile' ? 'bg-surface text-accent shadow-sm' : 'text-text-secondary'}`}><Smartphone size={18} /></button>
+          </div>
         </div>
 
         <div className="flex items-center gap-3">
@@ -560,7 +575,140 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        <aside className="w-80 bg-surface border-r border-border-base flex flex-col overflow-hidden shrink-0">
+        {editMode === 'ai' ? (
+          <div className="flex-1 flex w-full">
+            {/* AI CHAT SIDEBAR */}
+            <aside className="w-[400px] bg-surface border-r border-border-base flex flex-col shrink-0">
+              <div className="p-4 border-b border-border-base bg-indigo-500/5">
+                <div className="flex items-center gap-2 text-indigo-600">
+                  <Bot size={18} />
+                  <span className="text-xs font-black uppercase tracking-widest">IA Assistente Conversacional</span>
+                </div>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin flex flex-col h-full">
+                <div className="flex-1 space-y-4 pb-4">
+                  {chatMessages.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-center p-8">
+                      <div className="size-20 bg-indigo-500/10 text-indigo-500 rounded-[2rem] flex items-center justify-center mb-6 animate-pulse">
+                        <Sparkles size={40} />
+                      </div>
+                      <h3 className="text-sm font-black text-text-primary uppercase tracking-widest mb-2">Como posso ajudar hoje?</h3>
+                      <p className="text-[11px] text-text-secondary leading-relaxed max-w-[240px] mx-auto italic">
+                        "Crie um formulário de NPS para meus clientes"<br/>
+                        "Quero um formulário de reserva de spa com tema dark"<br/>
+                        "Adicione um campo para anexar arquivos no final"
+                      </p>
+                    </div>
+                  ) : (
+                    chatMessages.map((msg, i) => (
+                      <div key={i} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                        <div className={`max-w-[90%] p-4 rounded-3xl text-[11px] shadow-sm leading-relaxed ${
+                          msg.role === 'user' 
+                            ? 'bg-indigo-500 text-white rounded-tr-none' 
+                            : 'bg-bg-base text-text-primary border border-border-base rounded-tl-none font-medium'
+                        }`}>
+                          {msg.content}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                  {isGeneratingAI && (
+                    <div className="flex items-center gap-2 text-indigo-500 animate-pulse ml-2">
+                      <div className="size-2 bg-current rounded-full" />
+                      <div className="size-2 bg-current rounded-full" style={{ animationDelay: '0.2s' }} />
+                      <div className="size-2 bg-current rounded-full" style={{ animationDelay: '0.4s' }} />
+                    </div>
+                  )}
+                  <div ref={chatEndRef} />
+                </div>
+
+                <div className="pt-4 border-t border-border-base/50">
+                  <div className="relative">
+                    <textarea 
+                      value={aiPrompt}
+                      onChange={(e) => setAiPrompt(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleGenerateWithAI();
+                        }
+                      }}
+                      placeholder="Descreva o que você quer construir..."
+                      className="w-full p-4 pr-14 bg-bg-base border border-border-base rounded-[2rem] text-[11px] text-text-primary focus:ring-2 focus:ring-indigo-500 outline-none min-h-[100px] max-h-[150px] resize-none shadow-inner"
+                    />
+                    <button 
+                      onClick={() => handleGenerateWithAI()}
+                      disabled={isGeneratingAI || !aiPrompt.trim()}
+                      className="absolute bottom-3 right-3 p-3 bg-indigo-500 text-white rounded-2xl hover:bg-indigo-600 transition-all shadow-xl active:scale-90 disabled:opacity-50"
+                    >
+                      {isGeneratingAI ? <RefreshCcw size={20} className="animate-spin" /> : <Send size={20} />}
+                    </button>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between px-2">
+                    <p className="text-[9px] font-bold text-text-secondary/60 uppercase tracking-widest">Shift+Enter para nova linha</p>
+                    {chatMessages.length > 0 && (
+                      <button onClick={() => setChatMessages([])} className="text-[9px] font-black text-red-500/70 hover:text-red-500 uppercase tracking-widest transition-colors">Reiniciar Chat</button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </aside>
+
+            {/* LIVE PREVIEW AREA (AI MODE) */}
+            <main className={`flex-1 overflow-y-auto p-12 transition-colors duration-500 ${previewThemeStyles.bg} scrollbar-thin`}>
+              <div className={`mx-auto ${viewMode === 'mobile' ? 'w-[375px]' : 'w-full max-w-2xl'} transition-all duration-500`}>
+                <div className={`shadow-inner p-10 bg-surface rounded-[4rem] border border-border-base shadow-2xl relative min-h-[700px]`}>
+                  <FormRenderer 
+                    form={{
+                      id: 'preview-ai',
+                      title,
+                      description: subtitle,
+                      fields,
+                      status: 'draft',
+                      created_at: new Date().toISOString(),
+                      user_id: 'preview',
+                      settings: {
+                        primaryColor,
+                        titleColor,
+                        subtitleColor,
+                        fontFamily,
+                        layout: layoutType,
+                        headerImage,
+                        logo: logoUrl,
+                        borderRadius,
+                        successMessage: 'Obrigado por responder!',
+                        redirectUrl,
+                        showProgressBar,
+                        estimatedTime,
+                        themePreset
+                      }
+                    }}
+                    onBack={() => {}}
+                    onSubmit={(data) => {
+                      console.log('AI Preview Submit:', data);
+                      showNotification('Simulação enviada com sucesso!', 'success');
+                    }}
+                  />
+                  {fields.length === 0 && !isGeneratingAI && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-12">
+                      <div className="text-center space-y-4 max-w-xs">
+                        <div className="size-20 bg-indigo-500/10 text-indigo-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                           <Bot size={40} className="animate-bounce" />
+                        </div>
+                        <h3 className="text-xl font-bold text-text-primary capitalize tracking-tighter">Sua criação aparecerá aqui</h3>
+                        <p className="text-sm text-text-secondary italic">Envie sua primeira mensagem para começar o formulário.</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </main>
+          </div>
+        ) : (
+          <>
+            {/* MANUAL MODE SIDEBAR (L) */}
+            <aside className="w-80 bg-surface border-r border-border-base flex flex-col overflow-hidden shrink-0">
           <div className="flex p-1 bg-bg-base m-4 rounded-xl border border-border-base">
             <button onClick={() => setActiveTab('build')} className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-[9px] font-bold transition-all ${activeTab === 'build' ? 'bg-surface shadow-sm text-accent' : 'text-text-secondary'}`}><Layout size={12} /> Construir</button>
             <button onClick={() => setActiveTab('design')} className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-[9px] font-bold transition-all ${activeTab === 'design' ? 'bg-surface shadow-sm text-accent' : 'text-text-secondary'}`}><Palette size={12} /> Estilo</button>
@@ -569,33 +717,7 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
 
           <div className="flex-1 overflow-y-auto px-4 pb-6 scrollbar-thin">
             {activeTab === 'build' ? (
-              <div className="space-y-6">
-                {/* AI Assistant Section */}
-                <div className="mt-4 p-4 bg-indigo-500/5 border border-indigo-500/20 rounded-2xl space-y-3">
-                  <div className="flex items-center gap-2 text-indigo-500">
-                    <Sparkles size={16} />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Assistente IA</span>
-                  </div>
-                  <p className="text-[10px] text-text-secondary leading-relaxed">
-                    Descreva o seu objetivo e deixe a IA construir toda a estrutura para você.
-                  </p>
-                  <div className="relative">
-                    <textarea 
-                      value={aiPrompt}
-                      onChange={(e) => setAiPrompt(e.target.value)}
-                      placeholder="Ex: Pesquisa de satisfação para uma cafeteria moderna..."
-                      className="w-full p-3 bg-bg-base border border-border-base rounded-xl text-[10px] text-text-primary outline-none focus:ring-1 focus:ring-indigo-500 min-h-[80px] resize-none"
-                    />
-                    <button 
-                      onClick={handleGenerateWithAI}
-                      disabled={isGeneratingAI || !aiPrompt.trim()}
-                      className="absolute bottom-2 right-2 p-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-all disabled:opacity-50 disabled:scale-95 active:scale-90"
-                    >
-                      {isGeneratingAI ? <RefreshCcw size={14} className="animate-spin" /> : <Wand2 size={14} />}
-                    </button>
-                  </div>
-                </div>
-
+              <div className="space-y-6 pt-4">
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <h3 className="text-[10px] font-black text-text-secondary uppercase tracking-widest ml-1">Cabeçalho & Logo</h3>
@@ -603,7 +725,7 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
                       onClick={resetForm}
                       className="text-[9px] font-black text-red-500 uppercase tracking-widest hover:underline"
                     >
-                      Reiniciar Rascunho
+                      Limpar Base
                     </button>
                   </div>
                   <div className="space-y-4 p-1">
@@ -909,54 +1031,6 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
              </div>
 
               <div className="space-y-4 pb-24">
-                {fields.length === 0 && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="py-12 px-6 bg-surface border-2 border-dashed border-border-base rounded-[2.5rem] flex flex-col items-center text-center gap-6"
-                  >
-                    <div className="size-16 bg-indigo-500/10 text-indigo-500 rounded-full flex items-center justify-center animate-bounce">
-                      <Zap size={32} />
-                    </div>
-                    <div className="max-w-xs">
-                      <h3 className="text-xl font-black text-text-primary mb-2 italic">Seu formulário começa aqui.</h3>
-                      <p className="text-sm text-text-secondary">
-                        Adicione campos manualmente ou use nossa <strong>Inteligência Artificial</strong> para começar em segundos.
-                      </p>
-                    </div>
-                    
-                    <div className="flex flex-col w-full gap-2 px-4 shadow-sm">
-                      <div className="relative">
-                        <input 
-                          value={aiPrompt}
-                          onChange={(e) => setAiPrompt(e.target.value)}
-                          placeholder="O que este formulário deve fazer?"
-                          className="w-full p-4 pr-16 bg-bg-base border border-border-base rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-                        />
-                        <button 
-                          onClick={handleGenerateWithAI}
-                          disabled={isGeneratingAI || !aiPrompt.trim()}
-                          className="absolute right-2 top-2 bottom-2 px-4 bg-indigo-500 text-white rounded-xl font-bold text-xs hover:bg-indigo-600 transition-all flex items-center gap-2 active:scale-95 disabled:opacity-50"
-                        >
-                          {isGeneratingAI ? 'Gerando...' : 'Mágica'}
-                          <Wand2 size={14} />
-                        </button>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2 justify-center mt-2">
-                        <span className="text-[10px] text-text-secondary font-black uppercase tracking-widest">Sugestões:</span>
-                        {['Feedback de Produto', 'RSVP Corporativo', 'Recrutamento'].map(s => (
-                          <button 
-                            key={s}
-                            onClick={() => setAiPrompt(s)}
-                            className="px-2 py-1 bg-bg-base border border-border-base rounded-lg text-[9px] font-bold text-text-secondary hover:border-indigo-500 hover:text-indigo-500 transition-all"
-                          >
-                            {s}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
                 {fields.map((field, index) => (
                   <SortableField 
                     key={field.id} field={field} index={index}
@@ -1218,7 +1292,9 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
             </div>
           )}
         </aside>
-      </div>
+      </>
+    )}
+  </div>
     </div>
   );
 };
