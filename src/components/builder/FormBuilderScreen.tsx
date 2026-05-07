@@ -426,6 +426,8 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
       setLogoUrl('');
       setThemePreset('default');
       setRedirectUrl('');
+      setChatMessages([]);
+      setAiPrompt('');
       localStorage.removeItem('form_builder_draft');
       showNotification('Rascunho reiniciado.', 'info');
     }
@@ -565,6 +567,12 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
 
         <div className="flex items-center gap-3">
           <button 
+            onClick={resetForm}
+            className="flex items-center gap-2 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-red-500/80 hover:text-red-600 transition-colors bg-red-500/5 rounded-lg border border-red-500/10"
+          >
+            <RefreshCcw size={14} /> Reiniciar
+          </button>
+          <button 
             onClick={() => setIsPreview(true)}
             className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-text-secondary hover:text-accent transition-colors"
           >
@@ -654,9 +662,6 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
                   </div>
                   <div className="mt-3 flex items-center justify-between px-2">
                     <p className="text-[9px] font-bold text-text-secondary/60 uppercase tracking-widest">Shift+Enter para nova linha</p>
-                    {chatMessages.length > 0 && (
-                      <button onClick={() => setChatMessages([])} className="text-[9px] font-black text-red-500/70 hover:text-red-500 uppercase tracking-widest transition-colors">Reiniciar Chat</button>
-                    )}
                   </div>
                 </div>
               </div>
@@ -728,12 +733,6 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <h3 className="text-[10px] font-black text-text-secondary uppercase tracking-widest ml-1">Cabeçalho & Logo</h3>
-                    <button 
-                      onClick={resetForm}
-                      className="text-[9px] font-black text-red-500 uppercase tracking-widest hover:underline"
-                    >
-                      Limpar Base
-                    </button>
                   </div>
                   <div className="space-y-4 p-1">
                     <div className="space-y-1">
