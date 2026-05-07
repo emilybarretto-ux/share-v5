@@ -13,7 +13,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'bold-share-secret-key-123';
 
 async function startServer() {
   const app = express();
-  const PORT = process.env.PORT || 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   app.use(cors());
   app.use(express.json({ limit: '50mb' }));
