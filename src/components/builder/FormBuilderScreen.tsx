@@ -187,6 +187,8 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
         title,
         subtitle,
         theme: themePreset,
+        headerImage,
+        logoUrl,
         fields: fields.map(f => ({
           type: f.type,
           label: f.label,
@@ -208,6 +210,7 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
       4. Use IDs semânticos e únicos. Importante: se você criar Seções ('section'), use-as para agrupar campos logiacamente.
       5. Lógica: "show" oculta o alvo por padrão. Alvo ('targetId') deve ser o ID de outro campo.
       6. Se o usuário apenas conversar, responda amigavelmente mas SEMPRE inclua o JSON do formulário (atualizado ou mantido) no final da sua resposta.
+      7. CAPA E LOGO: Se o usuário pedir para mudar a capa ou logo (ou fornecer um link de imagem), use os campos "headerImage" e "logoUrl" no JSON. NÃO coloque a URL da imagem no título ou subtítulo. Link de imagem enviado pelo usuário deve ir para o campo correspondente.
 
       Formato JSON esperado:
       {
@@ -215,6 +218,8 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
         "form": {
           "title": "Título",
           "subtitle": "Subtítulo",
+          "headerImage": "URL da capa",
+          "logoUrl": "URL do logo",
           "theme": "default | dark | minimal | enterprise | vibrant | glass",
           "fields": [
              {
@@ -284,6 +289,8 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
         if (formData.title) setTitle(formData.title);
         if (formData.subtitle) setSubtitle(formData.subtitle);
         if (formData.theme) setThemePreset(formData.theme);
+        if (formData.headerImage !== undefined) setHeaderImage(formData.headerImage);
+        if (formData.logoUrl !== undefined) setLogoUrl(formData.logoUrl);
       }
 
       showNotification('IA atualizou seu formulário!', 'success');
