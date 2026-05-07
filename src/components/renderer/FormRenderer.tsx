@@ -473,7 +473,7 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
             <label className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-2xl cursor-pointer hover:bg-bg-base/50 transition-colors ${uploadingField === field.id ? 'opacity-50 cursor-wait' : ''} ${hasError ? 'border-red-500 bg-red-50/30' : 'border-border-base'}`}>
               <div className="flex flex-col items-center justify-center pt-5 pb-6">
                 {uploadingField === field.id ? (
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent mb-2" style={{ borderColor: fieldColor }} />
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 mb-2" style={{ borderColor: fieldColor }} />
                 ) : (
                   <Upload size={24} className={hasError ? "text-red-500 mb-2" : "text-text-secondary mb-2"} />
                 )}
@@ -567,10 +567,13 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
                   }}
                   className={`w-full flex ${isVisual ? 'flex-col' : 'items-center'} gap-4 p-4 rounded-2xl border-2 transition-all text-left group overflow-hidden ${
                     isSelected
-                      ? 'bg-accent/5'
+                      ? ''
                       : `bg-surface ${hasError ? 'border-red-200' : 'border-border-base'}`
                   }`}
-                  style={{ borderColor: isSelected ? fieldColor : undefined }}
+                  style={{ 
+                    borderColor: isSelected ? fieldColor : undefined,
+                    backgroundColor: isSelected ? `${fieldColor}10` : undefined // 10 is approx 6% opacity
+                  }}
                 >
                   {hasImage && (
                     <div className="w-full h-32 -mx-4 -mt-4 mb-2 overflow-hidden border-b border-border-base">
@@ -781,8 +784,8 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
                 <div className="pt-4 flex flex-col items-start gap-4">
                   <button 
                     onClick={() => setCurrentStep(0)}
-                    className="group px-10 py-5 text-white font-black rounded-2xl shadow-2xl hover:shadow-accent/40 active:scale-95 transition-all text-xl flex items-center gap-3"
-                    style={{ backgroundColor: settings.primaryColor }}
+                    className="group px-10 py-5 text-white font-black rounded-2xl shadow-2xl active:scale-95 transition-all text-xl flex items-center gap-3"
+                    style={{ backgroundColor: settings.primaryColor, boxShadow: `0 20px 25px -5px ${settings.primaryColor}40` }}
                   >
                     Começar agora
                     <ChevronRight size={24} className="group-hover:translate-x-1 transition-transform" />
@@ -810,7 +813,7 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
               >
                 <div className="space-y-12">
                   <div className="flex items-center gap-4">
-                     <span className="text-sm font-black uppercase tracking-widest text-accent" style={{ color: settings.primaryColor }}>
+                     <span className="text-sm font-black uppercase tracking-widest" style={{ color: settings.primaryColor }}>
                        {currentStep + 1} <ArrowRight size={14} className="inline mx-1" />
                      </span>
                      {visibleFields[currentStep].required && (
@@ -835,8 +838,8 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
                 <div className="flex items-center gap-6 pt-12">
                   <button 
                     onClick={handleNext} 
-                    className="group px-10 py-5 text-white font-black rounded-2xl shadow-2xl hover:shadow-accent/40 active:scale-[0.98] transition-all text-xl flex items-center gap-3"
-                    style={{ backgroundColor: visibleFields[currentStep].customColor || settings.primaryColor }}
+                    className="group px-10 py-5 text-white font-black rounded-2xl shadow-2xl active:scale-[0.98] transition-all text-xl flex items-center gap-3"
+                    style={{ backgroundColor: visibleFields[currentStep].customColor || settings.primaryColor, boxShadow: `0 20px 25px -5px ${(visibleFields[currentStep].customColor || settings.primaryColor)}40` }}
                   >
                     {currentStep === visibleFields.length - 1 ? 'Enviar' : 'OK'}
                     <CheckCircle2 size={24} className="group-hover:scale-110 transition-transform" />
@@ -847,7 +850,8 @@ export const FormRenderer = ({ form, onSubmit, onBack }: FormRendererProps) => {
                     {currentStep > 0 && (
                        <button 
                          onClick={() => setCurrentStep(currentStep - 1)} 
-                         className="text-[10px] font-black uppercase tracking-widest hover:text-accent transition-colors text-left"
+                         className="text-[10px] font-black uppercase tracking-widest transition-colors text-left"
+                         style={{ color: settings.primaryColor }}
                        >
                          Voltar
                        </button>

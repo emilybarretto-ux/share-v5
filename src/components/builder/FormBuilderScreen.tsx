@@ -5,7 +5,7 @@ import {
   ChevronLeft, Layout, Palette, Send, Type, Smartphone, Monitor, RefreshCcw,
   CheckCircle2, Star, PenTool, ArrowRight, GitBranch, Sparkles, Wand2,
   CheckSquare, X, Upload, FileText, ChevronDown, GripVertical, Clock, Check,
-  Bot, Zap, MessageSquare, Eraser, Loader2
+  Paperclip, Bot, Zap, MessageSquare, Eraser, Loader2, Image as ImageIcon
 } from 'lucide-react';
 import { GoogleGenAI, Type as GeminiType } from "@google/genai";
 import { FormField, FieldType, ChatMessage } from '../../types';
@@ -59,7 +59,10 @@ export const FormBuilderScreen = ({
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [showAIModal, setShowAIModal] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatAttachment, setChatAttachment] = useState<File | null>(null);
+  const [chatAttachmentPreview, setChatAttachmentPreview] = useState<string | null>(null);
   const chatEndRef = React.useRef<HTMLDivElement>(null);
+  const chatAttachmentRef = React.useRef<HTMLInputElement>(null);
 
   // Auto-scroll chat
   useEffect(() => {
@@ -163,10 +166,10 @@ export const FormBuilderScreen = ({
     setFields(fields.map(f => f.id === id ? { ...f, ...updates } : f));
   };
 
-  const handleGenerateWithAI = async (promptOverride?: string) => {
+  const handleGenerateWithAI = async (promptOverride?: any) => {
     const promptToSend = typeof promptOverride === 'string' ? promptOverride : aiPrompt;
-    if (!promptToSend || typeof promptToSend !== 'string' || !promptToSend.trim()) {
-      showNotification('Descreva o que você precisa no formulário.', 'info');
+    if ((!promptToSend || typeof promptToSend !== 'string' || !promptToSend.trim()) && !chatAttachment) {
+      showNotification('Descreva o que você precisa ou anexe uma imagem.', 'info');
       return;
     }
 
@@ -176,7 +179,7 @@ export const FormBuilderScreen = ({
       // Add user message to chat
       const userMessage: ChatMessage = {
         role: 'user',
-        content: promptToSend,
+        content: promptToSend || (chatAttachment ? 'Verifique esta imagem.' : ''),
         timestamp: Date.now()
       };
       setChatMessages(prev => [...prev, userMessage]);
@@ -188,6 +191,23 @@ export const FormBuilderScreen = ({
       }
 
       const ai = new GoogleGenAI({ apiKey });
+
+      // Helper to convert file to GoogleGenAI format
+      const fileToGenerativePart = async (file: File) => {
+        return new Promise<any>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const base64 = (reader.result as string).split(',')[1];
+            resolve({
+              inlineData: {
+                data: base64,
+                mimeType: file.type
+              }
+            });
+          };
+          reader.readAsDataURL(file);
+        });
+      };
       
       // Build context of current form
       const currentFormContext = {
@@ -218,6 +238,7 @@ export const FormBuilderScreen = ({
       5. Lógica: "show" oculta o alvo por padrão. Alvo ('targetId') deve ser o ID de outro campo.
       6. Se o usuário apenas conversar, responda amigavelmente mas SEMPRE inclua o JSON do formulário (atualizado ou mantido) no final da sua resposta.
       7. CAPA E LOGO: Se o usuário pedir para mudar a capa ou logo (ou fornecer um link de imagem), use os campos "headerImage" e "logoUrl" no JSON. NÃO coloque a URL da imagem no título ou subtítulo. Link de imagem enviado pelo usuário deve ir para o campo correspondente.
+      8. DESIGN: Se o usuário pedir para mudar cores (ex: "coloque rosa", "tema escuro"), mude o "primaryColor" (hex code) e o "theme".
 
       Formato JSON esperado:
       {
@@ -228,6 +249,9 @@ export const FormBuilderScreen = ({
           "headerImage": "URL da capa",
           "logoUrl": "URL do logo",
           "theme": "default | dark | minimal | enterprise | vibrant | glass",
+          "primaryColor": "#HEX_COR",
+          "titleColor": "#HEX_COR",
+          "subtitleColor": "#HEX_COR",
           "fields": [
              {
                "id": "id_unico",
@@ -241,18 +265,27 @@ export const FormBuilderScreen = ({
         }
       }`;
 
-      // Prepare contents with history
-      const contents = chatMessages.slice(-5).map(m => ({
+      const contents: any[] = chatMessages.slice(-5).map(m => ({
         role: m.role === 'user' ? 'user' : 'model',
         parts: [{ text: m.content }]
       }));
+
+      const userParts: any[] = [{ text: promptToSend || '' }];
+      
+      if (chatAttachment) {
+        const imagePart = await fileToGenerativePart(chatAttachment);
+        userParts.push(imagePart);
+        setChatAttachment(null);
+        setChatAttachmentPreview(null);
+      }
+
       contents.push({
         role: 'user',
-        parts: [{ text: promptToSend }]
+        parts: userParts
       });
 
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview", 
+        model: "gemini-1.5-flash", 
         contents,
         config: {
           systemInstruction,
@@ -298,6 +331,9 @@ export const FormBuilderScreen = ({
         if (formData.theme) setThemePreset(formData.theme);
         if (formData.headerImage !== undefined) setHeaderImage(formData.headerImage);
         if (formData.logoUrl !== undefined) setLogoUrl(formData.logoUrl);
+        if (formData.primaryColor) setPrimaryColor(formData.primaryColor);
+        if (formData.titleColor) setTitleColor(formData.titleColor);
+        if (formData.subtitleColor) setSubtitleColor(formData.subtitleColor);
       }
 
       showNotification('IA atualizou seu formulário!', 'success');
@@ -307,6 +343,22 @@ export const FormBuilderScreen = ({
       showNotification(error.message || 'Erro na comunicação com a IA.', 'error');
     } finally {
       setIsGeneratingAI(false);
+    }
+  };
+
+  const handleChatAttachment = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        showNotification('Por favor, anexe apenas imagens.', 'error');
+        return;
+      }
+      setChatAttachment(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setChatAttachmentPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -444,13 +496,22 @@ export const FormBuilderScreen = ({
   };
 
   const themes = {
-    default: { bg: 'bg-bg-base/50', card: 'bg-surface border-border-base' },
-    dark: { bg: 'bg-slate-950/90', card: 'bg-slate-900 border-slate-700' },
-    minimal: { bg: 'bg-neutral-50', card: 'bg-white border-slate-100 shadow-sm' },
-    enterprise: { bg: 'bg-[#f1f5f9]', card: 'bg-white border-slate-200 shadow-sm' },
-    vibrant: { bg: 'bg-pink-50/50', card: 'bg-white border-pink-100 shadow-lg shadow-pink-500/5' },
-    glass: { bg: 'bg-indigo-950/80', card: 'bg-white/10 backdrop-blur-xl border-white/20' }
+    default: { bg: 'bg-bg-base/50', card: 'bg-surface border-border-base', primary: '#2563eb' },
+    dark: { bg: 'bg-slate-950/90', card: 'bg-slate-900 border-slate-700', primary: '#3b82f6' },
+    minimal: { bg: 'bg-neutral-50', card: 'bg-white border-slate-100 shadow-sm', primary: '#0f172a' },
+    enterprise: { bg: 'bg-[#f1f5f9]', card: 'bg-white border-slate-200 shadow-sm', primary: '#1e40af' },
+    vibrant: { bg: 'bg-pink-50/50', card: 'bg-white border-pink-100 shadow-lg shadow-pink-500/5', primary: '#ec4899' },
+    glass: { bg: 'bg-indigo-950/80', card: 'bg-white/10 backdrop-blur-xl border-white/20', primary: '#818cf8' }
   };
+
+  useEffect(() => {
+    // Se o tema mudar e a cor primária ainda for a padrão do tema anterior, atualizamos para a padrão do novo tema
+    const currentTheme = themes[themePreset as keyof typeof themes] || themes.default;
+    if (themePreset === 'vibrant' && primaryColor === '#2563eb') {
+      setPrimaryColor(currentTheme.primary);
+    }
+  }, [themePreset]);
+
   const previewThemeStyles = themes[themePreset as keyof typeof themes] || themes.default;
 
   if (showSuccess && lastPublishedId) {
@@ -539,72 +600,75 @@ export const FormBuilderScreen = ({
         onChange={(e) => handleFileChange(e, 'logo')}
       />
 
-      <header className="h-16 bg-surface border-b border-border-base px-6 flex items-center justify-between shrink-0 z-50 sticky top-0 backdrop-blur-md bg-opacity-95">
-        <div className="flex items-center gap-4">
-          <button 
-            onClick={onBack}
-            className="size-10 flex items-center justify-center text-text-secondary hover:text-text-primary hover:bg-bg-base rounded-xl transition-all active:scale-95 group"
-          >
-            <ChevronLeft size={20} className="group-hover:-translate-x-0.5 transition-transform" />
-          </button>
-          
-          <div className="h-6 w-px bg-border-base mx-2 hidden md:block" />
-          
-          <div className="hidden md:flex items-center gap-3 px-4 py-2 bg-bg-base rounded-2xl border border-border-base/50 focus-within:border-accent/50 transition-colors">
-            <Type size={14} className="text-text-secondary" />
-            <input 
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="text-xs font-black uppercase tracking-widest bg-transparent border-none focus:ring-0 text-text-primary p-0 w-48 placeholder:opacity-30"
-              placeholder="Nome do formulário"
-            />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Toolbar integrada */}
+        <div className="bg-surface border-b border-border-base p-4 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={onBack}
+              className="size-10 flex items-center justify-center text-text-secondary hover:text-text-primary hover:bg-bg-base rounded-xl transition-all active:scale-95 group"
+            >
+              <ChevronLeft size={20} className="group-hover:-translate-x-0.5 transition-transform" />
+            </button>
+            
+            <div className="h-6 w-px bg-border-base mx-2 hidden md:block" />
+            
+            <div className="hidden md:flex items-center gap-3 px-4 py-2 bg-bg-base rounded-2xl border border-border-base/50 focus-within:border-accent/50 transition-colors">
+              <Type size={14} className="text-text-secondary" />
+              <input 
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="text-xs font-black uppercase tracking-widest bg-transparent border-none focus:ring-0 text-text-primary p-0 w-48 placeholder:opacity-30"
+                placeholder="Nome do formulário"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <div className="flex p-1 bg-bg-base border border-border-base rounded-[1.2rem]">
+              <button
+                onClick={() => setEditMode('ai')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${editMode === 'ai' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/25' : 'text-text-secondary hover:text-text-primary'}`}
+              >
+                <Bot size={14} /> Modo Chat
+              </button>
+              <button
+                onClick={() => setEditMode('manual')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${editMode === 'manual' ? 'bg-white dark:bg-slate-800 text-accent shadow-sm border border-border-base/50' : 'text-text-secondary hover:text-primary'}`}
+              >
+                <Settings size={14} /> Manual
+              </button>
+            </div>
+
+            <div className="h-6 w-px bg-border-base mx-2" />
+
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={resetForm}
+                className="group flex items-center gap-2 px-4 py-2.5 text-[9px] font-black uppercase tracking-widest text-red-500 bg-red-500/5 hover:bg-red-500/10 rounded-xl border border-red-500/20 transition-all active:scale-95"
+              >
+                <Eraser size={16} className="group-hover:rotate-12 transition-transform" /> <span className="hidden lg:inline">Limpar</span>
+              </button>
+              <button 
+                onClick={() => setIsPreview(true)}
+                className="flex items-center gap-2 px-4 py-2.5 text-[9px] font-black uppercase tracking-widest text-text-primary hover:text-accent transition-all rounded-xl hover:bg-bg-base border border-transparent hover:border-border-base active:scale-95"
+              >
+                <Eye size={16} /> <span className="hidden lg:inline">Visualizar</span>
+              </button>
+              <button 
+                onClick={handlePublish}
+                disabled={isPublishing}
+                className="flex items-center gap-2 px-6 py-2.5 bg-accent text-white rounded-xl font-black uppercase text-[9px] tracking-widest shadow-xl shadow-accent/30 hover:bg-accent-hover hover:-translate-y-0.5 transition-all active:translate-y-0 active:scale-95 disabled:opacity-50"
+              >
+                {isPublishing ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />}
+                {isPublishing ? 'Publicando...' : 'Publicar'}
+              </button>
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          <div className="flex p-1.5 bg-bg-base border border-border-base rounded-[1.4rem]">
-            <button
-              onClick={() => setEditMode('ai')}
-              className={`flex items-center gap-2.5 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${editMode === 'ai' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/25' : 'text-text-secondary hover:text-text-primary'}`}
-            >
-              <Bot size={14} /> Modo Chat
-            </button>
-            <button
-              onClick={() => setEditMode('manual')}
-              className={`flex items-center gap-2.5 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${editMode === 'manual' ? 'bg-white dark:bg-slate-800 text-accent shadow-sm border border-border-base/50' : 'text-text-secondary hover:text-primary'}`}
-            >
-              <Settings size={14} /> Manual
-            </button>
-          </div>
+        <div className="flex flex-1 overflow-hidden">
 
-          <div className="h-8 w-px bg-border-base mx-2" />
-
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={resetForm}
-              className="group flex items-center gap-2.5 px-6 py-3 text-[10px] font-black uppercase tracking-widest text-red-500 bg-red-500/5 hover:bg-red-500/10 rounded-2xl border border-red-500/20 transition-all active:scale-95"
-            >
-              <Eraser size={18} className="group-hover:rotate-12 transition-transform" /> <span className="hidden lg:inline ml-1.5">Limpar</span>
-            </button>
-            <button 
-              onClick={() => setIsPreview(true)}
-              className="flex items-center gap-2.5 px-6 py-3 text-[10px] font-black uppercase tracking-widest text-text-primary hover:text-accent transition-all rounded-2xl hover:bg-bg-base border border-transparent hover:border-border-base active:scale-95"
-            >
-              <Eye size={18} /> <span className="hidden lg:inline ml-1.5">Visualizar</span>
-            </button>
-            <button 
-              onClick={handlePublish}
-              disabled={isPublishing}
-              className="flex items-center gap-3 px-8 py-3 bg-accent text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-accent/30 hover:bg-accent-hover hover:-translate-y-0.5 transition-all active:translate-y-0 active:scale-95 disabled:opacity-50"
-            >
-              {isPublishing ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />}
-              {isPublishing ? 'Publicando...' : 'Publicar'}
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <div className="flex flex-1 overflow-hidden">
         {editMode === 'ai' ? (
           <div className="flex-1 flex w-full">
             {/* AI CHAT SIDEBAR */}
@@ -654,6 +718,30 @@ export const FormBuilderScreen = ({
                 </div>
 
                 <div className="pt-4 border-t border-border-base/50">
+                  <input 
+                    type="file" 
+                    ref={chatAttachmentRef} 
+                    onChange={handleChatAttachment} 
+                    className="hidden" 
+                    accept="image/*"
+                  />
+
+                  {chatAttachmentPreview && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mb-3 relative group w-20 h-20"
+                    >
+                      <img src={chatAttachmentPreview} alt="Preview" className="w-full h-full object-cover rounded-xl border border-border-base shadow-sm" />
+                      <button 
+                        onClick={() => { setChatAttachment(null); setChatAttachmentPreview(null); }}
+                        className="absolute -top-2 -right-2 size-6 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-red-600 transition-all opacity-0 group-hover:opacity-100"
+                      >
+                        <X size={12} />
+                      </button>
+                    </motion.div>
+                  )}
+
                   <div className="relative">
                     <textarea 
                       value={aiPrompt}
@@ -665,11 +753,18 @@ export const FormBuilderScreen = ({
                         }
                       }}
                       placeholder="Descreva o que você quer construir..."
-                      className="w-full p-4 pr-14 bg-bg-base border border-border-base rounded-[2rem] text-[11px] text-text-primary focus:ring-2 focus:ring-indigo-500 outline-none min-h-[100px] max-h-[150px] resize-none shadow-inner"
+                      className="w-full p-4 pl-12 pr-14 bg-bg-base border border-border-base rounded-[2rem] text-[11px] text-text-primary focus:ring-2 focus:ring-indigo-500 outline-none min-h-[100px] max-h-[150px] resize-none shadow-inner"
                     />
                     <button 
+                      onClick={() => chatAttachmentRef.current?.click()}
+                      className="absolute bottom-4 left-4 p-2 text-text-secondary hover:text-indigo-500 transition-all rounded-full hover:bg-indigo-500/10"
+                      title="Anexar imagem"
+                    >
+                      <Paperclip size={18} />
+                    </button>
+                    <button 
                       onClick={() => handleGenerateWithAI()}
-                      disabled={isGeneratingAI || !aiPrompt.trim()}
+                      disabled={isGeneratingAI || (!aiPrompt.trim() && !chatAttachment)}
                       className="absolute bottom-3 right-3 p-3 bg-indigo-500 text-white rounded-2xl hover:bg-indigo-600 transition-all shadow-xl active:scale-90 disabled:opacity-50"
                     >
                       {isGeneratingAI ? <RefreshCcw size={20} className="animate-spin" /> : <Send size={20} />}
@@ -1315,6 +1410,7 @@ export const FormBuilderScreen = ({
         </aside>
       </>
     )}
+    </div>
   </div>
 
   {/* Reset Confirmation Modal */}
