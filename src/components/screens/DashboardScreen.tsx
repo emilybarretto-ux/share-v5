@@ -146,6 +146,32 @@ export const DashboardScreen = ({
     });
   };
 
+  const handleDeleteAllData = async () => {
+    if (!window.confirm('⚠️ AVISO CRÍTICO: Esta ação irá APAGAR PERMANENTEMENTE todos os seus Links, Solicitações, Formulários e Respostas. Esta ação é IRREVERSÍVEL. Deseja continuar?')) {
+      return;
+    }
+
+    try {
+      showNotification('Iniciando incineração total...', 'info');
+      
+      // Deletar sequencialmente para garantir
+      const { error: secretsErr } = await supabase.from('secrets').delete().eq('user_id', user.id);
+      const { error: requestsErr } = await supabase.from('requests').delete().eq('user_id', user.id);
+      const { error: formsErr } = await supabase.from('forms').delete().eq('user_id', user.id);
+
+      if (secretsErr || requestsErr || formsErr) {
+        throw new Error('Alguns dados não puderam ser removidos. Verifique sua conexão.');
+      }
+
+      showNotification('Todos os seus dados foram incinerados permanentemente.', 'success');
+      fetchLinks();
+      fetchRequests();
+      fetchForms();
+    } catch (err: any) {
+      showNotification(err.message, 'error');
+    }
+  };
+
   const getResponsesCount = (form: any) => {
     return form.form_responses?.length || 0;
   };
@@ -713,13 +739,21 @@ export const DashboardScreen = ({
                   </div>
                 </div>
 
-                <div className="pt-6 border-t border-border-base">
-                  <div className="flex items-center gap-2 p-4 bg-bg-base rounded-2xl border border-border-base border-l-4 border-l-accent">
+                <div className="pt-6 border-t border-border-base flex flex-col md:flex-row items-center justify-between gap-6">
+                  <div className="flex items-center gap-2 p-4 bg-bg-base rounded-2xl border border-border-base border-l-4 border-l-accent flex-1">
                     <Info size={20} className="text-accent shrink-0" />
                     <p className="text-xs text-text-secondary">
                       <strong>Importante:</strong> Como usamos Conhecimento Zero, se você esquecer a senha de um segredo criptografado, ele <u>não poderá ser recuperado</u> por ninguém.
                     </p>
                   </div>
+                  
+                  <button 
+                    onClick={handleDeleteAllData}
+                    className="flex items-center gap-2 px-6 py-4 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white rounded-2xl transition-all font-black text-xs uppercase tracking-widest border border-red-100 shrink-0"
+                  >
+                    <Trash2 size={16} />
+                    Incineração Total de Dados
+                  </button>
                 </div>
               </div>
             ) : (

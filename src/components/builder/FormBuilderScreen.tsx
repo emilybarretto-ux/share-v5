@@ -491,9 +491,16 @@ export const FormBuilderScreen = ({
     setPrimaryColor('#2563eb');
     setTitleColor('#0f172a');
     setSubtitleColor('#64748b');
+    setFontFamily('Inter');
+    setLayoutType('list');
+    setBorderRadius('large');
+    setShowProgressBar(true);
+    setEstimatedTime(3);
     setRedirectUrl('');
     setChatMessages([]);
     setAiPrompt('');
+    setChatAttachment(null);
+    setChatAttachmentPreview(null);
     localStorage.removeItem('form_builder_draft');
     showNotification('Rascunho reiniciado.', 'info');
     setShowResetConfirm(false);
