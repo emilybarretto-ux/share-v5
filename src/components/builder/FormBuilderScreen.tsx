@@ -5,7 +5,7 @@ import {
   ChevronLeft, Layout, Palette, Send, Type, Smartphone, Monitor, RefreshCcw,
   CheckCircle2, Star, PenTool, ArrowRight, GitBranch, Sparkles, Wand2,
   CheckSquare, X, Upload, FileText, ChevronDown, GripVertical, Clock, Check,
-  Bot, Zap, MessageSquare
+  Bot, Zap, MessageSquare, Eraser, Loader2
 } from 'lucide-react';
 import { GoogleGenAI, Type as GeminiType } from "@google/genai";
 import { FormField, FieldType, ChatMessage } from '../../types';
@@ -28,12 +28,18 @@ const renderText = (text: string) => {
 
 import { FormSuccessScreen } from '../screens/FormSuccessScreen';
 
-export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => void, onPreview: (form: any) => void, key?: string }) => {
+export const FormBuilderScreen = ({ 
+  onBack, 
+  onPreview 
+}: { 
+  onBack: () => void, 
+  onPreview: (form: any) => void 
+}) => {
   const [editMode, setEditMode] = useState<'manual' | 'ai'>('ai');
+  const [title, setTitle] = useState('Título');
   const [fields, setFields] = useState<FormField[]>([]);
   const [lastPublishedId, setLastPublishedId] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [title, setTitle] = useState('Título');
   const [subtitle, setSubtitle] = useState('Subtítulo aqui');
   const [headerImage, setHeaderImage] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
@@ -42,6 +48,7 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [showImageInput, setShowImageInput] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [isPreview, setIsPreview] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isUploadingHeader, setIsUploadingHeader] = useState(false);
@@ -418,19 +425,22 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
   };
 
   const resetForm = () => {
-    if (confirm('Tem certeza que deseja limpar todo o rascunho e recomeçar do zero?')) {
-      setFields([]);
-      setTitle('Título');
-      setSubtitle('Subtítulo aqui');
-      setHeaderImage('');
-      setLogoUrl('');
-      setThemePreset('default');
-      setRedirectUrl('');
-      setChatMessages([]);
-      setAiPrompt('');
-      localStorage.removeItem('form_builder_draft');
-      showNotification('Rascunho reiniciado.', 'info');
-    }
+    setShowResetConfirm(true);
+  };
+
+  const confirmReset = () => {
+    setFields([]);
+    setTitle('Título');
+    setSubtitle('Subtítulo aqui');
+    setHeaderImage('');
+    setLogoUrl('');
+    setThemePreset('default');
+    setRedirectUrl('');
+    setChatMessages([]);
+    setAiPrompt('');
+    localStorage.removeItem('form_builder_draft');
+    showNotification('Rascunho reiniciado.', 'info');
+    setShowResetConfirm(false);
   };
 
   const themes = {
@@ -529,63 +539,68 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
         onChange={(e) => handleFileChange(e, 'logo')}
       />
 
-      <header className="flex items-center justify-between px-6 py-4 bg-surface border-b border-border-base shrink-0 z-50">
+      <header className="h-16 bg-surface border-b border-border-base px-6 flex items-center justify-between shrink-0 z-50 sticky top-0 backdrop-blur-md bg-opacity-95">
         <div className="flex items-center gap-4">
-          <button onClick={onBack} className="p-2 hover:bg-bg-base rounded-xl transition-colors text-text-secondary">
-            <ChevronLeft size={20} />
+          <button 
+            onClick={onBack}
+            className="size-10 flex items-center justify-center text-text-secondary hover:text-text-primary hover:bg-bg-base rounded-xl transition-all active:scale-95 group"
+          >
+            <ChevronLeft size={20} className="group-hover:-translate-x-0.5 transition-transform" />
           </button>
-          <div className="w-px h-6 bg-border-base" />
-          <input 
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="text-lg font-bold bg-transparent border-none focus:ring-0 text-text-primary p-0 w-64"
-            placeholder=""
-          />
+          
+          <div className="h-6 w-px bg-border-base mx-2 hidden md:block" />
+          
+          <div className="hidden md:flex items-center gap-3 px-4 py-2 bg-bg-base rounded-2xl border border-border-base/50 focus-within:border-accent/50 transition-colors">
+            <Type size={14} className="text-text-secondary" />
+            <input 
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="text-xs font-black uppercase tracking-widest bg-transparent border-none focus:ring-0 text-text-primary p-0 w-48 placeholder:opacity-30"
+              placeholder="Nome do formulário"
+            />
+          </div>
         </div>
 
-        <div className="flex items-center gap-6">
-          <div className="flex p-1 bg-bg-base border border-border-base rounded-xl">
+        <div className="flex items-center gap-4">
+          <div className="flex p-1.5 bg-bg-base border border-border-base rounded-[1.4rem]">
             <button
               onClick={() => setEditMode('ai')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${editMode === 'ai' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'text-text-secondary hover:text-text-primary'}`}
+              className={`flex items-center gap-2.5 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${editMode === 'ai' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/25' : 'text-text-secondary hover:text-text-primary'}`}
             >
               <Bot size={14} /> Modo Chat
             </button>
             <button
               onClick={() => setEditMode('manual')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${editMode === 'manual' ? 'bg-white text-accent shadow-sm border border-border-base/50' : 'text-text-secondary hover:text-text-primary'}`}
+              className={`flex items-center gap-2.5 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${editMode === 'manual' ? 'bg-white dark:bg-slate-800 text-accent shadow-sm border border-border-base/50' : 'text-text-secondary hover:text-primary'}`}
             >
               <Settings size={14} /> Manual
             </button>
           </div>
 
-          <div className="hidden md:flex items-center bg-bg-base p-1 rounded-xl border border-border-base">
-            <button onClick={() => setViewMode('desktop')} className={`p-2 rounded-lg transition-all ${viewMode === 'desktop' ? 'bg-surface text-accent shadow-sm' : 'text-text-secondary'}`}><Monitor size={18} /></button>
-            <button onClick={() => setViewMode('mobile')} className={`p-2 rounded-lg transition-all ${viewMode === 'mobile' ? 'bg-surface text-accent shadow-sm' : 'text-text-secondary'}`}><Smartphone size={18} /></button>
-          </div>
-        </div>
+          <div className="h-8 w-px bg-border-base mx-2" />
 
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={resetForm}
-            className="flex items-center gap-2 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-red-500/80 hover:text-red-600 transition-colors bg-red-500/5 rounded-lg border border-red-500/10"
-          >
-            <RefreshCcw size={14} /> Reiniciar
-          </button>
-          <button 
-            onClick={() => setIsPreview(true)}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-text-secondary hover:text-accent transition-colors"
-          >
-            <Eye size={18} /> Visualizar
-          </button>
-          <button 
-            onClick={handlePublish}
-            disabled={isPublishing}
-            className="flex items-center gap-2 px-5 py-2.5 bg-accent text-white text-sm font-bold rounded-xl transition-all shadow-lg hover:opacity-90 disabled:opacity-50"
-          >
-            <Send size={18} /> 
-            {isPublishing ? 'Publicando...' : 'Publicar'}
-          </button>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={resetForm}
+              className="group flex items-center gap-2.5 px-6 py-3 text-[10px] font-black uppercase tracking-widest text-red-500 bg-red-500/5 hover:bg-red-500/10 rounded-2xl border border-red-500/20 transition-all active:scale-95"
+            >
+              <Eraser size={18} className="group-hover:rotate-12 transition-transform" /> <span className="hidden lg:inline ml-1.5">Limpar</span>
+            </button>
+            <button 
+              onClick={() => setIsPreview(true)}
+              className="flex items-center gap-2.5 px-6 py-3 text-[10px] font-black uppercase tracking-widest text-text-primary hover:text-accent transition-all rounded-2xl hover:bg-bg-base border border-transparent hover:border-border-base active:scale-95"
+            >
+              <Eye size={18} /> <span className="hidden lg:inline ml-1.5">Visualizar</span>
+            </button>
+            <button 
+              onClick={handlePublish}
+              disabled={isPublishing}
+              className="flex items-center gap-3 px-8 py-3 bg-accent text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-accent/30 hover:bg-accent-hover hover:-translate-y-0.5 transition-all active:translate-y-0 active:scale-95 disabled:opacity-50"
+            >
+              {isPublishing ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />}
+              {isPublishing ? 'Publicando...' : 'Publicar'}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -1301,6 +1316,53 @@ export const FormBuilderScreen = ({ onBack, onPreview, key }: { onBack: () => vo
       </>
     )}
   </div>
-    </div>
-  );
+
+  {/* Reset Confirmation Modal */}
+  <AnimatePresence>
+    {showResetConfirm && (
+      <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={() => setShowResetConfirm(false)}
+          className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+        />
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 20 }}
+          className="relative w-full max-w-sm bg-surface rounded-[2.5rem] p-8 shadow-2xl border border-border-base"
+        >
+          <div className="size-20 bg-red-500/10 text-red-500 rounded-[1.5rem] flex items-center justify-center mx-auto mb-6">
+            <Eraser size={40} />
+          </div>
+          
+          <div className="text-center space-y-4 mb-8">
+            <h3 className="text-xl font-black text-text-primary uppercase tracking-tighter">Limpar Formulário?</h3>
+            <p className="text-[11px] text-text-secondary leading-relaxed">
+              Isso irá limpar todas as perguntas, temas e conversas do chat. Esta ação não pode ser desfeita.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <button 
+              onClick={confirmReset}
+              className="w-full py-4 bg-red-500 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-red-600 transition-all shadow-lg shadow-red-500/20 active:scale-95"
+            >
+              Sim, Limpar Tudo
+            </button>
+            <button 
+              onClick={() => setShowResetConfirm(false)}
+              className="w-full py-4 bg-bg-base text-text-secondary rounded-2xl font-black uppercase text-[10px] tracking-widest hover:text-text-primary transition-all active:scale-95 border border-border-base"
+            >
+              Cancelar
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    )}
+  </AnimatePresence>
+</div>
+);
 };

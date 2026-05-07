@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 // Force redeploy sync v1.0.5
 // import { AnimatePresence, motion } from 'motion/react';
-import { Sun, Moon, ShieldCheck, Mail, Lock, Eye, EyeOff, Copy, X, Timer, Fingerprint, RefreshCcw, ShieldAlert } from 'lucide-react';
+import { 
+  Sun, Moon, ShieldCheck, Mail, Lock, Eye, EyeOff, 
+  Copy, X, Timer, Fingerprint, RefreshCcw, ShieldAlert,
+  ChevronLeft
+} from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { supabase } from './lib/supabase';
 import { encryptData, hashPassword } from './lib/crypto';
@@ -251,6 +255,14 @@ export default function App() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [redirectUrl, setRedirectUrl] = useState('');
 
+  // Determinar se é uma tela pública para ocultar o navbar ou bypassar MFA
+  const queryParams = new URL(window.location.href).searchParams;
+  const isPublicId = queryParams.has('id') || queryParams.has('request') || queryParams.has('form');
+  const isPublicScreen = 
+    isPublicId ||
+    ['view-secret', 'fill-request', 'view-form', 'reset-password', 'forgot-password', 'success', 'request-success', 'fill-success'].includes(screen) || 
+    ['setup-2fa', 'verify-2fa'].includes(screen as any);
+
   // --- ESTADOS DE AUTH ---
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -465,10 +477,6 @@ export default function App() {
 
         // --- BYPASS PARA TELAS PÚBLICAS (Segredos, Solicitações, Formulários) ---
         // Se o usuário está apenas visualizando um conteúdo, não forçamos 2FA/MFA da conta dele
-        const urlParams = new URLSearchParams(window.location.search);
-        const isPublicId = urlParams.has('id') || urlParams.has('request') || urlParams.has('form') || urlParams.has('uid');
-        const isPublicScreen = ['view-secret', 'fill-request', 'view-form', 'reset-password'].includes(screenRef.current) || isPublicId;
-
         if (isPublicScreen) {
           console.log('🔓 [App] Usuário em tela pública. Ignorando verificações de MFA da conta.');
           setLoading(false);
@@ -1109,23 +1117,11 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
     showNotification('Copiado!', 'success');
   };
 
-  const queryParams = new URLSearchParams(window.location.search);
   const pathParts = window.location.pathname.split('/');
   const viewingFormId = queryParams.get('form') || (window.location.pathname.startsWith('/form/') ? pathParts[2] : '');
   const viewingSecretId = queryParams.get('id') || (window.location.pathname.startsWith('/s/') ? pathParts[2] : '');
   const fillingRequestId = queryParams.get('request') || (window.location.pathname.startsWith('/request/') ? pathParts[2] : '');
 
-  // --- DETERMINAR SE É UMA TELA PÚBLICA (SEM NAVBAR) ---
-  const isPublicScreen = 
-    screen === 'view-secret' || 
-    screen === 'view-form' || 
-    screen === 'fill-request' || 
-    screen === 'success' ||
-    screen === 'request-success' ||
-    screen === 'fill-success' ||
-    screen === 'forgot-password' ||
-    screen === 'reset-password' ||
-    ['setup-2fa', 'verify-2fa'].includes(screen as any);
 
   return (
     <div className={`min-h-screen ${darkMode ? 'dark' : ''} bg-bg-base text-text-primary transition-colors duration-300 font-sans selection:bg-accent/20 selection:text-accent`}>
@@ -1137,8 +1133,8 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
         <>
       {!isPublicScreen && (
       <nav className={`border-b border-border-base sticky top-0 z-50 backdrop-blur-md ${screen === 'home' ? 'bg-bg-base/80 border-transparent' : 'bg-surface'}`}>
-        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-4 flex-1">
+        <div className="w-full px-8 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-10 flex-1">
             <div className="flex items-center gap-2 cursor-pointer" onClick={() => setScreen('home')}>
               <div className="size-10 bg-accent rounded-lg flex items-center justify-center text-white shadow-lg">
                 <ShieldCheck size={24} />
@@ -1146,56 +1142,63 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
               <span className="font-black text-xl hidden sm:block tracking-tighter uppercase italic text-text-primary">Bold Share</span>
             </div>
             
-            <div className="hidden md:flex items-center gap-10 ml-10">
-              <button onClick={() => setScreen('home')} className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:translate-y-[-1px] ${screen === 'home' ? 'text-accent' : 'text-text-secondary hover:text-accent'}`}>Início</button>
-              <button onClick={() => setScreen('create-secret')} className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:translate-y-[-1px] ${screen === 'create-secret' ? 'text-accent' : 'text-text-secondary hover:text-accent'}`}>Criar Link</button>
+            <div className="hidden lg:flex items-center gap-12 ml-6">
+              <button onClick={() => setScreen('home')} className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all relative py-2 ${screen === 'home' ? 'text-accent border-b-2 border-accent' : 'text-text-secondary hover:text-accent'}`}>Início</button>
+              <button 
+                onClick={() => setScreen('create-secret')} 
+                className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all relative py-2 ${screen === 'create-secret' ? 'text-accent border-b-2 border-accent' : 'text-text-secondary hover:text-accent'}`}
+              >
+                Criar Link
+              </button>
               
               {user ? (
                 <>
-                  <button onClick={() => setScreen('dashboard')} className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:translate-y-[-1px] ${screen === 'dashboard' ? 'text-accent' : 'text-text-secondary hover:text-accent'}`}>Dashboard</button>
+                  <button onClick={() => setScreen('dashboard')} className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all relative py-2 ${screen === 'dashboard' ? 'text-accent border-b-2 border-accent' : 'text-text-secondary hover:text-accent'}`}>Dashboard</button>
                   <button 
                     onClick={() => {
                       setScreen('developer-portal');
                       window.history.pushState({}, '', '/developers');
                     }} 
-                    className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:translate-y-[-1px] ${screen === 'developer-portal' ? 'text-accent' : 'text-text-secondary hover:text-accent'}`}
+                    className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all relative py-2 ${screen === 'developer-portal' ? 'text-accent border-b-2 border-accent' : 'text-text-secondary hover:text-accent'}`}
                   >
                     API / Devs
                   </button>
                 </>
               ) : (
                 <>
-                  <button onClick={() => setScreen('how-it-works')} className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:translate-y-[-1px] ${screen === 'how-it-works' ? 'text-accent' : 'text-text-secondary hover:text-accent'}`}>Como Funciona</button>
-                  <button onClick={() => setScreen('security')} className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:translate-y-[-1px] ${screen === 'security' ? 'text-accent' : 'text-text-secondary hover:text-accent'}`}>Segurança</button>
+                  <button onClick={() => setScreen('how-it-works')} className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all relative py-2 ${screen === 'how-it-works' ? 'text-accent border-b-2 border-accent' : 'text-text-secondary hover:text-accent'}`}>Como Funciona</button>
+                  <button onClick={() => setScreen('security')} className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all relative py-2 ${screen === 'security' ? 'text-accent border-b-2 border-accent' : 'text-text-secondary hover:text-accent'}`}>Segurança</button>
                 </>
               )}
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            <button onClick={() => setDarkMode(!darkMode)} className="p-2 text-text-secondary hover:text-accent transition-colors">
-              {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+          <div className="flex items-center gap-6">
+            <button 
+              onClick={() => setDarkMode(!darkMode)} 
+              className="size-10 flex items-center justify-center bg-bg-base border border-border-base rounded-xl text-text-secondary hover:text-accent transition-all hover:scale-110 active:scale-90 shadow-sm"
+            >
+              {darkMode ? <Sun size={18} /> : <Moon size={18} />}
             </button>
             
             {user ? (
-              <div className="flex items-center gap-4 pl-4 border-l border-border-base">
+              <div className="flex items-center gap-6 pl-6 border-l border-border-base">
                 <div className="text-right hidden sm:block">
-                  <p className="text-[10px] font-black text-text-secondary uppercase tracking-widest">Usuário Verificado</p>
-                  <p className="text-xs font-bold text-text-primary">{user.email?.split('@')[0]}</p>
+                  <p className="text-[13px] font-black text-text-primary tracking-tight">{user.email?.split('@')[0].toUpperCase()}</p>
                 </div>
                 <button 
                   onClick={handleLogout} 
-                  className="px-4 py-2 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all"
+                  className="px-5 py-2.5 bg-red-500/5 text-red-500 hover:bg-red-500 hover:text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all border border-red-500/10 shadow-sm shadow-red-500/5 active:scale-95"
                 >
                   Sair
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-2 sm:gap-4">
-                <button onClick={() => setScreen('login')} className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-text-secondary hover:text-text-primary px-1">Entrar</button>
+              <div className="flex items-center gap-4">
+                <button onClick={() => setScreen('login')} className="text-xs font-black uppercase tracking-widest text-text-secondary hover:text-text-primary px-2 transition-colors">Entrar</button>
                 <button 
                   onClick={() => setScreen('register')} 
-                  className="px-4 sm:px-6 py-2 sm:py-2.5 bg-accent text-white text-[10px] sm:text-xs font-black uppercase tracking-widest rounded-xl hover:scale-105 active:scale-95 transition-all shadow-xl shadow-accent/20"
+                  className="px-7 py-3 bg-accent text-white text-xs font-black uppercase tracking-[0.15em] rounded-xl hover:scale-105 active:scale-95 transition-all shadow-xl shadow-accent/30 border border-white/10"
                 >
                   Criar Conta
                 </button>
@@ -1279,8 +1282,11 @@ CREATE POLICY "Permitir Visualização Pública" ON storage.objects FOR SELECT U
           )}
 
           {screen === 'form-builder' && (
-            <div key="builder">
-              <FormBuilderScreen onBack={() => setScreen(user ? 'dashboard' : 'home')} onPreview={() => {}} />
+            <div key="form-builder-container">
+              <FormBuilderScreen 
+                onBack={() => setScreen(user ? 'dashboard' : 'home')} 
+                onPreview={() => {}} 
+              />
             </div>
           )}
 
