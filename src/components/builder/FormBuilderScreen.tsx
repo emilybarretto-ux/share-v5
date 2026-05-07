@@ -238,7 +238,7 @@ export const FormBuilderScreen = ({
       5. Lógica: "show" oculta o alvo por padrão. Alvo ('targetId') deve ser o ID de outro campo.
       6. Se o usuário apenas conversar, responda amigavelmente mas SEMPRE inclua o JSON do formulário (atualizado ou mantido) no final da sua resposta.
       7. CAPA E LOGO: Se o usuário pedir para mudar a capa ou logo (ou fornecer um link de imagem), use os campos "headerImage" e "logoUrl" no JSON. NÃO coloque a URL da imagem no título ou subtítulo. Link de imagem enviado pelo usuário deve ir para o campo correspondente.
-      8. DESIGN: Se o usuário pedir para mudar cores (ex: "coloque rosa", "tema escuro"), mude o "primaryColor" (hex code) e o "theme".
+      8. DESIGN: Se o usuário pedir para mudar cores (ex: "coloque rosa", "tema escuro"), mude o "primaryColor" (hex code) e o "theme". Você também pode mudar cores de campos específicos usando "customColor" no objeto do campo.
 
       Formato JSON esperado:
       {
@@ -258,6 +258,7 @@ export const FormBuilderScreen = ({
                "type": "text | textarea | radio | checkbox | dropdown | date | rating | scale | heading | section | image",
                "label": "Pergunta",
                "required": true,
+               "customColor": "#HEX_COR_OPCIONAL",
                "options": [],
                "logic": []
              }
@@ -487,6 +488,9 @@ export const FormBuilderScreen = ({
     setHeaderImage('');
     setLogoUrl('');
     setThemePreset('default');
+    setPrimaryColor('#2563eb');
+    setTitleColor('#0f172a');
+    setSubtitleColor('#64748b');
     setRedirectUrl('');
     setChatMessages([]);
     setAiPrompt('');
@@ -504,13 +508,7 @@ export const FormBuilderScreen = ({
     glass: { bg: 'bg-indigo-950/80', card: 'bg-white/10 backdrop-blur-xl border-white/20', primary: '#818cf8' }
   };
 
-  useEffect(() => {
-    // Se o tema mudar e a cor primária ainda for a padrão do tema anterior, atualizamos para a padrão do novo tema
-    const currentTheme = themes[themePreset as keyof typeof themes] || themes.default;
-    if (themePreset === 'vibrant' && primaryColor === '#2563eb') {
-      setPrimaryColor(currentTheme.primary);
-    }
-  }, [themePreset]);
+
 
   const previewThemeStyles = themes[themePreset as keyof typeof themes] || themes.default;
 
